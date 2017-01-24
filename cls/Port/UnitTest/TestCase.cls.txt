@@ -1,0 +1,10 @@
+Class Port.UnitTest.TestCase Extends %UnitTest.TestCase
+{
+
+Method ToAbsolutePath(basePath As %String = "") As %String
+{
+	quit ##class(%File).NormalizeFilename(..Manager.Root()_"/__tests__/"_basePath)
+}
+
+}
+

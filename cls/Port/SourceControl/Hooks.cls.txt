@@ -1,0 +1,282 @@
+Class Port.SourceControl.Hooks Extends %Studio.SourceControl.Base
+{
+
+XData Menu
+{
+<MenuBase>
+<Menu Name="%SourceMenu" Type="0">
+<MenuItem Name="%ExportProject"/>
+<MenuItem Name="%ExportProjectToXML"/>
+<MenuItem Name="%ExportTestSuiteToXML"/>
+<MenuItem Separator="1" />
+<MenuItem Name="%RemoveProjectClasses"/>
+<MenuItem Name="%RemoveProjectWebFiles"/>
+<MenuItem Name="%RemoveProjectRoutines"/>
+<MenuItem Separator="1" />
+<MenuItem Name="%RemoveInvalidItems"/>
+<MenuItem Separator="1" />
+<MenuItem Name="%RunTestSuite"/>
+<MenuItem Separator="1" />
+<MenuItem Name="%ImportProject"/>
+</Menu>
+<Menu Name="%SourceContext" Type="1">
+<MenuItem Name="%UpdateActiveItem" />
+<MenuItem Name="%ExportActiveItem" />
+<MenuItem Separator="1" />
+<MenuItem Name="%RunActiveItemTest"/>
+</Menu>
+</MenuBase>
+}
+
+Method OnAfterSave(InternalName As %String) As %Status
+{
+  #dim exporter As Port.Project.Exporter
+  set projectName = $get(^||%Studio.Project)
+  set sc = $$$OK
+  if projectName '= "" && (projectName '[ "Default") {
+    set exportPath = ##class(Port.SourceControl.Config).GetExportPath()
+    set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)    
+    set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)
+    set exporter = ##class(Port.Project.Exporter).%New(exportPath)
+    if ##class(Port.SourceControl.Config).IsVCSEnabled() {
+      set exporter.VCS = ##class(Port.SourceControl.Util).LinkRepositoryToVCS(exportPath)
+    }
+    
+    if type '= "PRJ" {    
+      if type = "CLS" {
+        set sc = exporter.ExportClass(itemName)
+      } elseif ##class(Port.Project.Common).IsRoutine(InternalName) {
+        set sc = exporter.ExportRoutine(InternalName)
+      } elseif type = "PKG" {     
+        set sc = exporter.ExportPackage(itemName)     
+      } elseif type '= "" {
+        set sc = exporter.ExportWebFile(itemName)     
+      }
+      $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, InternalName))
+    }
+  }
+  quit sc
+}
+
+Method OnBeforeSave() As %Status
+{
+  set projectName = $get(^||%Studio.Project)
+  
+  if projectName '= "" && (projectName [ "Default") {
+    write "WARNING: This source control enforces the policy of using named projects!", !
+    write "WARNING: Which means that 'Default' projects are not tracked thus not being exportable!", !
+    write "WARNING: In order to export the project, you're obliged to change the name to something else than 'Default'."
+  }
+  quit $$$OK
+}
+
+Method UserAction(Type As %Integer, Name As %String, InternalName As %String, SelectedText As %String, ByRef Action As %String, ByRef Target As %String, ByRef Msg As %String, ByRef Reload As %Boolean) As %Status
+{
+  set name = $piece(Name, ",", 2)
+  set isContextual = ($piece(Name, ",", 1) = "%SourceContext")
+  
+  if $data(^||%Studio.Project) {
+    set projectName = ^||%Studio.Project
+    set fullPath = ##class(Port.SourceControl.Util).GetFullItemPath(InternalName)
+    set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)
+    set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
+    set testPath = ##class(Port.SourceControl.Config).GetTestPath()
+    set logLevel = ##class(Port.SourceControl.Config).GetLogLevel()   
+    set vcs = ""
+    
+    if ##class(Port.SourceControl.Config).IsVCSEnabled() {
+      set vcs = ##class(Port.SourceControl.Util).LinkRepositoryToVCS(projectPath)
+    }
+    
+    if name = "%ExportProject" {      
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel,0,vcs))
+    }
+    if name = "%ExportProjectToXML" {
+      quit ##class(Port.Project.Manager).ExportToXML(projectPath, vcs)
+    }
+    if name = "%ExportTestSuiteToXML" {
+      quit ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath, vcs)
+    }
+    if name = "%RunTestSuite" {
+      $$$QuitOnError(##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath))
+      $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
+      if ##class(%File).DirectoryExists(testPath) {
+        quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath)
+      }
+      quit $$$OK
+    }       
+    if name = "%ImportProject" {
+      if $isobject(vcs) {
+        if $System.Event.Defined("SCCSPCOMMIT") do $System.Event.Delete("SCCSPCOMMIT")
+        do $System.Event.Create("SCCSPCOMMIT")
+        set Action = 2
+        set Target = ##class(csp.sourcecontrol.git.commit).#CSPURL
+        quit $$$OK
+      } else {
+        $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0, vcs))
+      }
+    }
+    if name = "%RemoveProjectClasses" {
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "CLS"))
+      quit ##class(Port.SourceControl.Log).Synchronize()
+    }
+    if name = "%RemoveProjectWebFiles" {
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "CSP"))
+      quit ##class(Port.SourceControl.Log).Synchronize()
+    }
+    if name = "%RemoveProjectRoutines" {
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "MAC"))
+      quit ##class(Port.SourceControl.Log).Synchronize()
+    }
+    if name = "%RemoveInvalidItems" {
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveInvalidItems(projectName))
+      quit ##class(Port.SourceControl.Log).Synchronize()     
+    }
+    
+    if name = "%ExportActiveItem" {
+      if $$$ucase(InternalName) '= ($$$ucase(projectName_".PRJ")) {
+        set exporter = ##class(Port.Project.Exporter).%New(projectPath)
+        set exporter.Overwrite = 1
+        set internalName = InternalName
+        if $extract(InternalName, 1) = "/" {
+          set internalName = $extract(InternalName, 2, $length(InternalName))
+        }
+        $$$QuitOnError(exporter.ExportItem(internalName))
+        quit ##class(Port.SourceControl.Log).LogChange(projectName, internalName)
+      } else {
+        quit ##class(Port.Project.Manager).Export(projectPath, logLevel, 1, vcs)
+      }
+    }
+    
+    if name = "%UpdateActiveItem" {
+      if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
+        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, vcs)
+      } else {        
+        quit ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel)
+      }
+    }
+    
+    if name = "%RunActiveItemTest" {
+      set testable = ##class(Port.SourceControl.Util).AssertTestableClass(itemName, .testableClass)      
+      if testable {
+        $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
+        quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass)
+      }
+    }   
+  }
+  quit $$$OK
+}
+
+Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As %String, ByRef Enabled As %Boolean, ByRef DisplayName As %String) As %Status
+{
+  
+  set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)
+  set menu=$piece(MenuName,","),name=$piece(MenuName,",",2)
+  If menu'="%SourceMenu",menu'="%SourceContext" Quit $$$OK
+  set isContextual = (menu = "%SourceContext")
+  if name = "%ExportProject" {
+    set DisplayName = "Exportar Projeto"
+  } 
+  if name = "%ExportProjectToXML" {
+    set DisplayName = "Exportar Projeto para XML"
+  } 
+  if name = "%ExportTestSuiteToXML" {
+    set DisplayName = "Exportar Suíte de Teste para XML"
+  }   
+  if name = "%ImportProject" {
+    set DisplayName = "Importar Projeto"    
+  } 
+  if name = "%RemoveProjectClasses" {
+    set DisplayName = "Remover Classes do Projeto"
+  } 
+  if name = "%RemoveProjectWebFiles" {
+    set DisplayName = "Remover Arquivos Web do Projeto"
+  } 
+  if name = "%RemoveProjectRoutines" {
+    set DisplayName = "Remover Rotinas do Projeto"
+  } 
+  if name = "%RemoveInvalidItems" {
+    set DisplayName = "Remover Itens Inválidos do Projeto"
+  }
+  
+  if name= "%RunTestSuite" {
+    set DisplayName = "Executar Suíte de Testes"
+  }
+  
+  if name = "%RunActiveItemTest" {
+    set DisplayName = "Executar Testes deste Item"
+    set Enabled = ##class(Port.SourceControl.Util).AssertTestableClass(itemName)
+  } 
+  
+  if name = "%ExportActiveItem" {
+    set DisplayName = "Exportar este item"
+  }
+  
+  if name ="%UpdateActiveItem" {
+    set DisplayName = "Importar este Item"
+  }
+  
+  set isProjectOpened = ($get(^||%Studio.Project, "Default") '[ "Default")
+  if 'isProjectOpened {
+    set Enabled = 0
+  }
+  Quit $$$OK
+}
+
+/// Called after the compile of the item is done.
+Method OnAfterCompile(InternalName As %String) As %Status
+{
+  set projectName = $get(^||%Studio.Project)
+  set sc = $$$OK
+  
+  if projectName '= "" && (projectName '[ "Default") {
+    set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
+    set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)
+    set type = $$$ucase($piece(InternalName, ".", $length(InternalName, ".")))    
+    set exporter = ##class(Port.Project.Exporter).%New(projectPath)
+    set xmlExporter = ##class(Port.Project.XMLExporter).%New(projectPath)
+    
+    if type = "CLS" {     
+      set testPath = ##class(Port.SourceControl.Config).GetTestPath()      
+      set shouldRunTest = (
+        ##class(Port.SourceControl.Config).IsTestOnDemandEnabled() &&
+        ##class(Port.SourceControl.Util).AssertTestableClass(itemName, .testableClass) &&
+        ##class(%File).DirectoryExists(projectPath_"/"_testPath)        
+      )
+      if shouldRunTest {
+        set activeTestableClass = InternalName
+        
+        do ##class(%RoutineMgr).TS(activeTestableClass, .act, .isActiveUpToDate)        
+        do ##class(%RoutineMgr).TS(testableClass_".CLS", .tct, .isTestUpToDate)
+                
+        if 'isTestUpToDate {
+          set filePath = ##class(Port.Project.Common).ClassToFile(projectPath_"/"_testPath, testableClass)
+          $$$QuitOnError(xmlExporter.ExportTest(projectPath, testableClass))
+          $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
+        }       
+        $$$QuitOnError(##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass))   
+      }
+    }
+  }
+  quit $$$OK
+}
+
+Method AfterUserAction(Type As %Integer, Name As %String, InternalName As %String, Answer As %Integer, Msg As %String = "", ByRef Reload As %Boolean) As %Status
+{
+    
+  #dim vcs As Port.SourceControl.Extension.VCS
+  set path = ##class(Port.SourceControl.Config).GetExportPath()
+  set vcs = ##class(Port.SourceControl.Util).LinkRepositoryToVCS(path)  
+  set logLevel = ##class(Port.SourceControl.Config).GetLogLevel()
+  set msg = $System.Event.WaitMsg("SCCSPCOMMIT", 4)
+  if $listget(msg, 1) '= 1 || ($listget(msg, 2) = "") {
+    write "ERROR: Failed to receive required parameter. Aborting."
+    quit $$$OK
+  }
+  do vcs.SetParameter("commit", $listget(msg, 2))
+  $$$QuitOnError(##class(Port.Project.Manager).Import(path, logLevel, 0, 0, vcs))
+  Quit $$$OK
+}
+
+}
+

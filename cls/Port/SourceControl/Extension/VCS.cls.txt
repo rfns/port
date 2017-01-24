@@ -1,0 +1,62 @@
+Class Port.SourceControl.Extension.VCS Extends %RegisteredObject
+{
+
+Parameter NAME = "Base";
+
+Parameter PATHS;
+
+Property ErrorFilePath As %String [ Private ];
+
+Property OutputFilePath As %String [ Private ];
+
+Property RepositoryPath As %String [ Private ];
+
+Property Parameters As %String [ MultiDimensional ];
+
+Method %OnNew(initval As %String) As %Status
+{
+  set ..ErrorFilePath = ##class(%File).TempFilename()
+  set ..OutputFilePath = ##class(%File).TempFilename()
+  set ..RepositoryPath = ##class(%File).NormalizeFilename(initval)
+  quit $$$OK
+}
+
+Method %OnClose() As %Status
+{
+  do ##class(%File).Delete(..ErrorFilePath)
+  do ##class(%File).Delete(..OutputFilePath)
+}
+
+ClassMethod Install() As %Status
+{
+  quit $$$ERROR($$$MethodNotImplemented, "Install")
+}
+
+Method OnExport(file As %String) As %Status
+{
+  quit $$$ERROR($$$MethodNotImplemented, "OnExport")
+}
+
+Method OnImport(file As %String) As %Status
+{
+  quit $$$ERROR($$$MethodNotImplemented, "OnImport")
+}
+
+Method SetParameter(key, value) As %String
+{
+    
+  set ^||Port.SourceControl.VCS.Parameters(key) = value
+}
+
+Method GetParameter(key) As %String
+{
+  quit $get(^||Port.SourceControl.VCS.Parameters(key))
+}
+
+Method EvaluateDiff(args...) As %Boolean [ Internal ]
+{
+  quit 0
+}
+
+}
+
