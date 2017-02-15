@@ -29,7 +29,7 @@ ClassMethod ResolveInternalName(internalName As %String) As %String
 {
   set name = internalName
   if internalName '[ $System.CSP.GetDefaultApp($namespace) {
-    set name = $piece(internalName, ".", 1, *)
+    set name = $piece(internalName, ".", 1, *-1)
   }
   quit name
 }
@@ -53,7 +53,10 @@ ClassMethod LinkRepositoryToVCS(path As %String) As Port.SourceControl.Extension
   set vcs = ""
   try {
     set vcs = $classmethod(handler, "%New", path)
-  } catch ex {}
+  } catch ex {
+    // Nothing here. I wouldn't do that if %New didn't triggered an exception.
+    // Seriously...
+  }
   quit vcs
 }
 

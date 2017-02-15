@@ -33,8 +33,6 @@ Property DfiPath As %String [ Private ];
 
 Property AffectedCount As %Boolean [ InitialExpression = 0 ];
 
-Property VCS As Port.SourceControl.Extension.VCS;
-
 Property IsBatch As %Boolean [ InitialExpression = 0 ];
 
 Property Overwrite As %Boolean [ InitialExpression = 0 ];
@@ -50,17 +48,15 @@ Method %OnNew(target As %String, logLevel As %Integer = 2) As %Status
   set ..Slash = $select($$$isWINDOWS : "\", 1: "/")
   
   if (target [ "/") || (target [ "\") {
-    set fullProjectPath = ##class(%File).NormalizeFilename(target)          
-    set partsLength = $length(fullProjectPath, ..Slash) 
-    
-    set ..ProjectName = $piece(fullProjectPath, ..Slash, partsLength, partsLength)        
+    set fullProjectPath = ##class(%File).NormalizeFilename(target)  
+    set ..ProjectName = $piece(fullProjectPath, ..Slash, *)        
     set ..BasePath = ##class(%File).NormalizeFilename(fullProjectPath)
     set ..Project = ##class(%Studio.Project).%OpenId(..ProjectName)
     set ..Logger = ##class(Port.Logger).%New(logLevel)
     do ..BuildTypePaths(..BasePath)
     quit $$$OK 
   }
-  throw ##class(%Exception.StatusException).CreateFromStatus($$$ERROR(5001, "Utility requires an absolute path."))
+  quit $$$ERROR(5001, "Utility requires an absolute path.")
 }
 
 Method WriteExclusive(logLevel As %Integer, message As %String, params... As %String)
@@ -86,7 +82,7 @@ Method ResolvePathType(itemType As %String, itemName As %String = "") As %String
   if itemType = "CLS" quit ..ClassPath
   if itemType = "INT" quit ..IntPath
   if itemType = "INC" || (itemType = "MAC" && ($piece(itemName, ".", 2) = "INC")) {
-    // No idea why InterSystems groups INC into MAC type, so we patch it checking the name instead.
+    // InterSystems groups INC into MAC type, so we patch it checking the name instead.
     quit ..IncPath
   }
   if itemType = "MAC" quit ..MacPath
@@ -123,9 +119,9 @@ Method NormalizeOutput(itemName As %String, Output path As %String = "", Output 
   // Package.Class.Name -> cls/Package/Class/Name.cls.txt
   if extension = "CLS" {
     set classBasePath = ..ResolvePathType("CLS")
-    set classItemName = $piece(itemName, ".", 1, $length(itemName, ".") - 1)
+    set classItemName = $piece(itemName, ".", 1, *-1)
     set classPath = $listtostring($listbuild(classBasePath, $replace(classItemName, ".", ..Slash)), ..Slash)
-    set packagePath = $piece(classPath, ..Slash, 1, $length(classPath, ..Slash) - 1)
+    set packagePath = $piece(classPath, ..Slash, 1, *-1)
     set className = $piece(classPath, ..Slash, $length(classPath, ..Slash))
     set dest = classPath_".cls.txt"
     set path = packagePath
@@ -133,7 +129,7 @@ Method NormalizeOutput(itemName As %String, Output path As %String = "", Output 
   
   // Routine.(type) -> /(type)/routine.(type).txt
   elseif ##class(Port.Project.Helper).IsRoutine(itemName) {    
-    set type = $$$ucase($piece(itemName, ".", $length(itemName, ".")))
+    set type = $$$ucase($piece(itemName, ".", *))
     set path = ..ResolvePathType(type, itemName)
     set dest = path_..Slash_itemName
     set extPos = $length(dest, ".")
@@ -144,20 +140,12 @@ Method NormalizeOutput(itemName As %String, Output path As %String = "", Output 
   else {
     set appPath = $System.CSP.GetDefaultApp($namespace)
     set baseTypePath = ..ResolvePathType("CSP")
-    set ext = $$$lcase($piece(itemName, ".", $length(itemName, ".")))
-    set fileWithoutExtension = $piece(itemName, ".", 1, $length(itemName, ".") -1)
+    set ext = $$$lcase($piece(itemName, ".", *))
+    set fileWithoutExtension = $piece(itemName, ".", 1, *-1)
     set dest = ##class(%File).NormalizeFilename(baseTypePath_..Slash_$piece(fileWithoutExtension, "/", 3, $length(fileWithoutExtension, "/")))_"."_ext
     set path = ##class(%File).GetDirectory(dest) 
   }
   quit dest
-}
-
-Method AttemptToCallVCSMethod(methodName, params...) As %Status
-{
-  if ..IsVCSEnabled() {
-    quit $method(..VCS, methodName, params...)
-  }
-  quit $$$OK
 }
 
 Method CheckUbiquity(ByRef ubiquityList As %String = 0) As %Status
@@ -195,7 +183,7 @@ Method CheckUbiquity(ByRef ubiquityList As %String = 0) As %Status
       set $piece(candidateId, "||", 1) = candidateProject
       if ##class(%Studio.ProjectItem).%ExistsId(candidateId) {
         set ubiquityList = ubiquityList + 1
-        set ubiquityList(candidateId) = $listbuild(projectName, name, type)
+        set ubiquityList(candidateId) = $listbuild(name, type)
       } elseif type = "CLS" {
         set class = ""
         set parts = $length(name, ".")
@@ -214,12 +202,7 @@ Method CheckUbiquity(ByRef ubiquityList As %String = 0) As %Status
   }
 }
 
-Method IsVCSEnabled() As %Boolean
-{
-  quit $isobject(..VCS) && ($classname(..VCS) '= "Port.SourceControl.Extension.VCS")
-}
-
-Method IsOutdated(resident As %String, contestant As %String, isImport As %Boolean = 0, Output isCompilationCandidate As %Boolean = 0) As %Boolean [ Private ]
+Method IsOutdated(resident As %String, contestant As %String, isImport As %Boolean = 0, Output isCompilationCandidate As %Boolean = 0) As %Boolean
 {
   
   if '##class(%File).Exists(contestant) quit 1 

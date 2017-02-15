@@ -3,13 +3,7 @@ Class Port.UnitTest.Manager Extends %UnitTest.Manager
 
 ClassMethod Root() As %String
 {
-	quit ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetExportPath())
-}
-
-ClassMethod PurgeLastLog() As %Status [ Internal ]
-{
-	kill ^UnitTest.Result($order(^UnitTest.Result(""), -1))
-	quit $$$OK
+  quit ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetExportPath())
 }
 
 }

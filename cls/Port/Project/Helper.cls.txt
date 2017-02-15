@@ -45,7 +45,7 @@ ClassMethod CSPToAbsoluteAppPath(cspItem As %String) As %String
 {
   set installDirectory = $System.Util.InstallDirectory()
   set cspAppDirectory = $System.CSP.GetDefaultApp($namespace)
-  set cspAppDirectory = $extract(cspAppDirectory, 2, $length(cspAppDirectory))
+  set cspAppDirectory = $extract(cspAppDirectory, 2, *)
   quit ##class(%File).NormalizeFilename($replace(cspItem, cspAppDirectory, installDirectory_"csp/"_$$$lcase($namespace)))
 }
 

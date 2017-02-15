@@ -22,7 +22,7 @@ Method Create(ByRef list As %String = 0) As %Status
   set itemName = ""
   set backupCount = 0
   set appPath = $System.CSP.GetDefaultApp($namespace)
-  set appPath = $extract(appPath, 2, $length(appPath))
+  set appPath = $extract(appPath, 2, *)
   set backupFolderIsCreated = 0
   
   if '..IsRequired quit $$$OK
@@ -30,8 +30,8 @@ Method Create(ByRef list As %String = 0) As %Status
   do ..Logger.Log("Starting backup ... [nl]DO NOT INTERRUPT THIS PROCESS![nl]", 1)
   do ..Logger.Log("Mirroring structure to temporary directory ... ", 1)
   
-  do Walkthrough(9,  "CSR")
-  do Walkthrough(10, "CSP")
+  do Scan(9,  "CSR", .created)
+  do Scan(10, "CSP", .created)
   
   if $$$ISOK(sc) do ..Logger.Log(" done.", 1)
   else  do ..Logger.Log(" done with errors!", 1)
@@ -39,7 +39,7 @@ Method Create(ByRef list As %String = 0) As %Status
   quit sc  
 
 
-Walkthrough(group, type)
+Scan(group, type, created)
   set itemName = ""   
   for {
     set itemName = $order(list(group, type, itemName), 1, paths)
@@ -58,15 +58,16 @@ Walkthrough(group, type)
     set sc = ##class(Port.Project.Helper).ImplyDirectoryCreation(parentBackupDirectory)
     if $$$ISERR(sc) quit
     
-    set backupFolderIsCreated = 1
-    
+    set created = 1    
     set isCopied = ##class(%File).CopyFile(backupOrigin, backupDestination, 1)
     set isDeleted = ##class(%File).Delete(backupOrigin)
     if isCopied = 0 || (isDeleted = 0) {
       set sc = $$$ADDSC(sc, $$$ERROR($$$GeneralError, "Unable to copy "_itemName_" to backup destination. Aborting."))
     }   
   }
-  if 'backupFolderIsCreated set ..IsRequired = 0
+  if 'created {
+    set ..IsRequired = 0
+  }
 }
 
 }

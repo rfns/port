@@ -1,0 +1,1 @@
+#define HELLOFAKEWORLD write "Hello fake world!"

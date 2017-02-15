@@ -80,7 +80,7 @@
   set itemName = ""
   set backupCount = 0
   set appPath = $System.CSP.GetDefaultApp($namespace)
-  set appPath = $extract(appPath, 2, $length(appPath))
+  set appPath = $extract(appPath, 2, *)
   set backupFolderIsCreated = 0
   
   if '..IsRequired quit $$$OK
@@ -88,8 +88,8 @@
   do ..Logger.Log("Starting backup ... [nl]DO NOT INTERRUPT THIS PROCESS![nl]", 1)
   do ..Logger.Log("Mirroring structure to temporary directory ... ", 1)
   
-  do Walkthrough(9,  "CSR")
-  do Walkthrough(10, "CSP")
+  do Scan(9,  "CSR", .created)
+  do Scan(10, "CSP", .created)
   
   if $$$ISOK(sc) do ..Logger.Log(" done.", 1)
   else  do ..Logger.Log(" done with errors!", 1)
@@ -97,7 +97,7 @@
   quit sc  
 
 
-Walkthrough(group, type)
+Scan(group, type, created)
   set itemName = ""   
   for {
     set itemName = $order(list(group, type, itemName), 1, paths)
@@ -116,15 +116,16 @@ Walkthrough(group, type)
     set sc = ##class(Port.Project.Helper).ImplyDirectoryCreation(parentBackupDirectory)
     if $$$ISERR(sc) quit
     
-    set backupFolderIsCreated = 1
-    
+    set created = 1    
     set isCopied = ##class(%File).CopyFile(backupOrigin, backupDestination, 1)
     set isDeleted = ##class(%File).Delete(backupOrigin)
     if isCopied = 0 || (isDeleted = 0) {
       set sc = $$$ADDSC(sc, $$$ERROR($$$GeneralError, "Unable to copy "_itemName_" to backup destination. Aborting."))
     }   
   }
-  if 'backupFolderIsCreated set ..IsRequired = 0
+  if 'created {
+    set ..IsRequired = 0
+  }
 ]]></Implementation>
 </Method>
 </Class>
@@ -210,10 +211,6 @@ Walkthrough(group, type)
 <InitialExpression>0</InitialExpression>
 </Property>
 
-<Property name="VCS">
-<Type>Port.SourceControl.Extension.VCS</Type>
-</Property>
-
 <Property name="IsBatch">
 <Type>%Boolean</Type>
 <InitialExpression>0</InitialExpression>
@@ -240,17 +237,15 @@ Walkthrough(group, type)
   set ..Slash = $select($$$isWINDOWS : "\", 1: "/")
   
   if (target [ "/") || (target [ "\") {
-    set fullProjectPath = ##class(%File).NormalizeFilename(target)          
-    set partsLength = $length(fullProjectPath, ..Slash) 
-    
-    set ..ProjectName = $piece(fullProjectPath, ..Slash, partsLength, partsLength)        
+    set fullProjectPath = ##class(%File).NormalizeFilename(target)  
+    set ..ProjectName = $piece(fullProjectPath, ..Slash, *)        
     set ..BasePath = ##class(%File).NormalizeFilename(fullProjectPath)
     set ..Project = ##class(%Studio.Project).%OpenId(..ProjectName)
     set ..Logger = ##class(Port.Logger).%New(logLevel)
     do ..BuildTypePaths(..BasePath)
     quit $$$OK 
   }
-  throw ##class(%Exception.StatusException).CreateFromStatus($$$ERROR(5001, "Utility requires an absolute path."))
+  quit $$$ERROR(5001, "Utility requires an absolute path.")
 ]]></Implementation>
 </Method>
 
@@ -287,7 +282,7 @@ Walkthrough(group, type)
   if itemType = "CLS" quit ..ClassPath
   if itemType = "INT" quit ..IntPath
   if itemType = "INC" || (itemType = "MAC" && ($piece(itemName, ".", 2) = "INC")) {
-    // No idea why InterSystems groups INC into MAC type, so we patch it checking the name instead.
+    // InterSystems groups INC into MAC type, so we patch it checking the name instead.
     quit ..IncPath
   }
   if itemType = "MAC" quit ..MacPath
@@ -334,9 +329,9 @@ Walkthrough(group, type)
   // Package.Class.Name -> cls/Package/Class/Name.cls.txt
   if extension = "CLS" {
     set classBasePath = ..ResolvePathType("CLS")
-    set classItemName = $piece(itemName, ".", 1, $length(itemName, ".") - 1)
+    set classItemName = $piece(itemName, ".", 1, *-1)
     set classPath = $listtostring($listbuild(classBasePath, $replace(classItemName, ".", ..Slash)), ..Slash)
-    set packagePath = $piece(classPath, ..Slash, 1, $length(classPath, ..Slash) - 1)
+    set packagePath = $piece(classPath, ..Slash, 1, *-1)
     set className = $piece(classPath, ..Slash, $length(classPath, ..Slash))
     set dest = classPath_".cls.txt"
     set path = packagePath
@@ -344,7 +339,7 @@ Walkthrough(group, type)
   
   // Routine.(type) -> /(type)/routine.(type).txt
   elseif ##class(Port.Project.Helper).IsRoutine(itemName) {    
-    set type = $$$ucase($piece(itemName, ".", $length(itemName, ".")))
+    set type = $$$ucase($piece(itemName, ".", *))
     set path = ..ResolvePathType(type, itemName)
     set dest = path_..Slash_itemName
     set extPos = $length(dest, ".")
@@ -355,23 +350,12 @@ Walkthrough(group, type)
   else {
     set appPath = $System.CSP.GetDefaultApp($namespace)
     set baseTypePath = ..ResolvePathType("CSP")
-    set ext = $$$lcase($piece(itemName, ".", $length(itemName, ".")))
-    set fileWithoutExtension = $piece(itemName, ".", 1, $length(itemName, ".") -1)
+    set ext = $$$lcase($piece(itemName, ".", *))
+    set fileWithoutExtension = $piece(itemName, ".", 1, *-1)
     set dest = ##class(%File).NormalizeFilename(baseTypePath_..Slash_$piece(fileWithoutExtension, "/", 3, $length(fileWithoutExtension, "/")))_"."_ext
     set path = ##class(%File).GetDirectory(dest) 
   }
   quit dest
-]]></Implementation>
-</Method>
-
-<Method name="AttemptToCallVCSMethod">
-<FormalSpec>methodName,params...</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  if ..IsVCSEnabled() {
-    quit $method(..VCS, methodName, params...)
-  }
-  quit $$$OK
 ]]></Implementation>
 </Method>
 
@@ -412,7 +396,7 @@ Walkthrough(group, type)
       set $piece(candidateId, "||", 1) = candidateProject
       if ##class(%Studio.ProjectItem).%ExistsId(candidateId) {
         set ubiquityList = ubiquityList + 1
-        set ubiquityList(candidateId) = $listbuild(projectName, name, type)
+        set ubiquityList(candidateId) = $listbuild(name, type)
       } elseif type = "CLS" {
         set class = ""
         set parts = $length(name, ".")
@@ -432,15 +416,8 @@ Walkthrough(group, type)
 ]]></Implementation>
 </Method>
 
-<Method name="IsVCSEnabled">
-<ReturnType>%Boolean</ReturnType>
-<Implementation><![CDATA[  quit $isobject(..VCS) && ($classname(..VCS) '= "Port.SourceControl.Extension.VCS")
-]]></Implementation>
-</Method>
-
 <Method name="IsOutdated">
 <FormalSpec>resident:%String,contestant:%String,isImport:%Boolean=0,*isCompilationCandidate:%Boolean=0</FormalSpec>
-<Private>1</Private>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[
   
@@ -491,16 +468,6 @@ Walkthrough(group, type)
 <Super>Port.Project.Base</Super>
 <TimeCreated>64306,34528.610794</TimeCreated>
 
-<Property name="Project">
-<Type>%Studio.Project</Type>
-<Private>1</Private>
-</Property>
-
-<Property name="Overwrite">
-<Type>%Boolean</Type>
-<InitialExpression>0</InitialExpression>
-</Property>
-
 <Property name="PathDependencies">
 <Type>%String</Type>
 <Collection>array</Collection>
@@ -532,9 +499,10 @@ Walkthrough(group, type)
   if ..Project.Items.Count() = 0 {
     do ..Write("[nl]No items to export. Aborting ... [nl] ", 0)
     quit $$$OK
-  }
+  }  
   
   set ..IsBatch = 1
+  do ..Reset()
   
   do ..Write("[nl]Exporting project {P1} ...", 0, ..Project.Name)
   set cspDirectory = ##class(%File).NormalizeFilename($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace))
@@ -552,10 +520,6 @@ Walkthrough(group, type)
   $$$QuitOnError(..PurgeExtraneousEntries())
   
   do ..Write("All done.[nl]", 0)
-  
-  if ..IsVCSEnabled() && ($listlength(exportList) > 0) {
-    do ..AttemptToCallVCSMethod("OnExport", ..VCS.#PATHS) 
-  }
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -737,9 +701,7 @@ Walkthrough(group, type)
   do ..Write(" done.[nl]", 2)
   set ..AffectedCount = ..AffectedCount + 1
   
-  set $list(exportList, $listlength(exportList) + 1) = dest
-  if '..IsBatch do ..AttemptToCallVCSMethod("OnExport", dest)
-  
+  set $list(exportList, $listlength(exportList) + 1) = dest  
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -781,7 +743,6 @@ Walkthrough(group, type)
     
   set $list(exportList, $listlength(exportList) + 1) = dest
   
-  if '..IsBatch do ..AttemptToCallVCSMethod("OnExport", dest)  
   $$$QuitOnError(file.%Save())
   
   set ..AffectedCount = ..AffectedCount + 1
@@ -839,7 +800,6 @@ Walkthrough(group, type)
   set ..AffectedCount = ..AffectedCount + 1
   set $list(exportList, $listlength(exportList) + 1) = dest
   
-  if '..IsBatch do ..AttemptToCallVCSMethod("OnExport", dest)
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -866,6 +826,14 @@ Walkthrough(group, type)
     if ..PathDependencies.IsDefined(dir) quit
     do ..PathDependencies.SetAt(itemName, dir)
   }
+]]></Implementation>
+</Method>
+
+<Method name="Reset">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set i%ExportedPackages = ""
+  do ..PathDependencies.Clear()
 ]]></Implementation>
 </Method>
 </Class>
@@ -937,7 +905,7 @@ Walkthrough(group, type)
 <Implementation><![CDATA[
   set installDirectory = $System.Util.InstallDirectory()
   set cspAppDirectory = $System.CSP.GetDefaultApp($namespace)
-  set cspAppDirectory = $extract(cspAppDirectory, 2, $length(cspAppDirectory))
+  set cspAppDirectory = $extract(cspAppDirectory, 2, *)
   quit ##class(%File).NormalizeFilename($replace(cspItem, cspAppDirectory, installDirectory_"csp/"_$$$lcase($namespace)))
 ]]></Implementation>
 </Method>
@@ -1078,30 +1046,6 @@ Walkthrough(group, type)
     set ..Project.Name = ..ProjectName
   }
   quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="EnqueueAllFromVCS">
-<FormalSpec>filter:%String="AMD"</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  do ..ResetLists()
-  
-  set sc = $$$OK
-  set ds = ##class(%SQL.Statement).%New()
-  
-  $$$QuitOnError(ds.%PrepareClassQuery($classname(..VCS), "Diff"))
-  set rows = ds.%Execute(..BasePath, ..VCS.#PATHS,,..VCS.GetParameter("commit"))
-  
-  while rows.%Next(.sc) {
-    if $$$ISERR(sc) quit
-    set compilable = 0
-    set path = rows.%Get("Path") 
-    set type = rows.%Get("Type")
-    set external = ##class(%File).NormalizeFilename(path, ..BasePath)
-    do ..EnqueueItem(external, type)
-  }
-  quit sc
 ]]></Implementation>
 </Method>
 
@@ -1279,7 +1223,8 @@ Walkthrough(group, type)
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set sc = $$$OK  
+  set sc = $$$OK
+  if '$data(i%ImportList(group)) quit sc  
   
   set partialMessage = $listget($$$ImportTypeDescriptions, group)
   do ..WriteExclusive(1, "Importing {P1} ... ", partialMessage)
@@ -1364,22 +1309,14 @@ Walkthrough(group, type)
   set sc = $$$OK
   set onlyPopulateProject = 0
   set ..AffectedCount = 0
-  set hasVCS = ..IsVCSEnabled()
       
   tstart
   
   try {
     if ..IsBatch {
       do ..Write("[nl][nl]Importing project {P1} ...[nl]", 1, ..Project.Name)            
-      if 'hasVCS {
-        do ..Write("Enqueuing items to import ... ", 1)
-        $$$ThrowOnError(..EnqueueAll())
-      } else {
-        do ..Write("A version control system has been detected: {P1}.[nl]", 1, ..VCS.#NAME)
-        do ..Write("Using {P1} diff based on commit {P2}.[nl]", 1, ..VCS.#NAME, ..VCS.GetParameter("commit"))
-        do ..Write("Enqueuing items to import ... ", 1)
-        $$$ThrowOnError(..EnqueueAllFromVCS())
-      } 
+      do ..Write("Enqueuing items to import ... ", 1)
+      $$$ThrowOnError(..EnqueueAll())
     }
       
     if i%ImportList > 0 {
@@ -1388,7 +1325,7 @@ Walkthrough(group, type)
       if '..SkipBackup $$$ThrowOnError(..Backup.Create(.list))
       $$$ThrowOnError(..ImportList())
     } else {
-      do ..Write("no pending items were found inside the repository.", 1)
+      do ..Write("[nl]No pending items were found inside the repository.", 1)
       do ..Write("[nl]Current repository might be empty or up-to-date.", 1)
     }
     
@@ -1404,11 +1341,11 @@ Walkthrough(group, type)
       do ..Write("Project doesn't exists. A new project will be created with the name {P1}.[nl]", 1, ..Project.Name)
     }
     
-    if i%ImportList || (hasVCS && (i%ItemsList > 0)) {
-      do ..Write("[nl][nl]Synchronizing {P1} ...", 1, ..Project.Name)
+    if i%ImportList {
+      do ..Write("[nl]Synchronizing {P1} ...", 1, ..Project.Name)
       $$$ThrowOnError(..SynchronizeProject(.added, .removed))
       do ..Write(" done.[nl]")
-      do ..Write("[nl]Project {P1} has been saved with {P2} items (+ {P2} - {P3}).[nl]", 1, ..Project.Name, ..Project.Items.Count(), added, removed)
+      do ..Write("Project {P1} has been saved with {P2} items (+ {P2} - {P3}).[nl]", 1, ..Project.Name, ..Project.Items.Count(), added, removed)
     }
     
     set ..AffectedCount = i%ImportList    
@@ -1674,12 +1611,11 @@ Walkthrough(group, type)
 
 <Method name="Export">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>outputPath:%String,logLevel:%Boolean=2,force:%Boolean=0,vcs:Port.SourceControl.Extension.VCS=$$$NULLOREF</FormalSpec>
+<FormalSpec>outputPath:%String,logLevel:%Boolean=2,force:%Boolean=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set exporter = ..AssertUtilityCreation("E", outputPath, logLevel, .sc)
   $$$QuitOnError(sc)
-  set exporter.VCS = vcs
   set exporter.Overwrite = force  
   $$$QuitOnError(exporter.Export())
   set projectName = exporter.GetProjectName()
@@ -1703,14 +1639,13 @@ Walkthrough(group, type)
 
 <Method name="Import">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>inputPath:%String,logLevel:%Boolean=2,skipBackup:%Boolean=0,overwrite:%Boolean=0,vcs:Port.SourceControl.Extension.VCS=$$$NULLOREF</FormalSpec>
+<FormalSpec>inputPath:%String,logLevel:%Boolean=2,skipBackup:%Boolean=0,overwrite:%Boolean=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
   set importer = ..AssertUtilityCreation("I", inputPath, logLevel, .sc)
   $$$QuitOnError(sc)
   set importer.SkipBackup = skipBackup
-  set importer.VCS = vcs
   set importer.IsBatch = 1
   set importer.Overwrite = overwrite
   set projectName = importer.GetProjectName()
@@ -1780,7 +1715,7 @@ Walkthrough(group, type)
 
 <Method name="ExportTestSuiteToXML">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>outputPath:%String,vcs:Port.SourceControl.Extension.VCS=$$$NULLOREF</FormalSpec>
+<FormalSpec>outputPath:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set testPath = ##class(Port.SourceControl.Config).GetTestPath()
@@ -1880,9 +1815,9 @@ LoopThroughType(projectName, importedList, group)
   if $listvalid(test) && (test '= "") {
     set className = $listget(test, 1)
     set classPath = $listget(test, 2)
-    do ..Logger.Log("Exporting test class {P1} ... ", 1, $replace(className, ".CLS", ""))
+    do ..Logger.Log("[nl]Exporting test class {P1} ... ", 0, $replace(className, ".CLS", ""))
     set sc = $$$ADDSC(sc, $System.OBJ.Export(className, classPath,qspec,, "UTF-8"))
-    write " done."
+    do ..Logger.Log("done.", 0)
     set exported = 1
   }
   quit exported
@@ -1895,7 +1830,7 @@ LoopThroughType(projectName, importedList, group)
 <FormalSpec>absoluteBasePath:%String,className:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set test = $listbuild(className_".CLS", ##class(Port.Project.Common).ClassToFile(absoluteBasePath, className, "xml"))     
+  set test = $listbuild(className_".CLS", ##class(Port.Project.Helper).ClassToFile(absoluteBasePath, className, "xml"))
   quit test
 ]]></Implementation>
 </Method>
@@ -2052,98 +1987,6 @@ Gets the association prefix.</Description>
 ]]></Implementation>
 </Method>
 
-<Method name="SetVCSCommand">
-<Description>
-Sets a VCS (version control system) command. Supports template.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>command:%String,args:%Status=""</FormalSpec>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("vcs.command", command) = args
-]]></Implementation>
-</Method>
-
-<Method name="GetVCSCommand">
-<Description>
-Gets the resolved VCS command.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>command:%String,args...:%String</FormalSpec>
-<Implementation><![CDATA[  quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("vcs.command", command)), 0, args...)
-]]></Implementation>
-</Method>
-
-<Method name="SetVCSPath">
-<Description>
-Sets the VCS executable path. Supports template.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>vcsPath:%String</FormalSpec>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("vcs.path") = vcsPath
-]]></Implementation>
-</Method>
-
-<Method name="GetVCSPath">
-<Description>
-Gets the resolved VCS executable path.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>fullFilePath:%String</FormalSpec>
-<Implementation><![CDATA[  quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("vcs.path")))
-]]></Implementation>
-</Method>
-
-<Method name="RegisterVCSHandler">
-<Description>
-Registers a VCS extension to be used with the source control hook.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>vcs:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("vcs.name") = vcs
-]]></Implementation>
-</Method>
-
-<Method name="GetVCSHandlerName">
-<Description>
-Gets the extension class name.</Description>
-<ClassMethod>1</ClassMethod>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  
-  quit $get(^Port.SourceControl.Settings("vcs.name"))
-]]></Implementation>
-</Method>
-
-<Method name="EnableVCS">
-<Description>
-Enables the VCS extension.</Description>
-<ClassMethod>1</ClassMethod>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  if ..GetVCSHandlerName() = "" quit $$$ERROR($$$CacheError, "Unable to change VCS state: Missing VCS handler.")
-  set ^Port.SourceControl.Settings("vcs.enabled") = 1
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="DisableVCS">
-<Description>
-Disables the VCS extension.</Description>
-<ClassMethod>1</ClassMethod>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  if ..GetVCSHandlerName() = "" {
-    quit $$$ERROR($$$CacheError, "Unable to change VCS state: Missing VCS handler.")
-  }
-  set ^Port.SourceControl.Settings("vcs.enabled") = 0
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="IsVCSEnabled">
-<Description>
-Returns 1 if VCS is enabled, 0 if not.</Description>
-<ClassMethod>1</ClassMethod>
-<ReturnType>%Boolean</ReturnType>
-<Implementation><![CDATA[  quit ($get(^Port.SourceControl.Settings("vcs.enabled"), 0) && (..GetVCSHandlerName() '= ""))
-]]></Implementation>
-</Method>
-
 <Method name="rewritePlaceHolders">
 <Internal>1</Internal>
 <ClassMethod>1</ClassMethod>
@@ -2161,449 +2004,12 @@ Returns 1 if VCS is enabled, 0 if not.</Description>
   $$$RewriteIfPathContains("{USERNAME}", $username) 
   $$$RewriteIfPathContains("{EXPORTPATH}", ..GetExportPath())
   $$$RewriteIfPathContains("{FULLEXPORTPATH}", ##class(%File).NormalizeFilename(..GetExportPath())) 
-  $$$RewriteIfPathContains("{VCS}", ..GetVCSPath())
   $$$RewriteIfPathContains("{SLASH}", $select($$$isWINDOWS: "\", 1: "/"))
   if 'excludeProject $$$RewriteIfPathContains("{PROJECT}", $get(^||%Studio.Project))
   if params {
     for i=1:1:params $$$RewriteIfPathContains("{P"_i_"}", params(i))
   }
   quit translatedPath
-]]></Implementation>
-</Method>
-</Class>
-
-
-<Class name="Port.SourceControl.Extension.Git">
-<Super>Port.SourceControl.Extension.VCS</Super>
-<TimeCreated>64306,34529.090076</TimeCreated>
-
-<Parameter name="NAME">
-<Default>Git</Default>
-</Parameter>
-
-<Parameter name="PATHS">
-<Default>cls inc int mac web</Default>
-</Parameter>
-
-<Method name="%OnNew">
-<FormalSpec>repositoryPath:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
- 
-  do ##super(repositoryPath)  
-  
-  if '##class(%File).DirectoryExists(repositoryPath_"/.git") {
-    quit $$$ERROR("Directory is not a git repository.")
-  }
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="Install">
-<ClassMethod>1</ClassMethod>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set input = ""
-  set validated = 0 
-  write !!, "This setup will help you to configure a git integration."
-  write !,  "Please fill out fields when asked:", !
-  
-  // git-diff tool configuration
-  set defaults(2) = "{VCS} --work-tree={P1} --git-dir={P1}{SLASH}.git diff --name-status --diff-filter={P2} {P3} -- {P4} 2> ""{P5}"" > ""{P6}"""
-  set defaults(3) = "{VCS} --work-tree={P1} --git-dir={P1}{SLASH}.git add {P2}"
-  set defaults(4) = "{VCS} --work-tree={P1} --git-dir={P1}{SLASH}.git log --pretty=format:""%H||%an||%ae||%ad||at"" --date=relative 2> ""{P2}"" > ""{P3}"""
-    
-  while 1 {   
-    if input = -1 write !, "Aborted." quit     
-    if '$get(validated(1), 0) {
-      set input(1) = ""
-      write !, "git.exe full path: "
-      read input(1)
-      
-      if input(1) = -1 set input = 1
-      
-      set validated(1) = (##class(%File).Exists(input(1)) && (##class(%File).GetFilename(input(1)) = "git.exe"))
-      if 'validated(1) {
-        write !, "Invalid path, you must specify the path for your git.exe."
-        continue
-      }
-    }
-    
-    if '$get(validated(2), 0) {
-      set input(2) = ""
-      write !, "diff command (or empty to use default): "
-      read input(2)
-      
-      if input(2) = -1 set input = 1
-      if input(2) = "" set input(2) = defaults(2)
-      
-      set validated(2) = 1
-    }
-    
-    if '$get(validated(3), 0) {
-      set input(3) = ""
-      write !, "add command (or empty to use default):"
-      read input(3)  
-      
-      if input(3) = -1 set input = 1
-      if input(3) = "" set input(3) = defaults(3)
-      
-      set validated(3) = 1
-    }
-    
-    if validated(1) && validated(2) && validated(3) quit
-  }
-  
-  do ##class(Port.SourceControl.Config).SetVCSPath(input(1))
-  do ##class(Port.SourceControl.Config).SetVCSCommand("diff", input(2))
-  do ##class(Port.SourceControl.Config).SetVCSCommand("add", input(3))
-  do ##class(Port.SourceControl.Config).SetVCSCommand("log", defaults(4))
-  do ##class(Port.SourceControl.Config).RegisterVCSHandler($classname($this))
-  do ##class(Port.SourceControl.Config).EnableVCS()
-  write !!, "Done. Git is now integrated with the source control hook."
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="add">
-<FormalSpec>file:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set sc = $$$OK
-  set params = 2
-  set params(1) = ..RepositoryPath
-  set params(2) = file
-  set command = ##class(Port.SourceControl.Config).GetVCSCommand("add", params...)
-  
-  do $zf(-1, command)
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="diff">
-<FormalSpec>paths:%String=".",filter:%String="AMD",commit:%String="HEAD",consoleOutput:%Stream.GlobalCharacter,consoleError:%Stream.GlobalCharacter</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
- 
-  set sc = $$$OK
-  set params = 6
-  set params(1) = ..RepositoryPath
-  set params(2) = filter    
-  set params(3) = commit  
-  
-  set params(4) = paths
-  set params(5) = ..ErrorFilePath
-  set params(6) = ..OutputFilePath
-    
-  set command = ##class(Port.SourceControl.Config).GetVCSCommand("diff", params...)
-  set ^mtempPort = command 
-  
-  do $zf(-1, command)
-  
-  set outputFile = ##class(%FileCharacterStream).%New()
-  set errorFile = ##class(%FileCharacterStream).%New()  
-  
-  set outputFile.Filename = ..OutputFilePath
-  set errorFile.Filename  = ..ErrorFilePath
-  
-  set consoleOutput = ##class(%Stream.GlobalCharacter).%New()
-  set consoleError = ##class(%Stream.GlobalCharacter).%New()
-  
-  $$$QuitOnError(consoleOutput.CopyFrom(outputFile))
-  $$$QuitOnError(consoleError.CopyFrom(errorFile))
-  
-  set consoleOutput.LineTerminator  = $char(10)
-  set consoleError.LineTerminator   = $char(10)
-  
-  do outputFile.Clear()
-  do errorFile.Clear()
-    
-  if consoleOutput.Size = 0 && (consoleError.Size > 0) {
-    do consoleError.Rewind()
-    set sc = $$$ERROR(5001, "Unable to diff targets, command returned the error: "_consoleError.Read())
-    do consoleError.Rewind()
-  }
-    
-  quit sc
-]]></Implementation>
-</Method>
-
-<Method name="log">
-<FormalSpec>*logList:%Stream.Object</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set sc = $$$OK
-  set params = 3
-  set params(1) = ..RepositoryPath
-  set params(2) = ..ErrorFilePath
-  set params(3) = ..OutputFilePath
-  set command = ##class(Port.SourceControl.Config).GetVCSCommand("log", params...)    
-  
-  do $zf(-1, command)
-  
-  set outputBuffer = ##class(%FileCharacterStream).%New()  
-  set outputBuffer.Filename = ..OutputFilePath
-  
-  set errorBuffer = ##class(%FileCharacterStream).%New()  
-  set errorBuffer.Filename = ..ErrorFilePath
-     
-  set logList = ##class(%Stream.GlobalCharacter).%New()  
-  
-  $$$QuitOnError(logList.CopyFrom(outputBuffer))
-  
-  set logList.LineTerminator  = $char(10)
-  
-  do outputBuffer.Clear()
-  do errorBuffer.Clear()
-    
-  if logList.Size = 0 && (logList.Size > 0) {    
-    do errorBuffer.Rewind()
-    set sc = $$$ERROR(5001, "Unable to show git log: "_errorBuffer.Read())
-    do errorBuffer.Rewind()
-  }   
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Query name="Diff">
-<Type>%Query</Type>
-<FormalSpec>repositoryPath:%String,paths:%String,filter:%String="AMD",commit:%String="HEAD"</FormalSpec>
-<SqlProc>1</SqlProc>
-<Parameter name="ROWSPEC" value="Type:%String,Path:%String"/>
-</Query>
-
-<Method name="DiffFetch">
-<Internal>1</Internal>
-<ClassMethod>1</ClassMethod>
-<FormalSpec><![CDATA[&QHandle:%Binary,&Row:%List,&AtEnd:%Integer=0]]></FormalSpec>
-<PlaceAfter>DiffExecute</PlaceAfter>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set index = $list(QHandle, 1)
-  set index = $order(^||Port.Git.Diff(index))
-  
-  if index = "" {
-    set Row = ""
-    set AtEnd = 1
-  } else {
-    set Row = ^||Port.Git.Diff(index)
-    set $list(Row, 1) = $listget(^||Port.Git.Diff(index), 1)
-    set $list(Row, 2) = $listget(^||Port.Git.Diff(index), 2)
-  }
-  set QHandle = $listbuild(index)
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="DiffClose">
-<Internal>1</Internal>
-<ClassMethod>1</ClassMethod>
-<FormalSpec><![CDATA[&QHandle:%Binary]]></FormalSpec>
-<PlaceAfter>DiffExecute</PlaceAfter>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set QHandle = ""
-  kill ^||Port.Git.Diff
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="DiffExecute">
-<ClassMethod>1</ClassMethod>
-<FormalSpec><![CDATA[&QHandle:%Binary,repositoryPath:%String,paths:%String=".",filter:%String="AMD",commit:%String="HEAD"]]></FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set sc = $$$OK
-  set git = ..%New(repositoryPath)
-  set diffs = ""
-  kill ^||Port.Git.Diff
-  $$$QuitOnError(git.diff(paths,filter, commit, .output, .error))
-  if $isobject(output) && output.%IsA("%Stream.Object") && (output.Size > 0) {
-    while 'output.AtEnd {
-      set line = output.ReadLine()
-      set status = $piece(line, $char(9), 1)
-      set file = $piece(line, $char(9), 2)
-      set ^||Port.Git.Diff($increment(i)) = $listbuild(status, file)
-    }
-  }
-  set QHandle = $listbuild("")
-  quit sc
-]]></Implementation>
-</Method>
-
-<Query name="Log">
-<Type>%Query</Type>
-<FormalSpec>repositoryPath:%String=""</FormalSpec>
-<SqlProc>1</SqlProc>
-<Parameter name="ROWSPEC" value="Commit:%String,Author:%String,Email:%String,Date:%String,Message:%String"/>
-</Query>
-
-<Method name="LogFetch">
-<Internal>1</Internal>
-<ClassMethod>1</ClassMethod>
-<FormalSpec><![CDATA[&QHandle:%Binary,&Row:%List,&AtEnd:%Integer=0]]></FormalSpec>
-<PlaceAfter>DiffExecute</PlaceAfter>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set index = $list(QHandle, 1)
-  set index = $order(^||Port.Git.Log(index), -1)
-  
-  if index = "" {
-    set Row = ""
-    set AtEnd = 1
-  } else {
-    set Row = ^||Port.Git.Log(index)
-    set $list(Row, 1) = $listget(^||Port.Git.Log(index), 1)
-    set $list(Row, 2) = $listget(^||Port.Git.Log(index), 2)
-  }
-  set QHandle = $listbuild(index)
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="LogExecute">
-<ClassMethod>1</ClassMethod>
-<FormalSpec><![CDATA[&QHandle:%Binary,repositoryPath:%String]]></FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set sc = $$$OK
-  set git = ..%New(repositoryPath)
-  set diffs = ""
-  kill ^||Port.Git.Log
-  $$$QuitOnError(git.log(.commits))
-  if $isobject(commits) && commits.%IsA("%Stream.Object") && (commits.Size > 0) {
-    while 'commits.AtEnd {
-      set line = commits.ReadLine()
-      set commit    = $piece(line, "||", 1)
-      set author    = $piece(line, "||", 2)
-      set email     = $piece(line, "||", 3)
-      set authorDate = $piece(line, "||", 4)
-      set authorUNIXDate = $piece(line, "||", 5)
-      set subject = $piece(line, "||", 6)
-      set ^||Port.Git.Log(authorUNIXDate) = $listbuild(commit, author, email, authorDate, subject)
-    }
-  }
-  set QHandle = $listbuild("")
-  quit sc
-]]></Implementation>
-</Method>
-
-<Method name="LogClose">
-<Internal>1</Internal>
-<ClassMethod>1</ClassMethod>
-<FormalSpec><![CDATA[&QHandle:%Binary]]></FormalSpec>
-<PlaceAfter>DiffExecute</PlaceAfter>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set QHandle = ""
-  kill ^||Port.Git.Log
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="OnExport">
-<FormalSpec>file:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  $$$QuitOnError(..add(file))
-  quit $$$OK
-]]></Implementation>
-</Method>
-</Class>
-
-
-<Class name="Port.SourceControl.Extension.VCS">
-<Super>%RegisteredObject</Super>
-<TimeCreated>64306,34529.178289</TimeCreated>
-
-<Parameter name="NAME">
-<Default>Base</Default>
-</Parameter>
-
-<Parameter name="PATHS">
-</Parameter>
-
-<Property name="ErrorFilePath">
-<Type>%String</Type>
-<Private>1</Private>
-</Property>
-
-<Property name="OutputFilePath">
-<Type>%String</Type>
-<Private>1</Private>
-</Property>
-
-<Property name="RepositoryPath">
-<Type>%String</Type>
-<Private>1</Private>
-</Property>
-
-<Property name="Parameters">
-<Type>%String</Type>
-<MultiDimensional>1</MultiDimensional>
-</Property>
-
-<Method name="%OnNew">
-<FormalSpec>initval:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set ..ErrorFilePath = ##class(%File).TempFilename()
-  set ..OutputFilePath = ##class(%File).TempFilename()
-  set ..RepositoryPath = ##class(%File).NormalizeFilename(initval)
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="%OnClose">
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  do ##class(%File).Delete(..ErrorFilePath)
-  do ##class(%File).Delete(..OutputFilePath)
-]]></Implementation>
-</Method>
-
-<Method name="Install">
-<ClassMethod>1</ClassMethod>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  quit $$$ERROR($$$MethodNotImplemented, "Install")
-]]></Implementation>
-</Method>
-
-<Method name="OnExport">
-<FormalSpec>file:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  quit $$$ERROR($$$MethodNotImplemented, "OnExport")
-]]></Implementation>
-</Method>
-
-<Method name="OnImport">
-<FormalSpec>file:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  quit $$$ERROR($$$MethodNotImplemented, "OnImport")
-]]></Implementation>
-</Method>
-
-<Method name="SetParameter">
-<FormalSpec>key,value</FormalSpec>
-<ReturnType>%String</ReturnType>
-<Implementation><![CDATA[
-    
-  set ^||Port.SourceControl.VCS.Parameters(key) = value
-]]></Implementation>
-</Method>
-
-<Method name="GetParameter">
-<FormalSpec>key</FormalSpec>
-<ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  quit $get(^||Port.SourceControl.VCS.Parameters(key))
-]]></Implementation>
-</Method>
-
-<Method name="EvaluateDiff">
-<Internal>1</Internal>
-<FormalSpec>args...</FormalSpec>
-<ReturnType>%Boolean</ReturnType>
-<Implementation><![CDATA[  quit 0
 ]]></Implementation>
 </Method>
 </Class>
@@ -2652,15 +2058,12 @@ Returns 1 if VCS is enabled, 0 if not.</Description>
     set exportPath = ##class(Port.SourceControl.Config).GetExportPath()
     set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)    
     set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)
-    set exporter = ##class(Port.Project.Exporter).%New(exportPath)
-    if ##class(Port.SourceControl.Config).IsVCSEnabled() {
-      set exporter.VCS = ##class(Port.SourceControl.Util).LinkRepositoryToVCS(exportPath)
-    }
+    set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
     
     if type '= "PRJ" {    
       if type = "CLS" {
         set sc = exporter.ExportClass(itemName)
-      } elseif ##class(Port.Project.Common).IsRoutine(InternalName) {
+      } elseif ##class(Port.Project.Helper).IsRoutine(InternalName) {
         set sc = exporter.ExportRoutine(InternalName)
       } elseif type = "PKG" {     
         set sc = exporter.ExportPackage(itemName)     
@@ -2681,7 +2084,7 @@ Returns 1 if VCS is enabled, 0 if not.</Description>
   
   if projectName '= "" && (projectName [ "Default") {
     write "WARNING: This source control enforces the policy of using named projects!", !
-    write "WARNING: Which means that 'Default' projects are not tracked thus not being exportable!", !
+    write "WARNING: Which means that 'Default' projects are not tracked or exportable using this tool.", !
     write "WARNING: In order to export the project, you're obliged to change the name to something else than 'Default'."
   }
   quit $$$OK
@@ -2702,39 +2105,23 @@ Returns 1 if VCS is enabled, 0 if not.</Description>
     set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
     set testPath = ##class(Port.SourceControl.Config).GetTestPath()
     set logLevel = ##class(Port.SourceControl.Config).GetLogLevel()   
-    set vcs = ""
-    
-    if ##class(Port.SourceControl.Config).IsVCSEnabled() {
-      set vcs = ##class(Port.SourceControl.Util).LinkRepositoryToVCS(projectPath)
-    }
     
     if name = "%ExportProject" {      
-      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel,0,vcs))
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel,0))
     }
     if name = "%ExportProjectToXML" {
-      quit ##class(Port.Project.Manager).ExportToXML(projectPath, vcs)
+      quit ##class(Port.Project.Manager).ExportToXML(projectPath)
     }
     if name = "%ExportTestSuiteToXML" {
-      quit ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath, vcs)
+      quit ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath)
     }
-    if name = "%RunTestSuite" {
+    if name = "%RunTestSuite" && (projectPath '= "") {
+      do ##class(%File).RemoveDirectoryTree(projectPath_"/"_testPath)
       $$$QuitOnError(##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath))
-      $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
-      if ##class(%File).DirectoryExists(testPath) {
-        quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath)
-      }
-      quit $$$OK
+      $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/load/run/nodelete"))
     }       
     if name = "%ImportProject" {
-      if $isobject(vcs) {
-        if $System.Event.Defined("SCCSPCOMMIT") do $System.Event.Delete("SCCSPCOMMIT")
-        do $System.Event.Create("SCCSPCOMMIT")
-        set Action = 2
-        set Target = ##class(csp.sourcecontrol.git.commit).#CSPURL
-        quit $$$OK
-      } else {
-        $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0, vcs))
-      }
+      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0))
     }
     if name = "%RemoveProjectClasses" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "CLS"))
@@ -2759,18 +2146,18 @@ Returns 1 if VCS is enabled, 0 if not.</Description>
         set exporter.Overwrite = 1
         set internalName = InternalName
         if $extract(InternalName, 1) = "/" {
-          set internalName = $extract(InternalName, 2, $length(InternalName))
+          set internalName = $extract(InternalName, 2, *)
         }
         $$$QuitOnError(exporter.ExportItem(internalName))
         quit ##class(Port.SourceControl.Log).LogChange(projectName, internalName)
       } else {
-        quit ##class(Port.Project.Manager).Export(projectPath, logLevel, 1, vcs)
+        quit ##class(Port.Project.Manager).Export(projectPath, logLevel, 1)
       }
     }
     
     if name = "%UpdateActiveItem" {
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
-        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, vcs)
+        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1)
       } else {        
         quit ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel)
       }
@@ -2798,45 +2185,45 @@ Returns 1 if VCS is enabled, 0 if not.</Description>
   If menu'="%SourceMenu",menu'="%SourceContext" Quit $$$OK
   set isContextual = (menu = "%SourceContext")
   if name = "%ExportProject" {
-    set DisplayName = "Exportar Projeto"
+    set DisplayName = "Export Project"
   } 
   if name = "%ExportProjectToXML" {
-    set DisplayName = "Exportar Projeto para XML"
+    set DisplayName = "Export Project to XML"
   } 
   if name = "%ExportTestSuiteToXML" {
-    set DisplayName = "Exportar Suíte de Teste para XML"
+    set DisplayName = "Export Test Suites to XML"
   }   
   if name = "%ImportProject" {
-    set DisplayName = "Importar Projeto"    
+    set DisplayName = "Import Project"    
   } 
   if name = "%RemoveProjectClasses" {
-    set DisplayName = "Remover Classes do Projeto"
+    set DisplayName = "Remove All Classes From Project"
   } 
   if name = "%RemoveProjectWebFiles" {
-    set DisplayName = "Remover Arquivos Web do Projeto"
+    set DisplayName = "Remove All Files From Project"
   } 
   if name = "%RemoveProjectRoutines" {
-    set DisplayName = "Remover Rotinas do Projeto"
+    set DisplayName = "Remove All Routines From Project"
   } 
   if name = "%RemoveInvalidItems" {
-    set DisplayName = "Remover Itens Inválidos do Projeto"
+    set DisplayName = "Remove Invalid Project Items"
   }
   
   if name= "%RunTestSuite" {
-    set DisplayName = "Executar Suíte de Testes"
+    set DisplayName = "Run Test Suites"
   }
   
   if name = "%RunActiveItemTest" {
-    set DisplayName = "Executar Testes deste Item"
+    set DisplayName = "Run Tests from this Item"
     set Enabled = ##class(Port.SourceControl.Util).AssertTestableClass(itemName)
   } 
   
   if name = "%ExportActiveItem" {
-    set DisplayName = "Exportar este item"
+    set DisplayName = "Export Selected Item"
   }
   
   if name ="%UpdateActiveItem" {
-    set DisplayName = "Importar este Item"
+    set DisplayName = "Import Selected Item"
   }
   
   set isProjectOpened = ($get(^||%Studio.Project, "Default") '[ "Default")
@@ -2877,35 +2264,15 @@ Called after the compile of the item is done.</Description>
         do ##class(%RoutineMgr).TS(testableClass_".CLS", .tct, .isTestUpToDate)
                 
         if 'isTestUpToDate {
-          set filePath = ##class(Port.Project.Common).ClassToFile(projectPath_"/"_testPath, testableClass)
+          set filePath = ##class(Port.Project.Helper).ClassToFile(projectPath_"/"_testPath, testableClass)
           $$$QuitOnError(xmlExporter.ExportTest(projectPath, testableClass))
-          $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
+          $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath, "/nodisplay"))
         }       
         $$$QuitOnError(##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass))   
       }
     }
   }
   quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="AfterUserAction">
-<FormalSpec><![CDATA[Type:%Integer,Name:%String,InternalName:%String,Answer:%Integer,Msg:%String="",&Reload:%Boolean]]></FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-    
-  #dim vcs As Port.SourceControl.Extension.VCS
-  set path = ##class(Port.SourceControl.Config).GetExportPath()
-  set vcs = ##class(Port.SourceControl.Util).LinkRepositoryToVCS(path)  
-  set logLevel = ##class(Port.SourceControl.Config).GetLogLevel()
-  set msg = $System.Event.WaitMsg("SCCSPCOMMIT", 4)
-  if $listget(msg, 1) '= 1 || ($listget(msg, 2) = "") {
-    write "ERROR: Failed to receive required parameter. Aborting."
-    quit $$$OK
-  }
-  do vcs.SetParameter("commit", $listget(msg, 2))
-  $$$QuitOnError(##class(Port.Project.Manager).Import(path, logLevel, 0, 0, vcs))
-  Quit $$$OK
 ]]></Implementation>
 </Method>
 </Class>
@@ -2935,6 +2302,7 @@ Called after the compile of the item is done.</Description>
 
 <Class name="Port.SourceControl.Log">
 <Abstract>1</Abstract>
+<IncludeCode>portutils</IncludeCode>
 <TimeCreated>64306,34529.444198</TimeCreated>
 
 <Method name="LogChange">
@@ -2942,25 +2310,25 @@ Called after the compile of the item is done.</Description>
 <FormalSpec>projectName=^||%Studio.Project,itemName:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	do ..ExtractNameAndNormalizedCategory(itemName, .name, .type) 
-	set ^Port.SourceControl.Projects(projectName, type, name) = $zdatetime($horolog, 3,,,,,,,,,0)	
-	quit $$$OK
+  do ..ExtractItemDescription(itemName, .name, .type) 
+  set ^Port.SourceControl.Projects(projectName, type, name) = $zdatetime($horolog, 3,,,,,,,,,0) 
+  quit $$$OK
 ]]></Implementation>
 </Method>
 
-<Method name="ExtractNameAndNormalizedCategory">
+<Method name="ExtractItemDescription">
 <ClassMethod>1</ClassMethod>
 <FormalSpec>itemName,*name="",*type=""</FormalSpec>
 <Private>1</Private>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
-	set len = $length(itemName, ".")
-	set type = $$$ucase($piece(itemName, ".", len))
-	set name = $piece(itemName, ".", 1, len - 1)
-	if '$listfind($listbuild("MAC", "INT", "INC", "CLS", "CSP", "PRJ", "MVB", "MVI", "BAS", "DFI"), type) {
-		set name = itemName
-		set type = "CSP"
-	}
+  set len = $length(itemName, ".")
+  set type = $$$ucase($piece(itemName, ".", len))
+  set name = $piece(itemName, ".", 1, len - 1)
+  if '$listfind($$$ImportTypes, type) {
+    set name = itemName
+    set type = "CSP"
+  }
 ]]></Implementation>
 </Method>
 
@@ -2969,8 +2337,8 @@ Called after the compile of the item is done.</Description>
 <FormalSpec>projectName:%String,itemName:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
-	do ..ExtractNameAndNormalizedCategory(itemName, .name, .type)
-	quit $get(^Port.SourceControl.Projects(projectName, type, name), 0)
+  do ..ExtractItemDescription(itemName, .name, .type)
+  quit $get(^Port.SourceControl.Projects(projectName, type, name), 0)
 ]]></Implementation>
 </Method>
 
@@ -2978,30 +2346,30 @@ Called after the compile of the item is done.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	#define ProjectExists(%id) ##class(%Studio.Project).%ExistsId(%id)
-	#define ItemExists(%id) ##class(%Studio.ProjectItem).%ExistsId(%id)
-	
-	set sc = $$$OK
-	if '$data(^Port.SourceControl.Projects) quit sc
-	
-	set global = "^Port.SourceControl.Projects"
-	set q = $query(@global@(""))
-	for {
-		quit:q=""
-		
-		set projectName = $qsubscript(q, 1)
-		set type = $qsubscript(q, 2)
-		set itemName = $qsubscript(q, 3)
-		
-		if type '= "CLS" && (type '= "PRJ") set itemName = itemName_"."_type
-		if type = "CSP" set itemName = $extract(itemName, 2, $length(itemName))
-		set itemId = projectName_"||"_itemName_"||"_type
-		if '$$$ProjectExists(itemName) && '$$$ItemExists(itemId) {
-			kill @q
-		}
-		set q = $query(@q, 1)
-	}
-	quit $$$OK
+  #define ProjectExists(%id) ##class(%Studio.Project).%ExistsId(%id)
+  #define ItemExists(%id) ##class(%Studio.ProjectItem).%ExistsId(%id)
+  
+  set sc = $$$OK
+  if '$data(^Port.SourceControl.Projects) quit sc
+  
+  set global = "^Port.SourceControl.Projects"
+  set q = $query(@global@(""))
+  for {
+    quit:q=""
+    
+    set projectName = $qsubscript(q, 1)
+    set type = $qsubscript(q, 2)
+    set itemName = $qsubscript(q, 3)
+    
+    if type '= "CLS" && (type '= "PRJ") set itemName = itemName_"."_type
+    if type = "CSP" set itemName = $extract(itemName, 2, $length(itemName))
+    set itemId = projectName_"||"_itemName_"||"_type
+    if '$$$ProjectExists(itemName) && '$$$ItemExists(itemId) {
+      kill @q
+    }
+    set q = $query(@q, 1)
+  }
+  quit $$$OK
 ]]></Implementation>
 </Method>
 </Class>
@@ -3081,7 +2449,7 @@ Called after the compile of the item is done.</Description>
 <Implementation><![CDATA[
   set name = internalName
   if internalName '[ $System.CSP.GetDefaultApp($namespace) {
-    set name = $piece(internalName, ".", 1, *)
+    set name = $piece(internalName, ".", 1, *-1)
   }
   quit name
 ]]></Implementation>
@@ -3123,6 +2491,166 @@ Called after the compile of the item is done.</Description>
 </Class>
 
 
+<Class name="Port.TestUtils.MockProject">
+<Super>%RegisteredObject</Super>
+<TimeCreated>64239,32011.631107</TimeCreated>
+
+<Parameter name="MOCKNAME">
+<Default>Faux</Default>
+</Parameter>
+
+<Property name="Project">
+<Type>%Studio.Project</Type>
+</Property>
+
+<Property name="ItemsList">
+<Type>%String</Type>
+<MultiDimensional>1</MultiDimensional>
+</Property>
+
+<Property name="FixtureDirectory">
+<Type>%String</Type>
+</Property>
+
+<Method name="%OnNew">
+<FormalSpec>fixtureDir:%String,withFauxFiles:%Boolean=0,addToProject:%Boolean=0</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set ..FixtureDirectory = fixtureDir
+  $$$QuitOnError(..Create(withFauxFiles, addToProject))
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="%OnClose">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  $$$QuitOnError(..Delete())
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="Delete">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  if ##class(%Studio.Project).%ExistsId(..#MOCKNAME) {    
+    $$$QuitOnError(##class(%Studio.Project).Delete(..#MOCKNAME))
+    $$$QuitOnError(..DisposeFauxItems())
+  }  
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="Create">
+<FormalSpec>withFauxFiles:%Boolean=0,addToProject:%Boolean=0</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+  $$$QuitOnError(..Delete())
+  set ..Project = ##class(%Studio.Project).%New(..#MOCKNAME)
+  set ..Project.Name = ..#MOCKNAME
+  if withFauxFiles  $$$QuitOnError(..CreateFauxItems())
+  if addToProject   $$$QuitOnError(..AddItemsToProject())
+  set sc = ..Project.%Save()
+  $$$QuitOnError(sc)
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="CreateFauxItems">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+  #define TAB $char(9)
+  #define GetAbsolutePath(%relative) ##class(%File).Normalize($System.Util.InstallDirectory, %relative)    
+  set sc = $$$OK
+  
+  set fauxItems = 13
+  set fauxItems(1)  = "Faux.Class.cls"
+  set fauxItems(2)  = "fauxjs.js"
+  set fauxItems(3)  = "fauxcss.css"
+  set fauxItems(4)  = "fauxinc.inc"
+  set fauxItems(5)  = "fauxmac.mac"
+  set fauxItems(6)  = "fauxint.int"
+  set fauxItems(7)  = "fauxmvi.mvi"
+  set fauxItems(8)  = "fauxmvb.mvb"
+  set fauxItems(9)  = "fauxbas.bas"
+  set fauxItems(10) = "fauxdfi.dfi"
+  set fauxItems(11) = "fauxcsp.csp"
+  set fauxItems(12) = "fauxcsr.csr"
+  set fauxItems(13) = "fauxhtml.html"
+  
+  for i=1:1:fauxItems {    
+    set contentType = 0       
+    set name = fauxItems(i)
+    set ext = $piece(name, ".", *)
+    set destination = name
+    set absoluteFilePath = ##class(%File).NormalizeFilename(..FixtureDirectory_"/"_name)
+    if '##class(%File).Exists(absoluteFilePath) continue
+    if $lf($lfs("inc,mac,int,dfi,mvi,mvb,bas"), ext) {
+      set file = ##class(%FileCharacterStream).%New()
+      set file.Filename = absoluteFilePath
+      if ##class(%RoutineMgr).Exists(name) {
+        do ##class(%RoutineMgr).Delete(name)
+      }
+      set routine = ##class(%RoutineMgr).%OpenId(name)     
+      set sc = routine.Code.CopyFrom(file)
+      if $$$ISERR(sc) quit
+      set sc = routine.Code.%Save()
+      if $$$ISERR(sc) quit
+      set routine = ""
+      set contentType = 1
+    } elseif ext = "cls" {
+      set sc = ##class(%Compiler.UDL.TextServices).SetTextFromFile($namespace, ##class(%File).GetFilename(absoluteFilePath), absoluteFilePath)
+      if $$$ISERR(sc) quit
+    } else {
+      set name = $extract($System.CSP.GetDefaultApp($namespace)_"/"_name, 2, *)
+      set destination = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(name)
+      set sc = ##class(%File).CopyFile(absoluteFilePath, destination, 1, .o)
+      if 'sc quit
+      set contentType = 2
+    }
+    set i%ItemsList = $increment(i%ItemsList)
+    set i%ItemsList(destination) = contentType
+    set file = ""
+  }
+  quit sc
+]]></Implementation>
+</Method>
+
+<Method name="DisposeFauxItems">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  if $data(i%ItemsList) quit $$$OK
+  set name = ""
+  for {
+    set name = $order(i%ItemsList(name), 1, type)
+    quit:name=""
+    
+    if type = 1 do ##class(%Routine).Delete(name)
+    if type = 2 do $System.OBJ.Delete(name)
+    if type = 3 do ##class(%File).Delete($System.Util.InstallDirectory()_"/csp/"_$$$lcase($namespace)_"/name")
+  }
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="AddItemsToProject">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set name = ""
+  for {    
+    set name = $order(i%ItemsList(name))
+    quit:name=""
+    
+    do ..Project.AddItem(name)
+  }
+  quit $$$OK
+]]></Implementation>
+</Method>
+</Class>
+
+
 <Class name="Port.UnitTest.Manager">
 <Super>%UnitTest.Manager</Super>
 <TimeCreated>64306,34529.705584</TimeCreated>
@@ -3130,7 +2658,7 @@ Called after the compile of the item is done.</Description>
 <Method name="Root">
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[	quit ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetExportPath())
+<Implementation><![CDATA[  quit ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetExportPath())
 ]]></Implementation>
 </Method>
 </Class>
@@ -3141,15 +2669,227 @@ Called after the compile of the item is done.</Description>
 <TimeCreated>64306,34529.790238</TimeCreated>
 
 <Method name="ToAbsolutePath">
-<FormalSpec>basePath:%String=""</FormalSpec>
+<FormalSpec>filePath:%String=""</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[	quit ##class(%File).NormalizeFilename(..Manager.Root()_"/__tests__/"_basePath)
+<Implementation><![CDATA[
+  
+  set testPath = ##class(Port.SourceControl.Config).GetTestPath()
+  quit ##class(%File).NormalizeFilename(..Manager.Root()_"/"_testPath_"/"_filePath)
 ]]></Implementation>
 </Method>
 </Class>
 
 
-<Project name="port" LastModified="2017-01-24 15:17:44.35944" Target="##class(Port.Project.Manager).Import(&quot;/CacheProjects/DEV/rconnect-base&quot;, 1, 0, 1)" TargetType="0">
+<Class name="UnitTest.Port.Project.Base">
+<Super>Port.UnitTest.TestCase,Port.TestUtils.MockProject</Super>
+<TimeCreated>64329,41592.76981</TimeCreated>
+
+<Parameter name="MOCKNAME">
+<Default>TestProject</Default>
+</Parameter>
+
+<Property name="BaseInstance">
+<Type>Port.Project.Base</Type>
+</Property>
+
+<Method name="OnBeforeOneTest">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set ..BaseInstance = ##class(Port.Project.Base).%New("/CacheProjects/"_$namespace_"/"_..#MOCKNAME)
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="OnBeforeAllTests">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  $$$QuitOnError(..Create())
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="OnAfterAllTests">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  $$$QuitOnError(..Delete())
+  do ##class(%File).RemoveDirectoryTree("/CacheProjects/"_$namespace_"/"_..#MOCKNAME)
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="TestPropertyDefinition">
+<Implementation><![CDATA[
+  
+  #define CheckProperty(%propName)  ##class(%Dictionary.PropertyDefinition).%ExistsId("Port.Project.Base||"_%propName)
+  
+  for prop="Logger","ProjectName","Project","Slash","BasePath","IncPath","ClassPath","IntPath","MacPath","WebPath","MvbPath","MviPath","BasPath","DfiPath","AffectedCount","IsBatch","Overwrite","LogLevel" {
+    do $$$AssertEquals($$$CheckProperty(prop), 1, "Property "_prop_" should exist.")
+  }
+]]></Implementation>
+</Method>
+
+<Method name="TestGetProjectName">
+<Implementation><![CDATA[  do $$$AssertEquals(..BaseInstance.GetProjectName(), ..#MOCKNAME, "Should return the project name")
+]]></Implementation>
+</Method>
+
+<Method name="TestCheckUbiquity">
+<Implementation><![CDATA[
+   
+  set port = ##class(%Studio.Project).%OpenId("port")
+  set baseInstance = ##class(Port.Project.Base).%New("/CacheProjects/"_$namespace_"/port")      
+  $$$ThrowOnError(port.CreateClone("faux"))
+  set faux = ##class(%Studio.Project).%OpenId("faux")
+  do faux.Unlock()  
+  do baseInstance.CheckUbiquity(.uList)
+  set id = ""
+  for {
+    set id = $order(uList(id), 1, itemData)
+    quit:id=""
+    
+    set itemName = $listget(itemData, 1)    
+    set portIdExists = (port.Items.FindObjectId($replace(id, "faux", "port")) '= "")
+    set fauxIdExists = (faux.Items.FindObjectId(id) '= "")    
+    
+    do $$$AssertEquals(portIdExists && fauxIdExists, 1, itemName_" should be ubiquous.")
+  }
+  
+  do ##class(%Studio.Project).%DeleteId("faux")
+]]></Implementation>
+</Method>
+
+<Method name="TestIsOutdated">
+<Implementation><![CDATA[
+  
+ set fauxPath = "/CacheProjects/"_$namespace_"/faux"
+ set faux = ##class(%Studio.Project).%New("faux")
+ do faux.%Save()
+ 
+ set base = ##class(Port.Project.Base).%New(fauxPath)
+ set routine = ##class(%Routine).%New("sayhey.mac")
+ 
+ do Execute(1)
+ do Execute(0)
+
+Execute(expected)
+  if expected = 1 {
+    do CreateFile
+    do $$$LogMessage("Creating a 2 seconds gap ...")
+    hang 2
+    do CreateRoutine
+  } else {
+    do CreateRoutine
+    do $$$LogMessage("Creating a 2 seconds gap ...")
+    hang 2
+    do CreateFile
+  }  
+  do $$$AssertEquals(base.IsOutdated("sayhey.mac", fauxPath_"/mac/sayhey.mac.txt", 0), expected, "Should be "_$case(expected, 1: "outdated", :"up-to-date.")_".")
+  do ##class(%File).RemoveDirectoryTree(fauxPath)
+  do ##class(%Routine).Delete("sayhey.mac")
+  quit
+  
+CreateRoutine
+  do routine.Clear()  
+  do routine.WriteLine("test")
+  do routine.WriteLine($char(9)_"write ""hey!""")
+  do routine.WriteLine($char(9)_"quit")
+  do routine.%Save()
+  
+  do faux.AddItem("sayhey.mac")
+  do faux.%Save()
+  quit
+  
+CreateFile
+  do ##class(%File).CreateDirectoryChain(fauxPath_"/mac")
+  set fs = ##class(%FileCharacterStream).%New()
+  set fs.Filename = fauxPath_"/mac/sayhey.mac.txt"
+  do fs.CopyFrom(routine)
+  do fs.%Save()
+  quit
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Class name="UnitTest.Port.Project.Exporter">
+<Super>Port.UnitTest.TestCase</Super>
+<TimeCreated>64329,41592.843381</TimeCreated>
+
+<Property name="Exporter">
+<Type>Port.Project.Exporter</Type>
+</Property>
+
+<Property name="BasePath">
+<Type>%String</Type>
+<InitialExpression>"/CacheProjects/DEV/port"</InitialExpression>
+</Property>
+
+<Property name="Project">
+<Type>%Studio.Project</Type>
+</Property>
+
+<Method name="OnBeforeAllTests">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  if '$data(^||%Studio.Project) set ^||%Studio.Project = "port"
+  set ..Project = ##class(Port.TestUtils.MockProject).%New(..ToAbsolutePath("fixtures"), 1,1)
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="OnAfterAllTests">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  do ..Project.Delete()
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="OnBeforeOneTest">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  set ..Exporter = ##class(Port.Project.Exporter).%New(..BasePath)
+]]></Implementation>
+</Method>
+
+<Method name="TestExport">
+<Implementation><![CDATA[
+   
+  set fauxItems = 12
+  set fauxItems(1)  = "Faux.Class.cls"
+  set fauxItems(2)  = "fauxjs.js"
+  set fauxItems(3)  = "fauxcss.css"
+  set fauxItems(4)  = "fauxinc.inc"
+  set fauxItems(5)  = "fauxmac.mac"
+  set fauxItems(6)  = "fauxint.int"
+  set fauxItems(7)  = "fauxmvi.mvi"
+  set fauxItems(8)  = "fauxmvb.mvb"
+  set fauxItems(9)  = "fauxbas.bas"
+  set fauxItems(10) = "fauxdfi.dfi"
+  set fauxItems(11) = "fauxcsp.csp"
+  set fauxItems(12) = "fauxcsr.csr"
+  set fauxItems(13) = "fauxhtml.html"
+  
+  set types = $lfs("cls,int,mac,inc,web,bas,mvb,mvi")
+  do $$$AssertStatusOK(..Exporter.Export(), "Should call Export() without issues.") 
+  
+  set itemsCount = ..Project.Items.Count()
+  for i=1:1:itemsCount {  
+    set item = ..Project.Items.GetAt(i)
+    if item.Type '= "CLS" {         
+      set filePath = ..BasePath_"/"_$zcvt($select(item.Name [ ".INC" :$piece(item.Name, ".", 2), 1:item.Type), "L")_"/"_$piece(item.Name, ".")_"."_$zcvt($piece(item.Name, ".", 2), "L")
+    } else {
+      set filePath = $replace(..BasePath_"/cls/"_item.Name, ".", "/")_".cls"
+    }
+    if item.Type '= "CSP" set filePath = filePath_".txt"
+    set filePath = ##class(%File).NormalizeFilename(filePath)
+    do $$$AssertEquals(##class(%File).Exists(filePath), 1, filePath_" should exist")
+  }
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Project name="port" LastModified="2017-02-15 17:14:00.309652" Target="##class(Port.UnitTest.Manager).DebugRunTestCase(&quot;port/tests/port&quot;, &quot;UnitTest.Port.Project.Exporter&quot;)" TargetType="0">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
@@ -3160,22 +2900,22 @@ Called after the compile of the item is done.</Description>
     <ProjectItem name="Port.Project.Manager" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.XMLExporter" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Config" type="CLS"></ProjectItem>
-    <ProjectItem name="Port.SourceControl.Extension.Git" type="CLS"></ProjectItem>
-    <ProjectItem name="Port.SourceControl.Extension.VCS" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Hooks" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Installer" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Log" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.LogCleaner" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Util" type="CLS"></ProjectItem>
+    <ProjectItem name="Port.TestUtils.MockProject" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.Manager" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.TestCase" type="CLS"></ProjectItem>
+    <ProjectItem name="UnitTest.Port.Project.Base" type="CLS"></ProjectItem>
+    <ProjectItem name="UnitTest.Port.Project.Exporter" type="CLS"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>
   </Items>
   <BreakPoints>
-    <BreakPoint Routine="Port.Project.Backup.CLS" Offset="Create+14"></BreakPoint>
-    <BreakPoint Routine="Port.Project.Backup.CLS" Offset="Create+17"></BreakPoint>
-    <BreakPoint Routine="Port.Project.Importer.CLS" Offset="GetFileExtension+5"></BreakPoint>
-    <BreakPoint Routine="Port.Project.Importer.CLS" Offset="Import+27"></BreakPoint>
+    <BreakPoint Routine="UnitTest.Port.Project.Exporter.CLS" Offset="OnAfterAllTests+1"></BreakPoint>
+    <BreakPoint Routine="UnitTest.Port.Project.Exporter.CLS" Offset="OnBeforeAllTests+2"></BreakPoint>
+    <BreakPoint Routine="UnitTest.Port.Project.Exporter.CLS" Offset="TestExport+17"></BreakPoint>
   </BreakPoints>
 </Project>
 

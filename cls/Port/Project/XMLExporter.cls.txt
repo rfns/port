@@ -50,9 +50,9 @@ Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Stat
   if $listvalid(test) && (test '= "") {
     set className = $listget(test, 1)
     set classPath = $listget(test, 2)
-    do ..Logger.Log("Exporting test class {P1} ... ", 1, $replace(className, ".CLS", ""))
+    do ..Logger.Log("[nl]Exporting test class {P1} ... ", 0, $replace(className, ".CLS", ""))
     set sc = $$$ADDSC(sc, $System.OBJ.Export(className, classPath,qspec,, "UTF-8"))
-    write " done."
+    do ..Logger.Log("done.", 0)
     set exported = 1
   }
   quit exported
@@ -60,7 +60,7 @@ Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Stat
 
 Method ResolveTestLocation(absoluteBasePath As %String, className As %String) As %Status [ Final, Internal ]
 {
-  set test = $listbuild(className_".CLS", ##class(Port.Project.Common).ClassToFile(absoluteBasePath, className, "xml"))     
+  set test = $listbuild(className_".CLS", ##class(Port.Project.Helper).ClassToFile(absoluteBasePath, className, "xml"))
   quit test
 }
 

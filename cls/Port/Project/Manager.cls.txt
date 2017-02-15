@@ -20,11 +20,10 @@ ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As 
   quit utility
 }
 
-ClassMethod Export(outputPath As %String, logLevel As %Boolean = 2, force As %Boolean = 0, vcs As Port.SourceControl.Extension.VCS = {$$$NULLOREF}) As %Status
+ClassMethod Export(outputPath As %String, logLevel As %Boolean = 2, force As %Boolean = 0) As %Status
 {
   set exporter = ..AssertUtilityCreation("E", outputPath, logLevel, .sc)
   $$$QuitOnError(sc)
-  set exporter.VCS = vcs
   set exporter.Overwrite = force  
   $$$QuitOnError(exporter.Export())
   set projectName = exporter.GetProjectName()
@@ -41,13 +40,12 @@ ClassMethod ExportToXML(outputPath As %String, justProject As %Boolean = 0) As %
   quit exporter.ExportToXML(justProject)
 }
 
-ClassMethod Import(inputPath As %String, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0, vcs As Port.SourceControl.Extension.VCS = {$$$NULLOREF}) As %Status
+ClassMethod Import(inputPath As %String, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0) As %Status
 {
   set sc = $$$OK
   set importer = ..AssertUtilityCreation("I", inputPath, logLevel, .sc)
   $$$QuitOnError(sc)
   set importer.SkipBackup = skipBackup
-  set importer.VCS = vcs
   set importer.IsBatch = 1
   set importer.Overwrite = overwrite
   set projectName = importer.GetProjectName()
@@ -102,7 +100,7 @@ ClassMethod RemoveItemsFromCategory(projectName As %String, type As %String, Out
   quit sc
 }
 
-ClassMethod ExportTestSuiteToXML(outputPath As %String, vcs As Port.SourceControl.Extension.VCS = {$$$NULLOREF}) As %Status
+ClassMethod ExportTestSuiteToXML(outputPath As %String) As %Status
 {
   set testPath = ##class(Port.SourceControl.Config).GetTestPath()
   set exporter = ..AssertUtilityCreation("X", .outputPath, 0, .sc)

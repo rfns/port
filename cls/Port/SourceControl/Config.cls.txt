@@ -93,67 +93,6 @@ ClassMethod GetTestClassPrefix() As %String
   quit $get(^Port.SourceControl.Settings("test.prefix"))
 }
 
-/// Sets a VCS (version control system) command. Supports template.
-ClassMethod SetVCSCommand(command As %String, args As %Status = "")
-{
-  set ^Port.SourceControl.Settings("vcs.command", command) = args
-}
-
-/// Gets the resolved VCS command.
-ClassMethod GetVCSCommand(command As %String, args... As %String)
-{
-  quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("vcs.command", command)), 0, args...)
-}
-
-/// Sets the VCS executable path. Supports template.
-ClassMethod SetVCSPath(vcsPath As %String)
-{
-  set ^Port.SourceControl.Settings("vcs.path") = vcsPath
-}
-
-/// Gets the resolved VCS executable path.
-ClassMethod GetVCSPath(fullFilePath As %String)
-{
-  quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("vcs.path")))
-}
-
-/// Registers a VCS extension to be used with the source control hook.
-ClassMethod RegisterVCSHandler(vcs As %String) As %Status
-{
-  set ^Port.SourceControl.Settings("vcs.name") = vcs
-}
-
-/// Gets the extension class name.
-ClassMethod GetVCSHandlerName() As %Status
-{
-  
-  quit $get(^Port.SourceControl.Settings("vcs.name"))
-}
-
-/// Enables the VCS extension.
-ClassMethod EnableVCS() As %Status
-{
-  if ..GetVCSHandlerName() = "" quit $$$ERROR($$$CacheError, "Unable to change VCS state: Missing VCS handler.")
-  set ^Port.SourceControl.Settings("vcs.enabled") = 1
-  quit $$$OK
-}
-
-/// Disables the VCS extension.
-ClassMethod DisableVCS() As %Status
-{
-  if ..GetVCSHandlerName() = "" {
-    quit $$$ERROR($$$CacheError, "Unable to change VCS state: Missing VCS handler.")
-  }
-  set ^Port.SourceControl.Settings("vcs.enabled") = 0
-  quit $$$OK
-}
-
-/// Returns 1 if VCS is enabled, 0 if not.
-ClassMethod IsVCSEnabled() As %Boolean
-{
-  quit ($get(^Port.SourceControl.Settings("vcs.enabled"), 0) && (..GetVCSHandlerName() '= ""))
-}
-
 ClassMethod rewritePlaceHolders(basePath As %String, excludeProject As %Boolean = 0, params... As %String) As %String [ Internal ]
 {
   if '$data(params) set params = ""
@@ -167,7 +106,6 @@ ClassMethod rewritePlaceHolders(basePath As %String, excludeProject As %Boolean 
   $$$RewriteIfPathContains("{USERNAME}", $username) 
   $$$RewriteIfPathContains("{EXPORTPATH}", ..GetExportPath())
   $$$RewriteIfPathContains("{FULLEXPORTPATH}", ##class(%File).NormalizeFilename(..GetExportPath())) 
-  $$$RewriteIfPathContains("{VCS}", ..GetVCSPath())
   $$$RewriteIfPathContains("{SLASH}", $select($$$isWINDOWS: "\", 1: "/"))
   if 'excludeProject $$$RewriteIfPathContains("{PROJECT}", $get(^||%Studio.Project))
   if params {

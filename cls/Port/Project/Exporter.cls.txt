@@ -1,10 +1,6 @@
 Class Port.Project.Exporter Extends Port.Project.Base
 {
 
-Property Project As %Studio.Project [ Private ];
-
-Property Overwrite As %Boolean [ InitialExpression = 0 ];
-
 Property PathDependencies As array Of %String [ Private ];
 
 Property ExportedPackages As %List [ Private ];
@@ -25,9 +21,10 @@ Method Export() As %Status
   if ..Project.Items.Count() = 0 {
     do ..Write("[nl]No items to export. Aborting ... [nl] ", 0)
     quit $$$OK
-  }
+  }  
   
   set ..IsBatch = 1
+  do ..Reset()
   
   do ..Write("[nl]Exporting project {P1} ...", 0, ..Project.Name)
   set cspDirectory = ##class(%File).NormalizeFilename($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace))
@@ -45,10 +42,6 @@ Method Export() As %Status
   $$$QuitOnError(..PurgeExtraneousEntries())
   
   do ..Write("All done.[nl]", 0)
-  
-  if ..IsVCSEnabled() && ($listlength(exportList) > 0) {
-    do ..AttemptToCallVCSMethod("OnExport", ..VCS.#PATHS) 
-  }
   quit $$$OK
 }
 
@@ -212,9 +205,7 @@ Method ExportWebFile(itemName As %String, ByRef exportList As %List = "") As %St
   do ..Write(" done.[nl]", 2)
   set ..AffectedCount = ..AffectedCount + 1
   
-  set $list(exportList, $listlength(exportList) + 1) = dest
-  if '..IsBatch do ..AttemptToCallVCSMethod("OnExport", dest)
-  
+  set $list(exportList, $listlength(exportList) + 1) = dest  
   quit $$$OK
 }
 
@@ -253,7 +244,6 @@ Method ExportRoutine(name As %String, exportList As %List = "") As %Status
     
   set $list(exportList, $listlength(exportList) + 1) = dest
   
-  if '..IsBatch do ..AttemptToCallVCSMethod("OnExport", dest)  
   $$$QuitOnError(file.%Save())
   
   set ..AffectedCount = ..AffectedCount + 1
@@ -305,7 +295,6 @@ Method ExportClass(itemName As %String, ByRef exportList As %String = "") As %St
   set ..AffectedCount = ..AffectedCount + 1
   set $list(exportList, $listlength(exportList) + 1) = dest
   
-  if '..IsBatch do ..AttemptToCallVCSMethod("OnExport", dest)
   quit $$$OK
 }
 
@@ -327,6 +316,12 @@ Method ExtractPathDependency(itemName As %String, destPath As %String) [ Final, 
     if ..PathDependencies.IsDefined(dir) quit
     do ..PathDependencies.SetAt(itemName, dir)
   }
+}
+
+Method Reset() As %Status
+{
+  set i%ExportedPackages = ""
+  do ..PathDependencies.Clear()
 }
 
 }

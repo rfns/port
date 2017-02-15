@@ -40,27 +40,6 @@ Method %OnNew(inputPath As %String, logLevel As %Integer = 2) As %Status
   quit $$$OK
 }
 
-Method EnqueueAllFromVCS(filter As %String = "AMD") As %Status
-{
-  do ..ResetLists()
-  
-  set sc = $$$OK
-  set ds = ##class(%SQL.Statement).%New()
-  
-  $$$QuitOnError(ds.%PrepareClassQuery($classname(..VCS), "Diff"))
-  set rows = ds.%Execute(..BasePath, ..VCS.#PATHS,,..VCS.GetParameter("commit"))
-  
-  while rows.%Next(.sc) {
-    if $$$ISERR(sc) quit
-    set compilable = 0
-    set path = rows.%Get("Path") 
-    set type = rows.%Get("Type")
-    set external = ##class(%File).NormalizeFilename(path, ..BasePath)
-    do ..EnqueueItem(external, type)
-  }
-  quit sc
-}
-
 Method EnqueueAll() As %Status
 {
   do ..ResetLists()
@@ -211,7 +190,8 @@ Method ImportList() As %Status [ Internal, Private ]
 
 Method ImportType(group As %Integer) As %Status [ Internal, Private ]
 {
-  set sc = $$$OK  
+  set sc = $$$OK
+  if '$data(i%ImportList(group)) quit sc  
   
   set partialMessage = $listget($$$ImportTypeDescriptions, group)
   do ..WriteExclusive(1, "Importing {P1} ... ", partialMessage)
@@ -291,22 +271,14 @@ Method Import() As %Status
   set sc = $$$OK
   set onlyPopulateProject = 0
   set ..AffectedCount = 0
-  set hasVCS = ..IsVCSEnabled()
       
   tstart
   
   try {
     if ..IsBatch {
       do ..Write("[nl][nl]Importing project {P1} ...[nl]", 1, ..Project.Name)            
-      if 'hasVCS {
-        do ..Write("Enqueuing items to import ... ", 1)
-        $$$ThrowOnError(..EnqueueAll())
-      } else {
-        do ..Write("A version control system has been detected: {P1}.[nl]", 1, ..VCS.#NAME)
-        do ..Write("Using {P1} diff based on commit {P2}.[nl]", 1, ..VCS.#NAME, ..VCS.GetParameter("commit"))
-        do ..Write("Enqueuing items to import ... ", 1)
-        $$$ThrowOnError(..EnqueueAllFromVCS())
-      } 
+      do ..Write("Enqueuing items to import ... ", 1)
+      $$$ThrowOnError(..EnqueueAll())
     }
       
     if i%ImportList > 0 {
@@ -315,7 +287,7 @@ Method Import() As %Status
       if '..SkipBackup $$$ThrowOnError(..Backup.Create(.list))
       $$$ThrowOnError(..ImportList())
     } else {
-      do ..Write("no pending items were found inside the repository.", 1)
+      do ..Write("[nl]No pending items were found inside the repository.", 1)
       do ..Write("[nl]Current repository might be empty or up-to-date.", 1)
     }
     
@@ -331,11 +303,11 @@ Method Import() As %Status
       do ..Write("Project doesn't exists. A new project will be created with the name {P1}.[nl]", 1, ..Project.Name)
     }
     
-    if i%ImportList || (hasVCS && (i%ItemsList > 0)) {
-      do ..Write("[nl][nl]Synchronizing {P1} ...", 1, ..Project.Name)
+    if i%ImportList {
+      do ..Write("[nl]Synchronizing {P1} ...", 1, ..Project.Name)
       $$$ThrowOnError(..SynchronizeProject(.added, .removed))
       do ..Write(" done.[nl]")
-      do ..Write("[nl]Project {P1} has been saved with {P2} items (+ {P2} - {P3}).[nl]", 1, ..Project.Name, ..Project.Items.Count(), added, removed)
+      do ..Write("Project {P1} has been saved with {P2} items (+ {P2} - {P3}).[nl]", 1, ..Project.Name, ..Project.Items.Count(), added, removed)
     }
     
     set ..AffectedCount = i%ImportList    
