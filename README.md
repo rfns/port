@@ -19,7 +19,7 @@ Since it uses a project based approach to handle the source code, many things ha
 
 In order to install Port, you just need to follow the steps below:
 
-1. Import the file [port.xml](https://github.com/rfns/port/master/port.xml).
+1. Import the file [port.xml](https://github.com/rfns/port/blob/master/port.xml).
 2. Run the class method ``##class(Port.SourceControl.Installer).Install()``.
 3. Restart the Studio.
 
@@ -30,7 +30,7 @@ the source control integration according to your taste.
 
 ## TODO
 
-There's still many missing features and bugs to be found. Check the [issues](https://github.com/rfns/port) regularly.
+There's still many missing features and bugs to be found. Check the [issues](https://github.com/rfns/port/issues) regularly.
 
 ## CONTRIBUTION
 
