@@ -47,18 +47,5 @@ ClassMethod AssertTestableClass(className, Output testableClass As %String = "")
   quit (testableClass '= "")
 }
 
-ClassMethod LinkRepositoryToVCS(path As %String) As Port.SourceControl.Extension.VCS
-{
-  set handler = ##class(Port.SourceControl.Config).GetVCSHandlerName()
-  set vcs = ""
-  try {
-    set vcs = $classmethod(handler, "%New", path)
-  } catch ex {
-    // Nothing here. I wouldn't do that if %New didn't triggered an exception.
-    // Seriously...
-  }
-  quit vcs
-}
-
 }
 

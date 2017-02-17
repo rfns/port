@@ -52,7 +52,7 @@ Method EnqueueAll() As %Status
   quit sc
 }
 
-Method EnqueueItem(target As %String, diffType As %String = "") As %Boolean
+Method EnqueueItem(target As %String) As %Boolean
 {
   set enqueued = 0    
   set isWebPath = target [ ..WebPath
@@ -72,9 +72,9 @@ Method EnqueueItem(target As %String, diffType As %String = "") As %Boolean
       set ..Backup.IsRequired = 1
     }
     set i%ItemsList = $increment(i%ItemsList)
-    set i%ItemsList(itemName) = diffType    
+    set i%ItemsList(itemName) = ""    
     
-    if ((diffType = "M") || (diffType = "A")) || isOutdated || ..Overwrite {      
+    if isOutdated || ..Overwrite {
       set i%ImportList = $increment(i%ImportList)
       set i%ImportList(group, itemType, alias) = $listbuild(target, internalFileName)
     }    
@@ -277,12 +277,12 @@ Method Import() As %Status
   try {
     if ..IsBatch {
       do ..Write("[nl][nl]Importing project {P1} ...[nl]", 1, ..Project.Name)            
-      do ..Write("Enqueuing items to import ... ", 1)
+      do ..Write("[nl]Enqueuing items to import ... ", 1)
       $$$ThrowOnError(..EnqueueAll())
     }
       
     if i%ImportList > 0 {
-      do ..Write("[nl]Found {P1} item{P2} to be imported.[nl]", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
+      do ..Write("[nl]Found {P1} item{P2} to be imported.", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
       merge list = i%ImportList
       if '..SkipBackup $$$ThrowOnError(..Backup.Create(.list))
       $$$ThrowOnError(..ImportList())
@@ -300,14 +300,14 @@ Method Import() As %Status
     }
     
     if ..IsNewProject {
-      do ..Write("Project doesn't exists. A new project will be created with the name {P1}.[nl]", 1, ..Project.Name)
+      do ..Write("[nl]Project doesn't exists. A new project will be created with the name {P1}.[nl]", 1, ..Project.Name)
     }
     
     if i%ImportList {
       do ..Write("[nl]Synchronizing {P1} ...", 1, ..Project.Name)
       $$$ThrowOnError(..SynchronizeProject(.added, .removed))
       do ..Write(" done.[nl]")
-      do ..Write("Project {P1} has been saved with {P2} items (+ {P2} - {P3}).[nl]", 1, ..Project.Name, ..Project.Items.Count(), added, removed)
+      do ..Write("[nl]Project {P1} has been saved with {P2} items (+ {P2} - {P3}).[nl]", 1, ..Project.Name, ..Project.Items.Count(), added, removed)
     }
     
     set ..AffectedCount = i%ImportList    
@@ -361,11 +361,11 @@ Method CompileList(qspec As %String = "/expand/nodisplay/checkuptodate/multicomp
   set (sc, allTypesSC) = $$$OK
   
   if i%CompileList '> 0 {
-    do ..Write("[nl][nl]Compilation skipped: No items to compile.", 1)
+    do ..Write("[nl]Compilation skipped: No items to compile.", 1)
     quit $$$OK
   }
   
-  do ..Write("[nl][nl]Found {P1} item{P2} to compile ...", 1, i%CompileList, $case(i%CompileList, 1: "", : "s"))
+  do ..Write("[nl]Found {P1} item{P2} to compile ...", 1, i%CompileList, $case(i%CompileList, 1: "", : "s"))
   
   set typeMessages(2)   = "intermediate routines"
   set typeMessages(3)   = "classes"

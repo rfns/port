@@ -497,14 +497,14 @@ Scan(group, type, created)
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   if ..Project.Items.Count() = 0 {
-    do ..Write("[nl]No items to export. Aborting ... [nl] ", 0)
+    do ..Write("[nl]No items to export. Aborting ... [nl]", 0)
     quit $$$OK
   }  
   
   set ..IsBatch = 1
   do ..Reset()
   
-  do ..Write("[nl]Exporting project {P1} ...", 0, ..Project.Name)
+  do ..Write("[nl]Exporting project {P1} ...[nl]", 0, ..Project.Name)
   set cspDirectory = ##class(%File).NormalizeFilename($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace))
   
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(cspDirectory))
@@ -516,10 +516,10 @@ Scan(group, type, created)
     do ..Write("[nl]No files were exported, project {P1} might be empty or repository is up-to-date.", 0, ..Project.Name)
   }
   
-  do ..Write("[nl]Synchronizing ...[nl]", 0)
+  do ..Write("[nl]Synchronizing ...", 0)
   $$$QuitOnError(..PurgeExtraneousEntries())
   
-  do ..Write("All done.[nl]", 0)
+  do ..Write("[nl]All done.[nl]", 0)
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -555,7 +555,7 @@ Scan(group, type, created)
   set lastParent = ""
   set parentDirectory = ""
   
-  do ..Write("Checking for extraneous files or directories ...")
+  do ..Write("[nl]Checking for extraneous files or directories ...")
   
   for ipath = ..MacPath,..IntPath,..IncPath,..ClassPath,..WebPath,..MvbPath,..MviPath,..DfiPath {
     set sc = ..SearchExtraneousEntries(s, ipath, .extraneousFiles)
@@ -565,8 +565,8 @@ Scan(group, type, created)
   $$$QuitOnError(sc)
   
   set length = $listlength(extraneousFiles)
-  if length > 0 do ..Write(" found {P1} extraneous item{P2}.[nl]", 1, length, $case(length, 1: "", : "s"))
-  else  do ..Write(" no extraneous items were found.[nl]", 1)
+  if length > 0 do ..Write("[nl]Found {P1} extraneous item{P2}.[nl]", 1, length, $case(length, 1: "", : "s"))
+  else  do ..Write("[nl]No extraneous items were found.[nl]", 1)
   
   for i=1:1:length {
     set possiblyDeleted = 0
@@ -689,16 +689,16 @@ Scan(group, type, created)
   if ..Overwrite = 0 && '..IsOutdated(source, dest) {
     quit $$$OK
   }
-  
-  do ..Write("Exporting {P1} ...", 2, name)
+     
+  do ..Write("Exporting {P1} ...", 1, name)
   
   set exported = ##class(%File).CopyFile(source, dest)
   if exported = 0 {
-    do ..Write(" failed!", 2)
+    do ..Write(" failed![nl]", 1)
     quit $$$ERROR($$$GeneralError, "Unable to copy source "_source_" to destination "_dest_".")
   }
   
-  do ..Write(" done.[nl]", 2)
+  do ..Write(" done.[nl]", 1)
   set ..AffectedCount = ..AffectedCount + 1
   
   set $list(exportList, $listlength(exportList) + 1) = dest  
@@ -730,7 +730,7 @@ Scan(group, type, created)
     quit $$$OK
   }
   
-  do ..Write("[nl]Exporting {P1} ...", 2, itemName)
+  do ..Write("Exporting {P1} ...", 1, itemName)
   
   set file = ##class(%FileCharacterStream).%New()
   set file.Filename = dest
@@ -738,8 +738,8 @@ Scan(group, type, created)
   set routine = ##class(%RoutineMgr).%OpenId(name)  
   set sc = file.CopyFrom(routine.Code)
   
-  if $$$ISOK(sc) do ..Write(" done.", 2)
-  else  do ..Write(" failed!", 2) quit sc
+  if $$$ISOK(sc) do ..Write(" done.[nl]", 1)
+  else  do ..Write(" failed![nl]", 1) quit sc
     
   set $list(exportList, $listlength(exportList) + 1) = dest
   
@@ -790,12 +790,12 @@ Scan(group, type, created)
     quit $$$OK
   }
   
-  do ..Write("[nl]Exporting class {P1} ...", 1, itemName)
+  do ..Write("Exporting class {P1} ...", 1, itemName)
   if '##class(%ClassDefinition).%ExistsId(itemName) {
-    do ..Write(" failed!", 1)
+    do ..Write(" failed![nl]", 1)
   } 
   $$$QuitOnError(##class(%Compiler.UDL.TextServices).GetTextAsFile($namespace, itemName, dest))
-  do ..Write(" done.", 1)
+  do ..Write(" done.[nl]", 1)
   
   set ..AffectedCount = ..AffectedCount + 1
   set $list(exportList, $listlength(exportList) + 1) = dest
@@ -1064,7 +1064,7 @@ Scan(group, type, created)
 </Method>
 
 <Method name="EnqueueItem">
-<FormalSpec>target:%String,diffType:%String=""</FormalSpec>
+<FormalSpec>target:%String</FormalSpec>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[
   set enqueued = 0    
@@ -1085,9 +1085,9 @@ Scan(group, type, created)
       set ..Backup.IsRequired = 1
     }
     set i%ItemsList = $increment(i%ItemsList)
-    set i%ItemsList(itemName) = diffType    
+    set i%ItemsList(itemName) = ""    
     
-    if ((diffType = "M") || (diffType = "A")) || isOutdated || ..Overwrite {      
+    if isOutdated || ..Overwrite {
       set i%ImportList = $increment(i%ImportList)
       set i%ImportList(group, itemType, alias) = $listbuild(target, internalFileName)
     }    
@@ -1315,12 +1315,12 @@ Scan(group, type, created)
   try {
     if ..IsBatch {
       do ..Write("[nl][nl]Importing project {P1} ...[nl]", 1, ..Project.Name)            
-      do ..Write("Enqueuing items to import ... ", 1)
+      do ..Write("[nl]Enqueuing items to import ... ", 1)
       $$$ThrowOnError(..EnqueueAll())
     }
       
     if i%ImportList > 0 {
-      do ..Write("[nl]Found {P1} item{P2} to be imported.[nl]", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
+      do ..Write("[nl]Found {P1} item{P2} to be imported.", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
       merge list = i%ImportList
       if '..SkipBackup $$$ThrowOnError(..Backup.Create(.list))
       $$$ThrowOnError(..ImportList())
@@ -1338,14 +1338,14 @@ Scan(group, type, created)
     }
     
     if ..IsNewProject {
-      do ..Write("Project doesn't exists. A new project will be created with the name {P1}.[nl]", 1, ..Project.Name)
+      do ..Write("[nl]Project doesn't exists. A new project will be created with the name {P1}.[nl]", 1, ..Project.Name)
     }
     
     if i%ImportList {
       do ..Write("[nl]Synchronizing {P1} ...", 1, ..Project.Name)
       $$$ThrowOnError(..SynchronizeProject(.added, .removed))
       do ..Write(" done.[nl]")
-      do ..Write("Project {P1} has been saved with {P2} items (+ {P2} - {P3}).[nl]", 1, ..Project.Name, ..Project.Items.Count(), added, removed)
+      do ..Write("[nl]Project {P1} has been saved with {P2} items (+ {P2} - {P3}).[nl]", 1, ..Project.Name, ..Project.Items.Count(), added, removed)
     }
     
     set ..AffectedCount = i%ImportList    
@@ -1403,11 +1403,11 @@ Scan(group, type, created)
   set (sc, allTypesSC) = $$$OK
   
   if i%CompileList '> 0 {
-    do ..Write("[nl][nl]Compilation skipped: No items to compile.", 1)
+    do ..Write("[nl]Compilation skipped: No items to compile.", 1)
     quit $$$OK
   }
   
-  do ..Write("[nl][nl]Found {P1} item{P2} to compile ...", 1, i%CompileList, $case(i%CompileList, 1: "", : "s"))
+  do ..Write("[nl]Found {P1} item{P2} to compile ...", 1, i%CompileList, $case(i%CompileList, 1: "", : "s"))
   
   set typeMessages(2)   = "intermediate routines"
   set typeMessages(3)   = "classes"
@@ -1899,6 +1899,27 @@ Gets the resolved export path. Pass 1 to excludeProject to return the project's 
 ]]></Implementation>
 </Method>
 
+<Method name="EnableAutoExportXML">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[  set ^Port.SourceControl.Settings("xml.autoExport") = 1
+]]></Implementation>
+</Method>
+
+<Method name="DisableAutoExportXML">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[  set ^Port.SourceControl.Settings("xml.autoExport") = 0
+]]></Implementation>
+</Method>
+
+<Method name="IsAutoExportXMLEnabled">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  quit ($get(^Port.SourceControl.Settings("xml.autoExport")) = 1)
+]]></Implementation>
+</Method>
+
 <Method name="SetTestPath">
 <Description>
 Sets the path which the source control should export and look up for tests on XML format.</Description>
@@ -1941,31 +1962,6 @@ Returns 1 if association is enabled, 0 if not.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[  quit ($get(^Port.SourceControl.Settings("test.ondemand")) = 1)
-]]></Implementation>
-</Method>
-
-<Method name="EnableExportOnlyAssertedClass">
-<Description>
-Forces the source control to skip class exportation if source is not covered by it's test class.</Description>
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("test.exportAsserted") = 1
-]]></Implementation>
-</Method>
-
-<Method name="DisableExportOnlyAssertedClass">
-<Description>
-Disable test class constraint, allowing the source to be exported regardless of having a test class.</Description>
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("test.exportAsserted") = 0
-]]></Implementation>
-</Method>
-
-<Method name="IsClassAssertionRequired">
-<Description>
-Returns 1 if constraint is enabled, 0 if not.</Description>
-<ClassMethod>1</ClassMethod>
-<ReturnType>%Boolean</ReturnType>
-<Implementation><![CDATA[  quit ($get(^Port.SourceControl.Settings("test.exportAsserted")) = 1)
 ]]></Implementation>
 </Method>
 
@@ -2036,6 +2032,9 @@ Gets the association prefix.</Description>
 <MenuItem Name="%RunTestSuite"/>
 <MenuItem Separator="1" />
 <MenuItem Name="%ImportProject"/>
+<MenuItem Separator="1" />
+<MenuItem Name="%ForceExportProject"/>
+<MenuItem Name="%ForceImportProject"/>
 </Menu>
 <Menu Name="%SourceContext" Type="1">
 <MenuItem Name="%UpdateActiveItem" />
@@ -2059,6 +2058,7 @@ Gets the association prefix.</Description>
     set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)    
     set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)
     set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
+    set shouldExportAsXML = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()
     
     if type '= "PRJ" {    
       if type = "CLS" {
@@ -2071,6 +2071,7 @@ Gets the association prefix.</Description>
         set sc = exporter.ExportWebFile(itemName)     
       }
       $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, InternalName))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath))
     }
   }
   quit sc
@@ -2104,10 +2105,13 @@ Gets the association prefix.</Description>
     set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)
     set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
     set testPath = ##class(Port.SourceControl.Config).GetTestPath()
-    set logLevel = ##class(Port.SourceControl.Config).GetLogLevel()   
+    set logLevel = ##class(Port.SourceControl.Config).GetLogLevel()
+    set shouldExportAsXML = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()
     
     if name = "%ExportProject" {      
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel,0))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+      quit $$$OK
     }
     if name = "%ExportProjectToXML" {
       quit ##class(Port.Project.Manager).ExportToXML(projectPath)
@@ -2149,7 +2153,8 @@ Gets the association prefix.</Description>
           set internalName = $extract(InternalName, 2, *)
         }
         $$$QuitOnError(exporter.ExportItem(internalName))
-        quit ##class(Port.SourceControl.Log).LogChange(projectName, internalName)
+        $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, internalName))
+        if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
       } else {
         quit ##class(Port.Project.Manager).Export(projectPath, logLevel, 1)
       }
@@ -2169,7 +2174,17 @@ Gets the association prefix.</Description>
         $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
         quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass)
       }
-    }   
+    }
+    
+    if name = "%ForceExportProject" {
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+    }
+    
+    if name = "%ForceImportProject" {
+      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+    }    
   }
   quit $$$OK
 ]]></Implementation>
@@ -2224,6 +2239,14 @@ Gets the association prefix.</Description>
   
   if name ="%UpdateActiveItem" {
     set DisplayName = "Import Selected Item"
+  }
+  
+  if name = "%ForceImportProject" {
+    set DisplayName = "Force this project to be imported"
+  }
+  
+  if name = "%ForceExportProject" {
+    set DisplayName = "Force this project to be exported"
   }
   
   set isProjectOpened = ($get(^||%Studio.Project, "Default") '[ "Default")
@@ -2290,7 +2313,7 @@ Called after the compile of the item is done.</Description>
 	do ##class(Port.SourceControl.Config).SetTestPath("tests/{PROJECT}")
 	do ##class(Port.SourceControl.Config).SetTestClassPrefix("UnitTest")
 	do ##class(Port.SourceControl.Config).EnableTestOnDemand()
-	do ##class(Port.SourceControl.Config).DisableExportOnlyAssertedClass()
+	do ##class(Port.SourceControl.Config).EnableAutoExportXML()
 	do ##class(Port.SourceControl.Config).SetLogLevel(1)
 	
 	$$$QuitOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
@@ -2402,7 +2425,7 @@ Called after the compile of the item is done.</Description>
 
 <Method name="OnTask">
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[	quit ##class(Port.SourceControl.Util).synchronizeLog()
+<Implementation><![CDATA[	quit ##class(Port.SourceControl.Log).Synchronize()
 ]]></Implementation>
 </Method>
 </Class>
@@ -2469,23 +2492,6 @@ Called after the compile of the item is done.</Description>
     set testableClass = prefix_"."_className 
   }
   quit (testableClass '= "")
-]]></Implementation>
-</Method>
-
-<Method name="LinkRepositoryToVCS">
-<ClassMethod>1</ClassMethod>
-<FormalSpec>path:%String</FormalSpec>
-<ReturnType>Port.SourceControl.Extension.VCS</ReturnType>
-<Implementation><![CDATA[
-  set handler = ##class(Port.SourceControl.Config).GetVCSHandlerName()
-  set vcs = ""
-  try {
-    set vcs = $classmethod(handler, "%New", path)
-  } catch ex {
-    // Nothing here. I wouldn't do that if %New didn't triggered an exception.
-    // Seriously...
-  }
-  quit vcs
 ]]></Implementation>
 </Method>
 </Class>
@@ -2668,7 +2674,7 @@ Called after the compile of the item is done.</Description>
 <Super>%UnitTest.TestCase</Super>
 <TimeCreated>64306,34529.790238</TimeCreated>
 
-<Method name="ToAbsolutePath">
+<Method name="GetTestDirectory">
 <FormalSpec>filePath:%String=""</FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
@@ -2832,7 +2838,7 @@ CreateFile
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   if '$data(^||%Studio.Project) set ^||%Studio.Project = "port"
-  set ..Project = ##class(Port.TestUtils.MockProject).%New(..ToAbsolutePath("fixtures"), 1,1)
+  set ..Project = ##class(Port.TestUtils.MockProject).%New(..GetTestDirectory("fixtures"), 1,1)
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -2847,7 +2853,9 @@ CreateFile
 
 <Method name="OnBeforeOneTest">
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  set ..Exporter = ##class(Port.Project.Exporter).%New(..BasePath)
+<Implementation><![CDATA[
+  set ..Exporter = ##class(Port.Project.Exporter).%New(..BasePath)
+  quit $$$OK
 ]]></Implementation>
 </Method>
 
@@ -2889,7 +2897,7 @@ CreateFile
 </Class>
 
 
-<Project name="port" LastModified="2017-02-15 17:14:00.309652" Target="##class(Port.UnitTest.Manager).DebugRunTestCase(&quot;port/tests/port&quot;, &quot;UnitTest.Port.Project.Exporter&quot;)" TargetType="0">
+<Project name="port" LastModified="2017-02-17 09:29:39.688317" Target="##class(UnitTest.Port.Project.Exporter).test()" TargetType="0">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
@@ -2912,11 +2920,6 @@ CreateFile
     <ProjectItem name="UnitTest.Port.Project.Exporter" type="CLS"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>
   </Items>
-  <BreakPoints>
-    <BreakPoint Routine="UnitTest.Port.Project.Exporter.CLS" Offset="OnAfterAllTests+1"></BreakPoint>
-    <BreakPoint Routine="UnitTest.Port.Project.Exporter.CLS" Offset="OnBeforeAllTests+2"></BreakPoint>
-    <BreakPoint Routine="UnitTest.Port.Project.Exporter.CLS" Offset="TestExport+17"></BreakPoint>
-  </BreakPoints>
 </Project>
 
 

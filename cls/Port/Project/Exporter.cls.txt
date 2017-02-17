@@ -19,14 +19,14 @@ Method %OnNew(path As %String, logLevel As %Integer = 2) As %Status
 Method Export() As %Status
 {
   if ..Project.Items.Count() = 0 {
-    do ..Write("[nl]No items to export. Aborting ... [nl] ", 0)
+    do ..Write("[nl]No items to export. Aborting ... [nl]", 0)
     quit $$$OK
   }  
   
   set ..IsBatch = 1
   do ..Reset()
   
-  do ..Write("[nl]Exporting project {P1} ...", 0, ..Project.Name)
+  do ..Write("[nl]Exporting project {P1} ...[nl]", 0, ..Project.Name)
   set cspDirectory = ##class(%File).NormalizeFilename($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace))
   
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(cspDirectory))
@@ -38,10 +38,10 @@ Method Export() As %Status
     do ..Write("[nl]No files were exported, project {P1} might be empty or repository is up-to-date.", 0, ..Project.Name)
   }
   
-  do ..Write("[nl]Synchronizing ...[nl]", 0)
+  do ..Write("[nl]Synchronizing ...", 0)
   $$$QuitOnError(..PurgeExtraneousEntries())
   
-  do ..Write("All done.[nl]", 0)
+  do ..Write("[nl]All done.[nl]", 0)
   quit $$$OK
 }
 
@@ -73,7 +73,7 @@ Method PurgeExtraneousEntries() As %Status
   set lastParent = ""
   set parentDirectory = ""
   
-  do ..Write("Checking for extraneous files or directories ...")
+  do ..Write("[nl]Checking for extraneous files or directories ...")
   
   for ipath = ..MacPath,..IntPath,..IncPath,..ClassPath,..WebPath,..MvbPath,..MviPath,..DfiPath {
     set sc = ..SearchExtraneousEntries(s, ipath, .extraneousFiles)
@@ -83,8 +83,8 @@ Method PurgeExtraneousEntries() As %Status
   $$$QuitOnError(sc)
   
   set length = $listlength(extraneousFiles)
-  if length > 0 do ..Write(" found {P1} extraneous item{P2}.[nl]", 1, length, $case(length, 1: "", : "s"))
-  else  do ..Write(" no extraneous items were found.[nl]", 1)
+  if length > 0 do ..Write("[nl]Found {P1} extraneous item{P2}.[nl]", 1, length, $case(length, 1: "", : "s"))
+  else  do ..Write("[nl]No extraneous items were found.[nl]", 1)
   
   for i=1:1:length {
     set possiblyDeleted = 0
@@ -193,16 +193,16 @@ Method ExportWebFile(itemName As %String, ByRef exportList As %List = "") As %St
   if ..Overwrite = 0 && '..IsOutdated(source, dest) {
     quit $$$OK
   }
-  
-  do ..Write("Exporting {P1} ...", 2, name)
+     
+  do ..Write("Exporting {P1} ...", 1, name)
   
   set exported = ##class(%File).CopyFile(source, dest)
   if exported = 0 {
-    do ..Write(" failed!", 2)
+    do ..Write(" failed![nl]", 1)
     quit $$$ERROR($$$GeneralError, "Unable to copy source "_source_" to destination "_dest_".")
   }
   
-  do ..Write(" done.[nl]", 2)
+  do ..Write(" done.[nl]", 1)
   set ..AffectedCount = ..AffectedCount + 1
   
   set $list(exportList, $listlength(exportList) + 1) = dest  
@@ -231,7 +231,7 @@ Method ExportRoutine(name As %String, exportList As %List = "") As %Status
     quit $$$OK
   }
   
-  do ..Write("[nl]Exporting {P1} ...", 2, itemName)
+  do ..Write("Exporting {P1} ...", 1, itemName)
   
   set file = ##class(%FileCharacterStream).%New()
   set file.Filename = dest
@@ -239,8 +239,8 @@ Method ExportRoutine(name As %String, exportList As %List = "") As %Status
   set routine = ##class(%RoutineMgr).%OpenId(name)  
   set sc = file.CopyFrom(routine.Code)
   
-  if $$$ISOK(sc) do ..Write(" done.", 2)
-  else  do ..Write(" failed!", 2) quit sc
+  if $$$ISOK(sc) do ..Write(" done.[nl]", 1)
+  else  do ..Write(" failed![nl]", 1) quit sc
     
   set $list(exportList, $listlength(exportList) + 1) = dest
   
@@ -285,12 +285,12 @@ Method ExportClass(itemName As %String, ByRef exportList As %String = "") As %St
     quit $$$OK
   }
   
-  do ..Write("[nl]Exporting class {P1} ...", 1, itemName)
+  do ..Write("Exporting class {P1} ...", 1, itemName)
   if '##class(%ClassDefinition).%ExistsId(itemName) {
-    do ..Write(" failed!", 1)
+    do ..Write(" failed![nl]", 1)
   } 
   $$$QuitOnError(##class(%Compiler.UDL.TextServices).GetTextAsFile($namespace, itemName, dest))
-  do ..Write(" done.", 1)
+  do ..Write(" done.[nl]", 1)
   
   set ..AffectedCount = ..AffectedCount + 1
   set $list(exportList, $listlength(exportList) + 1) = dest

@@ -21,7 +21,7 @@ ClassMethod StartTask() As %Status
 
 Method OnTask() As %Status
 {
-	quit ##class(Port.SourceControl.Util).synchronizeLog()
+	quit ##class(Port.SourceControl.Log).Synchronize()
 }
 
 }

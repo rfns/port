@@ -42,7 +42,7 @@
   
   #define CheckProperty(%propName)  ##class(%Dictionary.PropertyDefinition).%ExistsId("Port.Project.Base||"_%propName)
   
-  for prop="Logger","ProjectName","Project","Slash","BasePath","IncPath","ClassPath","IntPath","MacPath","WebPath","MvbPath","MviPath","BasPath","DfiPath","AffectedCount","VCS","IsBatch","Overwrite","LogLevel" {
+  for prop="Logger","ProjectName","Project","Slash","BasePath","IncPath","ClassPath","IntPath","MacPath","WebPath","MvbPath","MviPath","BasPath","DfiPath","AffectedCount","IsBatch","Overwrite","LogLevel" {
     do $$$AssertEquals($$$CheckProperty(prop), 1, "Property "_prop_" should exist.")
   }
 ]]></Implementation>

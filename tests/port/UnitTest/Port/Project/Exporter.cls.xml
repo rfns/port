@@ -21,7 +21,7 @@
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   if '$data(^||%Studio.Project) set ^||%Studio.Project = "port"
-  set ..Project = ##class(Port.TestUtils.MockProject).%New(..ToAbsolutePath("fixtures"), 1,1)
+  set ..Project = ##class(Port.TestUtils.MockProject).%New(..GetTestDirectory("fixtures"), 1,1)
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -73,6 +73,12 @@
     set filePath = ##class(%File).NormalizeFilename(filePath)
     do $$$AssertEquals(##class(%File).Exists(filePath), 1, filePath_" should exist")
   }
+]]></Implementation>
+</Method>
+
+<Method name="test">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[  quit ##class(Port.Project.Manager).Export("/CacheProjects/DEV/Port", 3, 1)
 ]]></Implementation>
 </Method>
 </Class>

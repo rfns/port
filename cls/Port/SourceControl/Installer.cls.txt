@@ -7,7 +7,7 @@ ClassMethod Install() As %Status
 	do ##class(Port.SourceControl.Config).SetTestPath("tests/{PROJECT}")
 	do ##class(Port.SourceControl.Config).SetTestClassPrefix("UnitTest")
 	do ##class(Port.SourceControl.Config).EnableTestOnDemand()
-	do ##class(Port.SourceControl.Config).DisableExportOnlyAssertedClass()
+	do ##class(Port.SourceControl.Config).EnableAutoExportXML()
 	do ##class(Port.SourceControl.Config).SetLogLevel(1)
 	
 	$$$QuitOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))

@@ -18,6 +18,9 @@ XData Menu
 <MenuItem Name="%RunTestSuite"/>
 <MenuItem Separator="1" />
 <MenuItem Name="%ImportProject"/>
+<MenuItem Separator="1" />
+<MenuItem Name="%ForceExportProject"/>
+<MenuItem Name="%ForceImportProject"/>
 </Menu>
 <Menu Name="%SourceContext" Type="1">
 <MenuItem Name="%UpdateActiveItem" />
@@ -38,6 +41,7 @@ Method OnAfterSave(InternalName As %String) As %Status
     set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)    
     set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)
     set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
+    set shouldExportAsXML = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()
     
     if type '= "PRJ" {    
       if type = "CLS" {
@@ -50,6 +54,7 @@ Method OnAfterSave(InternalName As %String) As %Status
         set sc = exporter.ExportWebFile(itemName)     
       }
       $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, InternalName))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath))
     }
   }
   quit sc
@@ -78,10 +83,13 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)
     set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
     set testPath = ##class(Port.SourceControl.Config).GetTestPath()
-    set logLevel = ##class(Port.SourceControl.Config).GetLogLevel()   
+    set logLevel = ##class(Port.SourceControl.Config).GetLogLevel()
+    set shouldExportAsXML = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()
     
     if name = "%ExportProject" {      
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel,0))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+      quit $$$OK
     }
     if name = "%ExportProjectToXML" {
       quit ##class(Port.Project.Manager).ExportToXML(projectPath)
@@ -123,7 +131,8 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
           set internalName = $extract(InternalName, 2, *)
         }
         $$$QuitOnError(exporter.ExportItem(internalName))
-        quit ##class(Port.SourceControl.Log).LogChange(projectName, internalName)
+        $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, internalName))
+        if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
       } else {
         quit ##class(Port.Project.Manager).Export(projectPath, logLevel, 1)
       }
@@ -143,7 +152,17 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
         $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
         quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass)
       }
-    }   
+    }
+    
+    if name = "%ForceExportProject" {
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+    }
+    
+    if name = "%ForceImportProject" {
+      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+    }    
   }
   quit $$$OK
 }
@@ -195,6 +214,14 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
   
   if name ="%UpdateActiveItem" {
     set DisplayName = "Import Selected Item"
+  }
+  
+  if name = "%ForceImportProject" {
+    set DisplayName = "Force this project to be imported"
+  }
+  
+  if name = "%ForceExportProject" {
+    set DisplayName = "Force this project to be exported"
   }
   
   set isProjectOpened = ($get(^||%Studio.Project, "Default") '[ "Default")

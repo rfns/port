@@ -32,6 +32,21 @@ ClassMethod GetExportPath(excludeProject As %Boolean = 0) As %String
   quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("source.path")), excludeProject)
 }
 
+ClassMethod EnableAutoExportXML() As %Boolean
+{
+  set ^Port.SourceControl.Settings("xml.autoExport") = 1
+}
+
+ClassMethod DisableAutoExportXML() As %Boolean
+{
+  set ^Port.SourceControl.Settings("xml.autoExport") = 0
+}
+
+ClassMethod IsAutoExportXMLEnabled() As %Status
+{
+  quit ($get(^Port.SourceControl.Settings("xml.autoExport")) = 1)
+}
+
 /// Sets the path which the source control should export and look up for tests on XML format.
 ClassMethod SetTestPath(newPath As %String)
 {
@@ -61,24 +76,6 @@ ClassMethod DisableTestOnDemand()
 ClassMethod IsTestOnDemandEnabled() As %String
 {
   quit ($get(^Port.SourceControl.Settings("test.ondemand")) = 1)
-}
-
-/// Forces the source control to skip class exportation if source is not covered by it's test class.
-ClassMethod EnableExportOnlyAssertedClass()
-{
-  set ^Port.SourceControl.Settings("test.exportAsserted") = 1
-}
-
-/// Disable test class constraint, allowing the source to be exported regardless of having a test class.
-ClassMethod DisableExportOnlyAssertedClass()
-{
-  set ^Port.SourceControl.Settings("test.exportAsserted") = 0
-}
-
-/// Returns 1 if constraint is enabled, 0 if not.
-ClassMethod IsClassAssertionRequired() As %Boolean
-{
-  quit ($get(^Port.SourceControl.Settings("test.exportAsserted")) = 1)
 }
 
 /// Sets the prefix used to associate the source with it's test class.
