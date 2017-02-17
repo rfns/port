@@ -1900,6 +1900,8 @@ Gets the resolved export path. Pass 1 to excludeProject to return the project's 
 </Method>
 
 <Method name="EnableAutoExportXML">
+<Description>
+Enables the feature: exports the project as XML when it is saved or plainly exported.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[  set ^Port.SourceControl.Settings("xml.autoExport") = 1
@@ -1907,6 +1909,8 @@ Gets the resolved export path. Pass 1 to excludeProject to return the project's 
 </Method>
 
 <Method name="DisableAutoExportXML">
+<Description>
+Disables the feature: exports the project as XML when it is saved or plainly exported.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[  set ^Port.SourceControl.Settings("xml.autoExport") = 0
@@ -1914,6 +1918,8 @@ Gets the resolved export path. Pass 1 to excludeProject to return the project's 
 </Method>
 
 <Method name="IsAutoExportXMLEnabled">
+<Description>
+Returns if the auto-export feature is enabled. </Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[  quit ($get(^Port.SourceControl.Settings("xml.autoExport")) = 1)

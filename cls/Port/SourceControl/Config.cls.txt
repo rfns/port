@@ -32,16 +32,19 @@ ClassMethod GetExportPath(excludeProject As %Boolean = 0) As %String
   quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("source.path")), excludeProject)
 }
 
+/// Enables the feature: exports the project as XML when it is saved or plainly exported.
 ClassMethod EnableAutoExportXML() As %Boolean
 {
   set ^Port.SourceControl.Settings("xml.autoExport") = 1
 }
 
+/// Disables the feature: exports the project as XML when it is saved or plainly exported.
 ClassMethod DisableAutoExportXML() As %Boolean
 {
   set ^Port.SourceControl.Settings("xml.autoExport") = 0
 }
 
+/// Returns if the auto-export feature is enabled. 
 ClassMethod IsAutoExportXMLEnabled() As %Status
 {
   quit ($get(^Port.SourceControl.Settings("xml.autoExport")) = 1)
