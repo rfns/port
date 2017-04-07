@@ -1,4 +1,4 @@
-# CONTRIBUINDO
+# CONTRIBUTING
 
 In order to contribute to this repository, some few guildes should be followed.
 
