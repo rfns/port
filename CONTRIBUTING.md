@@ -19,7 +19,7 @@ And the content must provide the following data:
 
 ## Contributing as a coder
 
-1. [fork](https://github.com/qualix-tec/shipy-isc-api#fork-destination-box) this project.
+1. [fork](https://github.com/rfns/port#fork-destination-box) this project.
 2. Make a branch, try to avoid using `master` to prevent confusion.
 3. Fix or add new features.
 5. Test, test and test again.
