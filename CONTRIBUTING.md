@@ -25,7 +25,7 @@ And the content must provide the following data:
 5. Test, test and test again.
 6. All your tests passed? Then `commit` your change.
 7. Update your fork, `git push origin <your-feature-branch>`.
-8. Open a new pull [pull request](https://github.com/qualix-tec/shipy-isc-api/pulls) for this repo.
+8. Open a new pull [pull request](https://github.com/rfns/port/pulls) for this repo.
 7. Standby while your commit is evaluated by the mantainers.
 8. When approved, your PR will be merged to the base.
 9. Not approved? Uh-oh, something might be missing or breaking the current release. Check the details on your PR.
