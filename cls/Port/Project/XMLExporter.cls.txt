@@ -6,7 +6,7 @@ Method ExportToXML(justProject As %Boolean = 0, qspec As %String = "/diffexport=
   set destination = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_".xml")  
   do ..Write("[nl]Exporting project {P1} to XML ...", 0, ..GetProjectName())
   $$$QuitOnError(..Project.Export(destination, qspec, justProject, errorlog, charset))
-  do ..Write("[nl]Project exported to {P1}", 0, destination)
+  do ..Write("[nl]Project exported to {P1}[nl]", 0, destination)
   quit $$$OK
 }
 

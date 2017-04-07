@@ -230,6 +230,7 @@ Method ImportPartial(target As %String, importedList As %String = 0) As %Status
   #define NormalizePath(%path)  ##class(%File).NormalizeFilename(%path)
   set sc = $$$OK
   
+  write target
   set resolvedTarget = ##class(%File).NormalizeFilename(target, ..BasePath)
   
   if (resolvedTarget = ..BasePath) {
@@ -282,13 +283,13 @@ Method Import() As %Status
     }
       
     if i%ImportList > 0 {
-      do ..Write("[nl]Found {P1} item{P2} to be imported.", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
+      do ..Write("[nl]Found {P1} item{P2} to be imported.[nl]", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
       merge list = i%ImportList
       if '..SkipBackup $$$ThrowOnError(..Backup.Create(.list))
       $$$ThrowOnError(..ImportList())
     } else {
       do ..Write("[nl]No pending items were found inside the repository.", 1)
-      do ..Write("[nl]Current repository might be empty or up-to-date.", 1)
+      do ..Write("[nl]Current repository might be empty or up-to-date.[nl]", 1)
     }
     
     if i%CompileList {

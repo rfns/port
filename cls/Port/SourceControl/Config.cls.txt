@@ -93,6 +93,24 @@ ClassMethod GetTestClassPrefix() As %String
   quit $get(^Port.SourceControl.Settings("test.prefix"))
 }
 
+ClassMethod Ignore(paths As %String = "") As %Status
+{
+  if paths = "" quit $$$ERROR($$$GeneralError, "'paths' cannot be empty.")
+  set ^Port.SourceControl.Settings("export.extraneous.ignore") = $listfromstring(paths)
+  quit $$$OK
+}
+
+ClassMethod ClearIgnoredPaths() As %Status
+{
+  kill ^Port.SourceControl.Settings("export.extraneous.ignore")
+  quit $$$OK
+}
+
+ClassMethod GetIgnoredPaths() As %Status
+{
+  quit $get(^Port.SourceControl.Settings("export.extraneous.ignore"))
+}
+
 ClassMethod rewritePlaceHolders(basePath As %String, excludeProject As %Boolean = 0, params... As %String) As %String [ Internal ]
 {
   if '$data(params) set params = ""

@@ -1266,6 +1266,7 @@ Scan(group, type, created)
   #define NormalizePath(%path)  ##class(%File).NormalizeFilename(%path)
   set sc = $$$OK
   
+  write target
   set resolvedTarget = ##class(%File).NormalizeFilename(target, ..BasePath)
   
   if (resolvedTarget = ..BasePath) {
@@ -1320,13 +1321,13 @@ Scan(group, type, created)
     }
       
     if i%ImportList > 0 {
-      do ..Write("[nl]Found {P1} item{P2} to be imported.", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
+      do ..Write("[nl]Found {P1} item{P2} to be imported.[nl]", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
       merge list = i%ImportList
       if '..SkipBackup $$$ThrowOnError(..Backup.Create(.list))
       $$$ThrowOnError(..ImportList())
     } else {
       do ..Write("[nl]No pending items were found inside the repository.", 1)
-      do ..Write("[nl]Current repository might be empty or up-to-date.", 1)
+      do ..Write("[nl]Current repository might be empty or up-to-date.[nl]", 1)
     }
     
     if i%CompileList {
@@ -1765,7 +1766,7 @@ LoopThroughType(projectName, importedList, group)
   set destination = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_".xml")  
   do ..Write("[nl]Exporting project {P1} to XML ...", 0, ..GetProjectName())
   $$$QuitOnError(..Project.Export(destination, qspec, justProject, errorlog, charset))
-  do ..Write("[nl]Project exported to {P1}", 0, destination)
+  do ..Write("[nl]Project exported to {P1}[nl]", 0, destination)
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -1986,6 +1987,33 @@ Gets the association prefix.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[  quit $get(^Port.SourceControl.Settings("test.prefix"))
+]]></Implementation>
+</Method>
+
+<Method name="Ignore">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>paths:%String=""</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  if paths = "" quit $$$ERROR($$$GeneralError, "'paths' cannot be empty.")
+  set ^Port.SourceControl.Settings("export.extraneous.ignore") = $listfromstring(paths)
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ClearIgnoredPaths">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  kill ^Port.SourceControl.Settings("export.extraneous.ignore")
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="GetIgnoredPaths">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  quit $get(^Port.SourceControl.Settings("export.extraneous.ignore"))
 ]]></Implementation>
 </Method>
 
@@ -2456,7 +2484,7 @@ Called after the compile of the item is done.</Description>
   set defaultPath = ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetExportPath())
   
   if type = "CLS" {
-    set fullPath = ##class(Port.Project.Helper).ClassToFile(defaultPath_"/cls", $piece(itemName, ".", 1, *))
+    set fullPath = ##class(Port.Project.Helper).ClassToFile(defaultPath_"/cls", $piece(itemName, ".", 1, *-1))
   } elseif ##class(Port.Project.Helper).IsRoutine(itemName) {
     set ext = $$$lcase(type)
     set fileName = $$$lcase(itemName)_".txt"
@@ -2900,10 +2928,20 @@ CreateFile
   }
 ]]></Implementation>
 </Method>
+
+<Method name="test">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  do ##class(Port.SourceControl.Config).ClearIgnoredPaths()
+  do ##class(Port.SourceControl.Config).Ignore("web/build/app,web/build/app2,web/assets,web/app")
+  set sc = ##class(Port.Project.Manager).Export("/CacheProjects/DEV/teste", 1, 1, ##class(Port.SourceControl.Config).GetIgnoredPaths())
+  quit sc
+]]></Implementation>
+</Method>
 </Class>
 
 
-<Project name="port" LastModified="2017-02-17 09:29:39.688317" Target="##class(UnitTest.Port.Project.Exporter).test()" TargetType="0">
+<Project name="port" LastModified="2017-04-07 14:10:35.433488" Target="##class(UnitTest.Port.Project.Exporter).test()" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
@@ -2926,6 +2964,11 @@ CreateFile
     <ProjectItem name="UnitTest.Port.Project.Exporter" type="CLS"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>
   </Items>
+  <BreakPoints>
+    <BreakPoint Routine="Port.Project.Exporter.CLS" Offset="SearchExtraneousEntries+1"></BreakPoint>
+    <BreakPoint Routine="Port.Project.Exporter.CLS" Offset="SearchExtraneousEntries+16"></BreakPoint>
+    <BreakPoint Routine="UnitTest.Port.Project.Exporter.CLS" Offset="test+1"></BreakPoint>
+  </BreakPoints>
 </Project>
 
 
