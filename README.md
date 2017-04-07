@@ -56,7 +56,7 @@ This might be useful when ignoring web bundles.
 
 ## CONTRIBUTION
 
-Contribution guide is planned to be added soon.
+[Here](https://github.com/rfns/port/blob/CONTRIBUTING.md).
 
 ## LICENSE
 
