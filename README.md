@@ -10,8 +10,8 @@ Since it uses a project based approach to handle the source code, many things ha
 
 * **Development and organization**: Keep the development and versioning within the project scope.
 * **Tests**: Isolated per project, close to it's source, can be run on-demand.
-* **Source format**: While the Caché Studio allows projects to be exported, it uses the XML Format. Such format, though functional, provides low readability.
-* **%Studio.SourceCode integration**: Exports the active when when saved. No need to check-in or check-out the item. Let the project dictates the rules.
+* **Source format**: While the Caché Studio allows projects to be exported, it uses the XML Format. Such format, though functional, provides low readability. Port however, exports the source in plain format.
+* **SourceControl integration**: Exports the active item when when saved. No need to check-in or check-out the item. Let the project dictates the rules.
 * **Synchronization**: Keeps your repository in-sync with the project. Removes extraneous items when exported.
 * **Smart backup**: Mirrors the application directory and backups only what is changed.
 
@@ -19,7 +19,7 @@ Since it uses a project based approach to handle the source code, many things ha
 
 In order to install Port, you just need to follow the steps below:
 
-1. Import the file [port.xml](https://github.com/rfns/port/master/port.xml).
+1. Import the file [port.xml](https://github.com/rfns/port/blob/master/port.xml).
 2. Run the class method ``##class(Port.SourceControl.Installer).Install()``.
 3. Restart the Studio.
 
@@ -28,9 +28,13 @@ In order to install Port, you just need to follow the steps below:
 You might also want to check out the class ``Port.SourceControl.Config`` and configure
 the source control integration according to your taste.
 
+## How to use
+
+To be added.
+
 ## TODO
 
-There's still many missing features and bugs to be found. Check the [issues](https://github.com/rfns/port) regularly.
+There's still many missing features and bugs to be found. Check the [issues](https://github.com/rfns/port/issues) regularly.
 
 ## CONTRIBUTION
 
