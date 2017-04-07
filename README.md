@@ -1,18 +1,16 @@
 # Port
 
-Port is a Caché Studio utility to export or import Caché files, but
-based on projects instead of namespaces. It also includes a %Studio.SourceControl class to make it's functionality
-more transparent for the developer.
+Port is a Caché Studio source control utility to export or import Caché files based on projects instead of namespaces.
 
-## The Six Project Reasons
+## The Six 'Why Projects?' Reasons
 
-Since it uses a project based approach to handle the source code, many things have been taken in mind.
+Since it uses a project based approach to handle the source code, the following advantages could be observed:
 
-* **Development and organization**: Keep the development and versioning within the project scope.
-* **Tests**: Isolated per project, close to it's source, can be run on-demand.
-* **Source format**: While the Caché Studio allows projects to be exported, it uses the XML Format. Such format, though functional, provides low readability. Port however, exports the source in plain format.
-* **SourceControl integration**: Exports the active item when when saved. No need to check-in or check-out the item. Let the project dictates the rules.
-* **Synchronization**: Keeps your repository in-sync with the project. Removes extraneous items when exported.
+* **Development and organization**: Development and versioning is kept within the project scope.
+* **Tests**: Allows the code to be tested atomically within the same project (which means no ^UnitTestRoot).
+* **Source format**: While the Caché Studio allows projects to be exported, it uses the XML Format. Such format, though functional, provides low readability. Port however, exports the source in plain format using the new UDL format.
+* **SourceControl integration**: Seamlessly exports the active item when saved. No need to check-in items manually.
+* **Synchronization**: Keeps your repository in-sync with the project. Removes extraneous items when exported avoiding check-out usage.
 * **Smart backup**: Mirrors the application directory and backups only what is changed.
 
 ## How to install
@@ -30,11 +28,31 @@ the source control integration according to your taste.
 
 ## How to use
 
-To be added.
+### Source Control Menu
+
+When installed, Port adds a Source Control menu, composed with the following options:
+
+* __Export Current Project__: Exports only the modified items from the current project.
+* __Export Current Project to XML__: Forces the project to export a new XML version.
+* __Export Project Test Suites to XML__: Exports all Tests matching the Test package prefix to the test path.
+* __Remove All Classes from the Current Project__: Shortcut for removing all classes from the current project.
+* __Remove All Routines from the Current Project__: Shortcut for removing all routines from the current project.
+* __Remove All Files from the Current Project__: Shortcut for removing all static (web) files from the current project.
+* __Remove Invalid Items from the Current Project__: Scans the project removing invalid item entries.
+* __Run Test Suites__: Runs all test suites associated to the current project.
+* __Force Current Project to be Exported__: Bypasses the timestamp checks and exports the project overwriting the repository's source.
+* __Force Current Project to be Exported__: Bypasses the timestamp checks and imports the project overwriting the project.
+
+### Source Control Context Menu
+
+* __Re-export this Item__: Forces the current item to be exported to the repository overwriting it's current matching source code.
+* __Re-import this Item__: Forces the current item to be imported to the project overwriting it's current matching project item.
+* __Run Tests Associated to this Item__: Only available if there's an associated test. If it does, runs the test atomically.
 
 ## TODO
 
-There's still many missing features and bugs to be found. Check the [issues](https://github.com/rfns/port/issues) regularly.
+- [ ] Develop a protection algorithm to allow one or more paths to be excluded from the [cleanup](https://github.com/rfns/port/blob/master/cls/Port/Project/Exporter.cls.txt#L48-L118).
+This might be useful when ignoring web bundles.
 
 ## CONTRIBUTION
 

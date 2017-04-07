@@ -175,28 +175,28 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
   If menu'="%SourceMenu",menu'="%SourceContext" Quit $$$OK
   set isContextual = (menu = "%SourceContext")
   if name = "%ExportProject" {
-    set DisplayName = "Export Project"
+    set DisplayName = "Export Current Project"
   } 
   if name = "%ExportProjectToXML" {
-    set DisplayName = "Export Project to XML"
+    set DisplayName = "Export Current Project to XML"
   } 
   if name = "%ExportTestSuiteToXML" {
-    set DisplayName = "Export Test Suites to XML"
+    set DisplayName = "Export Project Test Suites to XML"
   }   
   if name = "%ImportProject" {
     set DisplayName = "Import Project"    
   } 
   if name = "%RemoveProjectClasses" {
-    set DisplayName = "Remove All Classes From Project"
+    set DisplayName = "Remove All Classes from the Current Project"
   } 
   if name = "%RemoveProjectWebFiles" {
-    set DisplayName = "Remove All Files From Project"
+    set DisplayName = "Remove All Files from the Current Project"
   } 
   if name = "%RemoveProjectRoutines" {
-    set DisplayName = "Remove All Routines From Project"
+    set DisplayName = "Remove All Routines from the Current Project"
   } 
   if name = "%RemoveInvalidItems" {
-    set DisplayName = "Remove Invalid Project Items"
+    set DisplayName = "Remove Invalid Items from the Current Project"
   }
   
   if name= "%RunTestSuite" {
@@ -204,24 +204,24 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
   }
   
   if name = "%RunActiveItemTest" {
-    set DisplayName = "Run Tests from this Item"
+    set DisplayName = "Run Tests Associated to this Item"
     set Enabled = ##class(Port.SourceControl.Util).AssertTestableClass(itemName)
   } 
   
   if name = "%ExportActiveItem" {
-    set DisplayName = "Export Selected Item"
+    set DisplayName = "Re-export this Item"
   }
   
   if name ="%UpdateActiveItem" {
-    set DisplayName = "Import Selected Item"
+    set DisplayName = "Re-export this Item"
   }
   
   if name = "%ForceImportProject" {
-    set DisplayName = "Force this project to be imported"
+    set DisplayName = "Force Current Project to be Imported"
   }
   
   if name = "%ForceExportProject" {
-    set DisplayName = "Force this project to be exported"
+    set DisplayName = "Force Current Project to be Exported"
   }
   
   set isProjectOpened = ($get(^||%Studio.Project, "Default") '[ "Default")
