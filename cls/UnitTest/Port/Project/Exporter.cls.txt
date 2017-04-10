@@ -61,13 +61,5 @@ Method TestExport()
   }
 }
 
-ClassMethod test()
-{
-  do ##class(Port.SourceControl.Config).ClearIgnoredPaths()
-  do ##class(Port.SourceControl.Config).Ignore("web/build/app,web/build/app2,web/assets,web/app")
-  set sc = ##class(Port.Project.Manager).Export("/CacheProjects/DEV/teste", 1, 1, ##class(Port.SourceControl.Config).GetIgnoredPaths())
-  quit sc
-}
-
 }
 

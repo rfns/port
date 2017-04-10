@@ -2071,8 +2071,8 @@ Gets the association prefix.</Description>
 <MenuItem Name="%ForceImportProject"/>
 </Menu>
 <Menu Name="%SourceContext" Type="1">
-<MenuItem Name="%UpdateActiveItem" />
 <MenuItem Name="%ExportActiveItem" />
+<MenuItem Name="%ImportActiveItem" />
 <MenuItem Separator="1" />
 <MenuItem Name="%RunActiveItemTest"/>
 </Menu>
@@ -2268,11 +2268,11 @@ Gets the association prefix.</Description>
   } 
   
   if name = "%ExportActiveItem" {
-    set DisplayName = "Re-export this Item"
+    set DisplayName = "Export This Item"
   }
   
-  if name ="%UpdateActiveItem" {
-    set DisplayName = "Re-export this Item"
+  if name ="%ImportActiveItem" {
+    set DisplayName = "Import This Item"
   }
   
   if name = "%ForceImportProject" {
@@ -2928,16 +2928,6 @@ CreateFile
   }
 ]]></Implementation>
 </Method>
-
-<Method name="test">
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[
-  do ##class(Port.SourceControl.Config).ClearIgnoredPaths()
-  do ##class(Port.SourceControl.Config).Ignore("web/build/app,web/build/app2,web/assets,web/app")
-  set sc = ##class(Port.Project.Manager).Export("/CacheProjects/DEV/teste", 1, 1, ##class(Port.SourceControl.Config).GetIgnoredPaths())
-  quit sc
-]]></Implementation>
-</Method>
 </Class>
 
 
@@ -2967,7 +2957,6 @@ CreateFile
   <BreakPoints>
     <BreakPoint Routine="Port.Project.Exporter.CLS" Offset="SearchExtraneousEntries+1"></BreakPoint>
     <BreakPoint Routine="Port.Project.Exporter.CLS" Offset="SearchExtraneousEntries+16"></BreakPoint>
-    <BreakPoint Routine="UnitTest.Port.Project.Exporter.CLS" Offset="test+1"></BreakPoint>
   </BreakPoints>
 </Project>
 

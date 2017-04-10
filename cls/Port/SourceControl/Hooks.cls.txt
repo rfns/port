@@ -23,8 +23,8 @@ XData Menu
 <MenuItem Name="%ForceImportProject"/>
 </Menu>
 <Menu Name="%SourceContext" Type="1">
-<MenuItem Name="%UpdateActiveItem" />
 <MenuItem Name="%ExportActiveItem" />
+<MenuItem Name="%ImportActiveItem" />
 <MenuItem Separator="1" />
 <MenuItem Name="%RunActiveItemTest"/>
 </Menu>
@@ -209,11 +209,11 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
   } 
   
   if name = "%ExportActiveItem" {
-    set DisplayName = "Re-export this Item"
+    set DisplayName = "Export This Item"
   }
   
-  if name ="%UpdateActiveItem" {
-    set DisplayName = "Re-export this Item"
+  if name ="%ImportActiveItem" {
+    set DisplayName = "Import This Item"
   }
   
   if name = "%ForceImportProject" {
