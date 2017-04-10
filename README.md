@@ -49,8 +49,8 @@ When installed, Port adds a Source Control menu, composed with the following opt
 
 ### Source Control Context Menu
 
-* __Re-export this Item__: Forces the current item to be exported to the repository overwriting it's current matching source code.
-* __Re-import this Item__: Forces the current item to be imported to the project overwriting it's current matching project item.
+* __Export This Item__: Forces the current item to be exported to the repository overwriting it's current matching source code.
+* __Import This Item__: Forces the current item to be imported to the project overwriting it's current matching project item.
 * __Run Tests Associated to this Item__: Only available if there's an associated test. If it does, runs the test atomically.
 
 ## TODO
