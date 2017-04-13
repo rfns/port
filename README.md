@@ -60,7 +60,7 @@ This might be useful when ignoring web bundles.
 
 ## CONTRIBUTION
 
-[Here](https://github.com/rfns/port/master/blob/CONTRIBUTING.md).
+[Here](https://github.com/rfns/port/blob/master/CONTRIBUTING.md).
 
 ## LICENSE
 
