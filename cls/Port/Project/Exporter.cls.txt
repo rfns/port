@@ -5,15 +5,47 @@ Property PathDependencies As array Of %String [ Private ];
 
 Property ExportedPackages As %List [ Private ];
 
+Property IgnoredPaths As list Of %String;
+
 Method %OnNew(path As %String, logLevel As %Integer = 2) As %Status
 {
-  do ##super(path, logLevel)
-  
+  do ##super(path, logLevel) 
+       
   if '$isobject(..Project) {
     set ..ProjectName = "null"
     throw ##class(%Exception.StatusException).CreateFromStatus($$$ERROR(5001, "Invalid project name ("_..ProjectName_")."))
   }
   quit $$$OK
+}
+
+Method Ignore(ignoredPaths As %ArrayOfDataTypes = "") As %Status
+{
+  if '$isobject(ignoredPaths) quit $$$OK
+  if 'ignoredPaths.%IsA("%Collection.AbstractList") {
+    quit $$$ERROR($$$BadParameter, "ignoredPaths")
+  }
+  
+  set sc = $$$OK
+  
+  for i=1:1:ignoredPaths.Count() {
+    set absolutePath = ##class(%File).NormalizeFilename(..BasePath_"/"_ignoredPaths.GetAt(i))
+    set sc = ..IgnoredPaths.Insert(absolutePath)
+    if $$$ISERR(sc) quit
+  }
+  quit sc
+}
+
+Method IsIgnored(fullFilePath As %String) As %Boolean
+{
+  set key = ""
+  set isIgnored = 0
+  
+  for i=1:1:..IgnoredPaths.Count() {
+    set path = ..IgnoredPaths.GetAt(i)
+    set isIgnored = (fullFilePath [ path)
+    if isIgnored quit
+  }
+  quit isIgnored
 }
 
 Method Export() As %Status
@@ -52,12 +84,14 @@ Method SearchExtraneousEntries(statement As %SQL.Statement, path As %String, ByR
   set sc = $$$OK  
   
   while row.%Next(.sc) {
-    set type = row.%Get("Type")
+    set type = row.%Get("Type")    
     set fullPath = row.%Get("Name")
-    if '..PathDependencies.IsDefined(fullPath) {
-      set length = $case(files, "": 1, : $listlength(files)+1)
-      set $list(files, length) = $listbuild(fullPath, type) 
-    }
+    
+    if ..PathDependencies.IsDefined(fullPath) ||..IsIgnored(fullPath) continue
+    
+    set length = $case(files, "": 1, : $listlength(files)+1)
+    set $list(files, length) = $listbuild(fullPath, type)     
+    
     if type = "D" set sc = ..SearchExtraneousEntries(statement, fullPath, .files)
     if $$$ISERR(sc) quit
   }
@@ -167,8 +201,8 @@ Method ExportPackage(packageName As %String, exportList As %String) As %Status
       else  set sc = $$$ADDSC(sc, err)
     }
   }
-  set $list(exportList, $listlength(exportList) + 1) = "cls/"_packageName
-  set $list(i%ExportedPackages, $listlength(i%ExportedPackages) + 1) = packageName
+  set $list(exportList, *+1) = "cls/"_packageName
+  set $list(i%ExportedPackages, *+1) = packageName
   quit sc
 }
 
@@ -177,7 +211,7 @@ Method ExportWebFile(itemName As %String, ByRef exportList As %List = "") As %St
   set name = itemName
   
   if $extract(itemName, 1) = "/" {
-    set name = $extract(itemName, 2, $length(itemName))  
+    set name = $extract(itemName, 2, *)
   }
   
   if '##class(%Studio.ProjectItem).%ExistsId(..Project.Name_"||"_name_"||CSP") {
@@ -205,14 +239,14 @@ Method ExportWebFile(itemName As %String, ByRef exportList As %List = "") As %St
   do ..Write(" done.[nl]", 1)
   set ..AffectedCount = ..AffectedCount + 1
   
-  set $list(exportList, $listlength(exportList) + 1) = dest  
+  set $list(exportList, *+1) = dest  
   quit $$$OK
 }
 
 Method ExportRoutine(name As %String, exportList As %List = "") As %Status
 {
   do ##class(Port.Project.Helper).Normalize(name, .extension, .type, .itemName)
-  set normalizedName = $piece(name, ".", 1, $length(name, ".") - 1) 
+  set normalizedName = $piece(name, ".", 1, *-1) 
   
   if '##class(%Studio.ProjectItem).%ExistsId(..Project.Name_"||"_itemName_"||"_type) {
     quit $$$OK
@@ -242,7 +276,7 @@ Method ExportRoutine(name As %String, exportList As %List = "") As %Status
   if $$$ISOK(sc) do ..Write(" done.[nl]", 1)
   else  do ..Write(" failed![nl]", 1) quit sc
     
-  set $list(exportList, $listlength(exportList) + 1) = dest
+  set $list(exportList, *+1) = dest
   
   $$$QuitOnError(file.%Save())
   
@@ -293,7 +327,7 @@ Method ExportClass(itemName As %String, ByRef exportList As %String = "") As %St
   do ..Write(" done.[nl]", 1)
   
   set ..AffectedCount = ..AffectedCount + 1
-  set $list(exportList, $listlength(exportList) + 1) = dest
+  set $list(exportList, *+1) = dest
   
   quit $$$OK
 }
@@ -303,7 +337,7 @@ Method ExtractPathDependency(itemName As %String, destPath As %String) [ Final, 
   set type = $$$ucase($piece(destPath, ".", $length(destPath, ".") - 1, $length(destPath, ".") - 1)) 
   set basePath = ..ResolvePathType(type)
   if $find($listbuild("", "/"), $extract(basePath)) {
-    set basePath = $extract(basePath, 2, $length(basePath))
+    set basePath = $extract(basePath, 2, *)
   }
     
   set absoluteBasePath = ##class(%File).NormalizeFilename(basePath, ..Slash)

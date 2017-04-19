@@ -17,7 +17,6 @@ ClassMethod IsRoutine(itemName As %String, onlyCompilables As %Boolean = 0) As %
 {
   set extension = ..GetItemExtension(itemName)
   
-  
   if extension = "MAC"  || (extension = "INT") ||
     (extension = "MVB") || (extension = "MVI") || 
     (extension = "BAS") {

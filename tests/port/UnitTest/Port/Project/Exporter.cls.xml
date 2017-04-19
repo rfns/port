@@ -2,7 +2,7 @@
 <Export generator="Cache" version="25">
 <Class name="UnitTest.Port.Project.Exporter">
 <Super>Port.UnitTest.TestCase</Super>
-<TimeCreated>64329,41592.843381</TimeCreated>
+<TimeCreated>64392,32671.331475</TimeCreated>
 
 <Property name="Exporter">
 <Type>Port.Project.Exporter</Type>
@@ -36,7 +36,9 @@
 
 <Method name="OnBeforeOneTest">
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  set ..Exporter = ##class(Port.Project.Exporter).%New(..BasePath)
+<Implementation><![CDATA[
+  set ..Exporter = ##class(Port.Project.Exporter).%New(..BasePath)
+  quit $$$OK
 ]]></Implementation>
 </Method>
 
@@ -73,12 +75,6 @@
     set filePath = ##class(%File).NormalizeFilename(filePath)
     do $$$AssertEquals(##class(%File).Exists(filePath), 1, filePath_" should exist")
   }
-]]></Implementation>
-</Method>
-
-<Method name="test">
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[  quit ##class(Port.Project.Manager).Export("/CacheProjects/DEV/Port", 3, 1)
 ]]></Implementation>
 </Method>
 </Class>

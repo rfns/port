@@ -40,7 +40,8 @@ Method Create(ByRef list As %String = 0) As %Status
 
 
 Scan(group, type, created)
-  set itemName = ""   
+  set itemName = ""
+  set created  = 0   
   for {
     set itemName = $order(list(group, type, itemName), 1, paths)
     quit:itemName=""

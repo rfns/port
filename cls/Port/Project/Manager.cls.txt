@@ -20,11 +20,12 @@ ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As 
   quit utility
 }
 
-ClassMethod Export(outputPath As %String, logLevel As %Boolean = 2, force As %Boolean = 0) As %Status
+ClassMethod Export(outputPath As %String, logLevel As %Boolean = 2, force As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "") As %Status
 {
   set exporter = ..AssertUtilityCreation("E", outputPath, logLevel, .sc)
   $$$QuitOnError(sc)
-  set exporter.Overwrite = force  
+  set exporter.Overwrite = force    
+  $$$QuitOnError(exporter.Ignore(ignoredPaths))
   $$$QuitOnError(exporter.Export())
   set projectName = exporter.GetProjectName()
   if exporter.AffectedCount > 0 {
@@ -47,7 +48,7 @@ ClassMethod Import(inputPath As %String, logLevel As %Boolean = 2, skipBackup As
   $$$QuitOnError(sc)
   set importer.SkipBackup = skipBackup
   set importer.IsBatch = 1
-  set importer.Overwrite = overwrite
+  set importer.Overwrite = overwrite  
   set projectName = importer.GetProjectName()
   $$$QuitOnError(importer.Import())
   if importer.AffectedCount > 0 {
@@ -91,7 +92,7 @@ ClassMethod RemoveItemsFromCategory(projectName As %String, type As %String, Out
     set itemType = r.%Get("Type")
     set name = r.%Get("Name")
     if itemType = type {
-      set items(name) = ""
+      set items(name) = ""     
       set sc = project.RemoveItem(name, itemType)
       if $$$ISERR(sc) quit
     }

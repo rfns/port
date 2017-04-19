@@ -28,7 +28,8 @@ ClassMethod GetFullItemPath(itemName As %String) As %String
 ClassMethod ResolveInternalName(internalName As %String) As %String
 {
   set name = internalName
-  if internalName '[ $System.CSP.GetDefaultApp($namespace) {
+  
+  if $$$ucase(internalName) [ ".CLS" {
     set name = $piece(internalName, ".", 1, *-1)
   }
   quit name
@@ -45,6 +46,22 @@ ClassMethod AssertTestableClass(className, Output testableClass As %String = "")
     set testableClass = prefix_"."_className 
   }
   quit (testableClass '= "")
+}
+
+ClassMethod GetIgnoredPaths(basePath As %String) As %ListOfDataTypes
+{
+ 
+  set ignoredPaths = ##class(%ListOfDataTypes).%New()
+  
+  set f = ##class(%FileCharacterStream).%New()
+  set f.Filename = basePath_"/.portignore" 
+  
+  if f.Size > 0 {    
+    while 'f.AtEnd {      
+      do ignoredPaths.Insert(f.ReadLine())
+    }
+  }
+  quit ignoredPaths
 }
 
 }

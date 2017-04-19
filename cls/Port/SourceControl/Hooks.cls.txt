@@ -38,12 +38,16 @@ Method OnAfterSave(InternalName As %String) As %Status
   set sc = $$$OK
   if projectName '= "" && (projectName '[ "Default") {
     set exportPath = ##class(Port.SourceControl.Config).GetExportPath()
-    set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)    
     set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)
-    set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
-    set shouldExportAsXML = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()
     
-    if type '= "PRJ" {    
+    if type '= "PRJ" {
+      set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
+      set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)           
+      set shouldExportAsXML = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()      
+      
+      $$$QuitOnError(exporter.IsProjectMember(InternalName, .isMember))
+      if 'isMember quit $$$OK
+      
       if type = "CLS" {
         set sc = exporter.ExportClass(itemName)
       } elseif ##class(Port.Project.Helper).IsRoutine(InternalName) {
@@ -53,8 +57,10 @@ Method OnAfterSave(InternalName As %String) As %Status
       } elseif type '= "" {
         set sc = exporter.ExportWebFile(itemName)     
       }
-      $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, InternalName))
-      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath))
+      if '%importingFromXML {        
+        $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, InternalName))
+        if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath))
+      }
     }
   }
   quit sc
@@ -76,18 +82,21 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
 {
   set name = $piece(Name, ",", 2)
   set isContextual = ($piece(Name, ",", 1) = "%SourceContext")
+  // We must know if the user is importing from an XML and prevent the XML from being exported.
+  set %importingFromXML = (Name = 6)
   
   if $data(^||%Studio.Project) {
     set projectName = ^||%Studio.Project
-    set fullPath = ##class(Port.SourceControl.Util).GetFullItemPath(InternalName)
-    set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)
-    set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
-    set testPath = ##class(Port.SourceControl.Config).GetTestPath()
-    set logLevel = ##class(Port.SourceControl.Config).GetLogLevel()
-    set shouldExportAsXML = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()
+    set fullPath = ##class(Util).GetFullItemPath(InternalName)
+    set itemName = ##class(Util).ResolveInternalName(InternalName)
+    set projectPath = ##class(Config).GetExportPath()
+    set testPath = ##class(Config).GetTestPath()
+    set logLevel = ##class(Config).GetLogLevel()
+    set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
     
-    if name = "%ExportProject" {      
-      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel,0))
+    if name = "%ExportProject" {
+      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)     
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 0, ignoredPaths))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
       quit $$$OK
     }
@@ -134,6 +143,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
         $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, internalName))
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
       } else {
+        set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
         quit ##class(Port.Project.Manager).Export(projectPath, logLevel, 1)
       }
     }
@@ -155,7 +165,8 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     }
     
     if name = "%ForceExportProject" {
-      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1))
+      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath) 
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
     }
     
@@ -234,6 +245,7 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
 /// Called after the compile of the item is done.
 Method OnAfterCompile(InternalName As %String) As %Status
 {
+  if $get(%importingFromXML, 0) quit $$$OK
   set projectName = $get(^||%Studio.Project)
   set sc = $$$OK
   

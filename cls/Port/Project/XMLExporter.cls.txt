@@ -52,7 +52,7 @@ Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Stat
     set classPath = $listget(test, 2)
     do ..Logger.Log("[nl]Exporting test class {P1} ... ", 0, $replace(className, ".CLS", ""))
     set sc = $$$ADDSC(sc, $System.OBJ.Export(className, classPath,qspec,, "UTF-8"))
-    do ..Logger.Log("done.", 0)
+    do ..Logger.Log("done.[nl]", 0)
     set exported = 1
   }
   quit exported

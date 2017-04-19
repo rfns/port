@@ -56,7 +56,7 @@ Method %OnNew(target As %String, logLevel As %Integer = 2) As %Status
     do ..BuildTypePaths(..BasePath)
     quit $$$OK 
   }
-  quit $$$ERROR(5001, "Utility requires an absolute path.")
+  quit $$$ERROR(5001, "Cannot use invalid or relative paths: an absolute path is required.")
 }
 
 Method WriteExclusive(logLevel As %Integer, message As %String, params... As %String)
@@ -202,7 +202,7 @@ Method CheckUbiquity(ByRef ubiquityList As %String = 0) As %Status
   }
 }
 
-Method IsOutdated(resident As %String, contestant As %String, isImport As %Boolean = 0, Output isCompilationCandidate As %Boolean = 0) As %Boolean
+Method IsOutdated(resident As %String, contestant As %String, isImport As %Boolean = 0) As %Boolean
 {
   
   if '##class(%File).Exists(contestant) quit 1 
@@ -219,8 +219,7 @@ Method IsOutdated(resident As %String, contestant As %String, isImport As %Boole
     
   if ##class(Port.Project.Helper).IsRoutine(resident) || 
     (##class(Port.Project.Helper).GetItemExtension(resident) = "CLS") {
-    set residentTS = $piece(##class(%RoutineMgr).TS(resident, .compileTime, .upToDate), ".")   
-    set isCompilationCandidate = 'upToDate
+    set residentTS = $piece(##class(%RoutineMgr).TS(resident, .compileTime), ".")
   } else {
     if 'isImport {
       set fullSourcePath = ##class(%File).NormalizeFilename(resident, $System.Util.InstallDirectory())
@@ -243,6 +242,14 @@ Method IsOutdated(resident As %String, contestant As %String, isImport As %Boole
     (contestantTS ] residentTS) && 
     (contestantTS ] lastModified)
   )
+}
+
+Method IsProjectMember(name As %String, Output isProjectMember As %Boolean, type As %String = "") As %Status
+{
+  $$$QuitOnError(..Project.NormalizeName(.name, .type))
+  set id = ..ProjectName_"||"_name_"||"_type
+  set isProjectMember = (..Project.Items.FindObjectId(id) '= "")
+  quit $$$OK
 }
 
 }

@@ -11,8 +11,6 @@ Property BackupDirectory As %String [ Internal ];
 
 Property SkipBackup As %Boolean [ InitialExpression = 0 ];
 
-Property CompileList As %String [ InitialExpression = 0, MultiDimensional, Private ];
-
 Property ImportList As %String [ InitialExpression = 0, MultiDimensional ];
 
 Property ItemsList As %String [ InitialExpression = 0, MultiDimensional, Private ];
@@ -28,7 +26,6 @@ Method %OnNew(inputPath As %String, logLevel As %Integer = 2) As %Status
   set ..Backup = ##class(Port.Project.Backup).%New(..BackupDirectory)
   set ..Backup.Logger = ..Logger
   
-  set i%CompileList = 0
   set i%ImportList = 0
   set i%ItemsList = 0
   
@@ -62,28 +59,20 @@ Method EnqueueItem(target As %String) As %Boolean
     quit enqueued
   }
   
-  set described = ..Describe(
-    target, isWebPath, .sc, .isOutdated,
-    .compilable, .internalFileName, .itemName, 
-    .itemType, .group, .alias
-  ) 
+  set described = ..Describe(target, isWebPath, .sc, .isOutdated, .internalFileName, .itemName, .itemType, .group, .alias)
   if described && '$data(i%ItemsList(itemName)) {
     if '..Backup.IsRequired && '..SkipBackup && ((itemType = "CSP") || (itemType = "CSR") && isOutdated) {
       set ..Backup.IsRequired = 1
     }
     set i%ItemsList = $increment(i%ItemsList)
-    set i%ItemsList(itemName) = ""    
+    set i%ItemsList(itemName) = ""  
     
     if isOutdated || ..Overwrite {
       set i%ImportList = $increment(i%ImportList)
       set i%ImportList(group, itemType, alias) = $listbuild(target, internalFileName)
     }    
-    if compilable {
-      set i%CompileList = i%CompileList + 1
-      set i%CompileList(group, itemName) = ""
-    }
     set enqueued = 1
-  }
+  } 
   quit enqueued
 }
 
@@ -132,7 +121,7 @@ Method GetTypePriority(type As %String) As %Integer
   quit 10
 }
 
-Method Describe(origin As %String, isWebPath As %Boolean = 0, sc As %Status, Output isOutdated As %Boolean = 0, Output isCompilationCandidate As %Boolean = 0, Output itemDestination As %String, Output itemName As %String, Output itemType As %String, Output priority As %String, Output alias As %String) As %Boolean [ Internal, Private ]
+Method Describe(origin As %String, isWebPath As %Boolean = 0, sc As %Status, Output isOutdated As %Boolean = 0, Output itemDestination As %String, Output itemName As %String, Output itemType As %String, Output priority As %String, Output alias As %String) As %Boolean [ Internal, Private ]
 {
   
   set sc = $$$OK
@@ -165,9 +154,8 @@ Method Describe(origin As %String, isWebPath As %Boolean = 0, sc As %Status, Out
   }
   
   if '..Overwrite {
-    set isOutdated = ..IsOutdated(itemName, origin, 1, .isCompilationCandidate)
+    set isOutdated = ..IsOutdated(itemName, origin, 1)
   } else {
-    set isCompilationCandidate = 1
     set isOutdated = 1
   }
   quit described
@@ -291,15 +279,7 @@ Method Import() As %Status
       do ..Write("[nl]No pending items were found inside the repository.", 1)
       do ..Write("[nl]Current repository might be empty or up-to-date.[nl]", 1)
     }
-    
-    if i%CompileList {
-      set compilationSC = ..CompileList()
-      if $$$ISERR(compilationSC) {
-        do ..Write("[nl]WARNING: There were compilations errors.[nl]")
-        do $System.OBJ.DisplayError(compilationSC)
-      }
-    }
-    
+         
     if ..IsNewProject {
       do ..Write("[nl]Project doesn't exists. A new project will be created with the name {P1}.[nl]", 1, ..Project.Name)
     }
@@ -308,7 +288,7 @@ Method Import() As %Status
       do ..Write("[nl]Synchronizing {P1} ...", 1, ..Project.Name)
       $$$ThrowOnError(..SynchronizeProject(.added, .removed))
       do ..Write(" done.[nl]")
-      do ..Write("[nl]Project {P1} has been saved with {P2} items (+ {P2} - {P3}).[nl]", 1, ..Project.Name, ..Project.Items.Count(), added, removed)
+      do ..Write("[nl]Project {P1} has been saved with a total of {P2} items.", 1, ..Project.Name, ..Project.Items.Count())
     }
     
     set ..AffectedCount = i%ImportList    
@@ -352,49 +332,6 @@ Method Import() As %Status
         set sc = $$$ADDSC(sc, $$$ERROR(5001, "Failed to restore the pending backup due to a file system error."))
       }
     }
-  }
-  quit sc
-}
-
-Method CompileList(qspec As %String = "/expand/nodisplay/checkuptodate/multicompile=1/lock=0") As %Status [ Private ]
-{
-  
-  set (sc, allTypesSC) = $$$OK
-  
-  if i%CompileList '> 0 {
-    do ..Write("[nl]Compilation skipped: No items to compile.", 1)
-    quit $$$OK
-  }
-  
-  do ..Write("[nl]Found {P1} item{P2} to compile ...", 1, i%CompileList, $case(i%CompileList, 1: "", : "s"))
-  
-  set typeMessages(2)   = "intermediate routines"
-  set typeMessages(3)   = "classes"
-  set typeMessages(4)   = "macro routines"
-  set typeMessages(5)   = "MV Intermediate routines"
-  set typeMessages(6)   = "MV Basic routines"
-  set typeMessages(7)   = "Basic routines"
-  set typeMessages(8)   = "DFI XML Routines"
-  set typeMessages(9)   = "CSP Rules"
-  set typeMessages(10)  = "CSP files"
-  
-  for i=2,3,4,5,6,7,9,10 {
-    kill list
-    set typeSC = $$$OK
-    merge list = i%CompileList(i)    
-    if $data(list) {
-      do ..Write("[nl]Compiling {P1} ... ", 1, typeMessages(i))
-      set typeSC = $System.OBJ.CompileList(.list, qspec)
-    }    
-    if $$$ISERR(typeSC) {      
-      set allTypesSC = $$$ADDSC(allTypesSC, $$$ERROR($$$GeneralError, "Failed to compile all "_typeMessages(i)_"."))
-      set allTypesSC = $$$EMBEDSC(allTypesSC, typeSC)
-    }
-  }
-  if $$$ISERR(allTypesSC) {
-    do ..Write("[nl]", 0)
-    set sc = $$$ERROR($$$GeneralError, "Failed to compile all items.")
-    set sc = $$$EMBEDSC(sc, allTypesSC)
   }
   quit sc
 }
@@ -448,69 +385,16 @@ Method SynchronizeProject(Output addedCount As %String = 0, Output removedCount 
     
   #dim item As %Studio.Project
   
-  if ..IsBatch {
-    // Removes all project items that can't be found in the repository.
-    for i=1:1:..Project.Items.Count() {
-      set item = ..Project.Items.GetAt(i)
-      set destination = ""
-      set (candidateToRemove, removed) = 0
-      if $isobject(item) {
-        set name = item.Name
-        if item.Type = "CLS" set name = name_".CLS"
-        if item.Type = "PKG" {
-          set name = name_".PKG"
-          set packageName = item.Name_".PKG"
-          do $System.OBJ.GetPackageList(.classes, item.Name)
-          set className = ""
-          for {
-            set className = $order(classes(className))
-            quit:className=""
-            set className = className_".CLS"
-            set destination = ..NormalizeOutput(className)
-            if '##class(%File).Exists(destination) {
-              if $data(items(className)) {
-                set removedCount = removedCount + 1
-                set i%ItemsList = i%ItemsList - 1
-                kill i%ItemsList(className)
-              }
-            } elseif '$data(items(className)) {
-              // While the package itself might not be a project item, if the class
-              // is found inside the repository, the list must be updated to include it.            
-              set i%ItemsList = i%ItemsList + 1
-              set i%ItemsList(className) = ""
-            }
-          }
-          // Notice that the package is always removed.
-          set removed = $$$ISOK(..Project.RemoveItem(name))
-        } else {
-          set destination = ..NormalizeOutput(name)
-          if '##class(%File).Exists(destination) {
-            set removed = $$$ISOK(..Project.RemoveItem(name))
-          }
-        }
-        if removed && $data(items(name)) {
-          kill i%ItemsList(name)
-          set i%ItemsList = i%ItemsList - 1
-          set removedCount = removedCount + 1           
-        }     
-      }
-    }
-  }
+  // We must check and remove all invalid items if the user desires to import everything
+  // from the repository.
+  if ..IsBatch $$$QuitOnError(..Project.Check())
   
-  // Does the opposite, adds new items to the project.
+  // Now that the project is clear, we add the new items.
   for {
-    set itemName = $order(i%ItemsList(itemName), 1, operation)
-    quit:itemName=""
-    continue:operation="D"
+    set itemName = $order(i%ItemsList(itemName), 1, type)    
+    quit:itemName=""    
     
-    set name = itemName
-    
-    do ..Project.NormalizeName(.name, .type)
-    set id = ..ProjectName_"||"_name_"||"_type
-    set newItem = (..Project.Items.FindObjectId(id) = "")
-    
-    set sc = $$$ADDSC(sc, ..Project.AddItem(itemName))
-    if $$$ISOK(sc) && newItem set addedCount = addedCount + 1
+    set sc = $$$ADDSC(sc, ..Project.AddItem(itemName))    
   }
   set ssc = ..Project.%Save()
   set scc = $$$EMBEDSC(scc, sc)
@@ -519,8 +403,8 @@ Method SynchronizeProject(Output addedCount As %String = 0, Output removedCount 
 
 Method ResetLists()
 {
-  kill i%CompileList, i%ImportList, i%ItemsList
-  set (i%CompileList, i%ImportList, i%ItemsList) = 0
+  kill i%ImportList, i%ItemsList
+  set (i%ImportList, i%ItemsList) = 0
 }
 
 }
