@@ -53,10 +53,10 @@ When installed, Port adds a Source Control menu, composed with the following opt
 * __Import This Item__: Forces the current item to be imported to the project overwriting it's current matching project item.
 * __Run Tests Associated to this Item__: Only available if there's an associated test. If it does, runs the test atomically.
 
-## TODO
 
-- [ ] Develop a protection algorithm to allow one or more paths to be excluded from the [cleanup](https://github.com/rfns/port/blob/master/cls/Port/Project/Exporter.cls.txt#L48-L118).
-This might be useful when ignoring web bundles.
+## TODO 
+
+Check the [Projects](https://github.com/rfns/port/projects).
 
 ## CONTRIBUTION
 
