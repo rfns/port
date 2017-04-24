@@ -348,7 +348,7 @@ ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, fil
     set fs.Filename = origin
     
     if ##class(%RoutineMgr).Exists(itemName) {      
-      set routine = ##class(%RoutineMgr).%OpenId(itemName)              
+      set routine = ##class(%RoutineMgr).%OpenId(itemName)           
     } else {
       set routine = ##class(%RoutineMgr).%New(itemName)
     }

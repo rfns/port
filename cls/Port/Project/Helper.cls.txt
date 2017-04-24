@@ -70,7 +70,7 @@ ClassMethod Normalize(name As %String, Output extension As %String, Output itemT
 
   if ..IsRoutine(name) {
     set itemType = extension
-    if extension = "INC" || (extension = "BAS") || (extension = "MVI") {
+    if extension = "INC" || (extension = "BAS") || (extension = "MVI") || (extension = "INT") {
       set itemType = "MAC"
     }
     set itemName = nameOnly_"."_extension  

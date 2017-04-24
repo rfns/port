@@ -994,7 +994,7 @@ Scan(group, type, created)
 
   if ..IsRoutine(name) {
     set itemType = extension
-    if extension = "INC" || (extension = "BAS") || (extension = "MVI") {
+    if extension = "INC" || (extension = "BAS") || (extension = "MVI") || (extension = "INT") {
       set itemType = "MAC"
     }
     set itemName = nameOnly_"."_extension  
@@ -1441,7 +1441,7 @@ Scan(group, type, created)
     set fs.Filename = origin
     
     if ##class(%RoutineMgr).Exists(itemName) {      
-      set routine = ##class(%RoutineMgr).%OpenId(itemName)              
+      set routine = ##class(%RoutineMgr).%OpenId(itemName)           
     } else {
       set routine = ##class(%RoutineMgr).%New(itemName)
     }
@@ -2918,7 +2918,7 @@ CreateFile
 </Class>
 
 
-<Project name="port" LastModified="2017-04-19 16:56:06.01632" Target="##class(UnitTest.Port.Project.Exporter).test()" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2017-04-20 15:16:28.759989" Target="##class(Port.Project.Manager).Import(&quot;/CacheProjects/TDEV/testing&quot;,,,1)" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
