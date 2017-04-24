@@ -6,13 +6,12 @@
 
 Port is a Caché Studio source control utility to export or import Caché files based on projects instead of namespaces.
 
-## The Six 'Why Projects?' Reasons
+## The Five 'Why Projects?' Reasons
 
 Since it uses a project based approach to handle the source code, the following advantages could be observed:
 
 * **Development and organization**: Development and versioning is kept within the project scope.
 * **Tests**: Allows the code to be tested atomically within the same project (which means no ^UnitTestRoot).
-* **Source format**: While the Caché Studio allows projects to be exported, it uses the XML Format. Such format, though functional, provides low readability. Port however, exports the source in plain format using the new UDL format.
 * **SourceControl integration**: Seamlessly exports the active item when saved. No need to check-in items manually.
 * **Synchronization**: Keeps your repository in-sync with the project. Removes extraneous items when exported avoiding check-out usage.
 * **Smart backup**: Mirrors the application directory and backups only what is changed.
@@ -53,10 +52,10 @@ When installed, Port adds a Source Control menu, composed with the following opt
 * __Import This Item__: Forces the current item to be imported to the project overwriting it's current matching project item.
 * __Run Tests Associated to this Item__: Only available if there's an associated test. If it does, runs the test atomically.
 
-## TODO
 
-- [ ] Develop a protection algorithm to allow one or more paths to be excluded from the [cleanup](https://github.com/rfns/port/blob/master/cls/Port/Project/Exporter.cls.txt#L48-L118).
-This might be useful when ignoring web bundles.
+## TODO 
+
+Check the [Projects](https://github.com/rfns/port/projects).
 
 ## CONTRIBUTION
 

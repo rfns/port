@@ -17,6 +17,9 @@ And the content must provide the following data:
 * __Problem Description__: Detail your problem.
 * __Steps to Reproduce__: How could we reproduce the issue?
 
+However you may open an issue to ask or suggest something exclusively related to the development of this project without the need of
+fullfiling the requirements above.
+
 ## Contributing as a coder
 
 1. [fork](https://github.com/rfns/port#fork-destination-box) this project.
@@ -32,6 +35,6 @@ And the content must provide the following data:
 
 ## Code
 
-* Paradigm breaker for Caché? Two spaces.
+* Two spaces.
 * English only, though localized documentation is more than welcome.
 * New features should preferably be tested with unit tests.
