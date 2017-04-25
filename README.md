@@ -56,13 +56,13 @@ When installed, Port adds a Source Control menu, composed with the following opt
 
 Sometimes you might want to ignore paths that aren't related to Caché but must be kept inside it's folder structures to keep things
 sticked. You can do this by creating a file called `.portignore` in the root of the repository and putting the paths to ignore
-inside it, one per line. Note that you __MUST__ provide the base type folder.
+inside it, one per line. Note that you __MUST__ provide the base type folder since the paths are relative to the repository root.
 
 In the example below, notice that cls and int folders are included. These are the base type folders.
 
 ```
 cls/Package/ignoreme <- This ignores the folder called ignoreme and anything inside it.
-int/ignoreme <- This ignores the folder called you_should_ignore_this and anything inside it.
+int/ignoreme <- This also ignores the folder called ignoreme but only if it's inside the int folder.
 ```
 
 ## TODO 
