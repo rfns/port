@@ -44,7 +44,7 @@ When installed, Port adds a Source Control menu, composed with the following opt
 * __Remove Invalid Items from the Current Project__: Scans the project removing invalid item entries.
 * __Run Test Suites__: Runs all test suites associated to the current project.
 * __Force Current Project to be Exported__: Bypasses the timestamp checks and exports the project overwriting the repository's source.
-* __Force Current Project to be Exported__: Bypasses the timestamp checks and imports the project overwriting the project.
+* __Force Current Project to be Exported__: Bypasses the timestamp checks and imports the source code overwriting the project item version.
 
 ### Source Control Context Menu
 
