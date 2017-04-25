@@ -227,8 +227,19 @@ Scan(group, type, created)
 <InitialExpression>2</InitialExpression>
 </Property>
 
+<Property name="SourceExtension">
+<Type>%String</Type>
+<InitialExpression>"txt"</InitialExpression>
+<Private>1</Private>
+</Property>
+
+<Property name="IgnoredPaths">
+<Type>%String</Type>
+<Collection>list</Collection>
+</Property>
+
 <Method name="%OnNew">
-<FormalSpec>target:%String,logLevel:%Integer=2</FormalSpec>
+<FormalSpec>target:%String,logLevel:%Integer=2,sourceExtension=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   if target = "" {
@@ -243,6 +254,7 @@ Scan(group, type, created)
     set ..BasePath = ##class(%File).NormalizeFilename(fullProjectPath)
     set ..Project = ##class(%Studio.Project).%OpenId(..ProjectName)
     set ..Logger = ##class(Port.Logger).%New(logLevel)
+    set ..SourceExtension = sourceExtension
     do ..BuildTypePaths(..BasePath)
     quit $$$OK 
   }
@@ -268,6 +280,44 @@ Scan(group, type, created)
 <Method name="GetProjectName">
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[  quit ..ProjectName
+]]></Implementation>
+</Method>
+
+<Method name="Ignore">
+<FormalSpec>ignoredPaths:%ArrayOfDataTypes=""</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set sc = $$$OK  
+  
+  if '$isobject(ignoredPaths) quit sc
+  if 'ignoredPaths.%IsA("%Collection.AbstractList") {
+    quit $$$ERROR($$$BadParameter, "ignoredPaths")
+  }  
+  
+  for i=1:1:ignoredPaths.Count() {
+    set absolutePath = ##class(%File).NormalizeFilename(..BasePath_"/"_ignoredPaths.GetAt(i))
+    set sc = ..IgnoredPaths.Insert(absolutePath)
+    if $$$ISERR(sc) quit
+  }
+  quit sc
+]]></Implementation>
+</Method>
+
+<Method name="IsIgnored">
+<FormalSpec>maybeIgnoredPath:%String</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+  
+  set key = ""
+  set isIgnored = 0
+  
+  for i=1:1:..IgnoredPaths.Count() {
+    set path = ..IgnoredPaths.GetAt(i)
+    set isIgnored = ((path = maybeIgnoredPath) || (maybeIgnoredPath [ path))
+    if isIgnored quit
+  }
+  //write "IGNORED: "_maybeIgnoredPath_" "_isIgnored, !
+  quit isIgnored
 ]]></Implementation>
 </Method>
 
@@ -334,7 +384,7 @@ Scan(group, type, created)
     set classPath = $listtostring($listbuild(classBasePath, $replace(classItemName, ".", ..Slash)), ..Slash)
     set packagePath = $piece(classPath, ..Slash, 1, *-1)
     set className = $piece(classPath, ..Slash, $length(classPath, ..Slash))
-    set dest = classPath_".cls.txt"
+    set dest = classPath_".cls"_..GetSourceExtension()
     set path = packagePath
   }
   
@@ -344,7 +394,7 @@ Scan(group, type, created)
     set path = ..ResolvePathType(type, itemName)
     set dest = path_..Slash_itemName
     set extPos = $length(dest, ".")
-    set $piece(dest, ".", extPos) = $$$lcase($piece(dest, ".", extPos))_".txt"
+    set $piece(dest, ".", extPos) = $$$lcase($piece(dest, ".", extPos))_..GetSourceExtension()
   }
   
   // /csp/path/to/somefile.(*) -> /web/path/to/somefile.(*).txt
@@ -353,7 +403,7 @@ Scan(group, type, created)
     set baseTypePath = ..ResolvePathType("CSP")
     set ext = $$$lcase($piece(itemName, ".", *))
     set fileWithoutExtension = $piece(itemName, ".", 1, *-1)
-    set dest = ##class(%File).NormalizeFilename(baseTypePath_..Slash_$piece(fileWithoutExtension, "/", 3, $length(fileWithoutExtension, "/")))_"."_ext
+    set dest = ##class(%File).NormalizeFilename(baseTypePath_..Slash_$piece(fileWithoutExtension, "/", 3, *))_"."_ext
     set path = ##class(%File).GetDirectory(dest) 
   }
   quit dest
@@ -463,6 +513,7 @@ Scan(group, type, created)
 </Method>
 
 <Method name="IsProjectMember">
+<Internal>1</Internal>
 <FormalSpec>name:%String,*isProjectMember:%Boolean,type:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
@@ -470,6 +521,12 @@ Scan(group, type, created)
   set id = ..ProjectName_"||"_name_"||"_type
   set isProjectMember = (..Project.Items.FindObjectId(id) '= "")
   quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="GetSourceExtension">
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[  quit $select(..SourceExtension '= "" : "."_..SourceExtension, 1: "")
 ]]></Implementation>
 </Method>
 </Class>
@@ -490,58 +547,17 @@ Scan(group, type, created)
 <Private>1</Private>
 </Property>
 
-<Property name="IgnoredPaths">
-<Type>%String</Type>
-<Collection>list</Collection>
-</Property>
-
 <Method name="%OnNew">
-<FormalSpec>path:%String,logLevel:%Integer=2</FormalSpec>
+<FormalSpec>path:%String,logLevel:%Integer=2,sourceExtension:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  do ##super(path, logLevel) 
+  $$$QuitOnError(##super(path, logLevel, sourceExtension))
        
   if '$isobject(..Project) {
     set ..ProjectName = "null"
     throw ##class(%Exception.StatusException).CreateFromStatus($$$ERROR(5001, "Invalid project name ("_..ProjectName_")."))
   }
   quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="Ignore">
-<FormalSpec>ignoredPaths:%ArrayOfDataTypes=""</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  if '$isobject(ignoredPaths) quit $$$OK
-  if 'ignoredPaths.%IsA("%Collection.AbstractList") {
-    quit $$$ERROR($$$BadParameter, "ignoredPaths")
-  }
-  
-  set sc = $$$OK
-  
-  for i=1:1:ignoredPaths.Count() {
-    set absolutePath = ##class(%File).NormalizeFilename(..BasePath_"/"_ignoredPaths.GetAt(i))
-    set sc = ..IgnoredPaths.Insert(absolutePath)
-    if $$$ISERR(sc) quit
-  }
-  quit sc
-]]></Implementation>
-</Method>
-
-<Method name="IsIgnored">
-<FormalSpec>fullFilePath:%String</FormalSpec>
-<ReturnType>%Boolean</ReturnType>
-<Implementation><![CDATA[
-  set key = ""
-  set isIgnored = 0
-  
-  for i=1:1:..IgnoredPaths.Count() {
-    set path = ..IgnoredPaths.GetAt(i)
-    set isIgnored = (fullFilePath [ path)
-    if isIgnored quit
-  }
-  quit isIgnored
 ]]></Implementation>
 </Method>
 
@@ -579,21 +595,26 @@ Scan(group, type, created)
 <Method name="SearchExtraneousEntries">
 <FormalSpec><![CDATA[statement:%SQL.Statement,path:%String,&files:%String=""]]></FormalSpec>
 <Implementation><![CDATA[
+   
   set dir = ##class(%File).NormalizeDirectory(path)
   set row = statement.%Execute(dir)
-  set sc = $$$OK  
+  set sc = $$$OK   
   
   while row.%Next(.sc) {
     set type = row.%Get("Type")    
-    set fullPath = row.%Get("Name")
+    set fullPath = row.%Get("Name")        
     
-    if ..PathDependencies.IsDefined(fullPath) ||..IsIgnored(fullPath) continue
+    if ..IsIgnored(fullPath) continue
+            
+    if type = "D" {      
+      set sc = ..SearchExtraneousEntries(statement, fullPath, .files)
+      if $$$ISERR(sc) quit
+    } 
     
-    set length = $case(files, "": 1, : $listlength(files)+1)
-    set $list(files, length) = $listbuild(fullPath, type)     
-    
-    if type = "D" set sc = ..SearchExtraneousEntries(statement, fullPath, .files)
-    if $$$ISERR(sc) quit
+    if '..PathDependencies.IsDefined(fullPath) {
+      set length = $case(files, "": 1, : $listlength(files)+1)
+      set $list(files, length) = $listbuild(fullPath, type)            
+    }
   }
   quit sc
 ]]></Implementation>
@@ -825,8 +846,7 @@ Scan(group, type, created)
 <FormalSpec><![CDATA[itemName:%String,&exportList:%String=""]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set classLength = $length(itemName, ".")
-  set package = $piece(itemName, ".", 1, classLength - 1)
+  set package = $piece(itemName, ".", 1, *-1)
   set isProjectItem = ..IsClassProjectItem(itemName)
   
   if $listfind(..ExportedPackages, package) quit $$$OK
@@ -940,14 +960,6 @@ Scan(group, type, created)
 <Implementation><![CDATA[
   set ext = $piece(itemName, ".", $length(itemName, "."))
   quit $select(upperCase = 1 : $$$ucase(ext), 1: ext)
-]]></Implementation>
-</Method>
-
-<Method name="GetItemExtensionFromFile">
-<ClassMethod>1</ClassMethod>
-<FormalSpec>filePath:%String</FormalSpec>
-<ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  quit $replace(..GetItemExtension(filePath, 0), ".txt", "")
 ]]></Implementation>
 </Method>
 
@@ -1142,9 +1154,12 @@ Scan(group, type, created)
 <FormalSpec>searchPath:%String,fs:%SQL.Statement=$$$NULLOREF</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+   
   if '..IsBatch && '$isobject(fs) {
     do ..ResetLists()
   }
+  
+  if '..IsIgnored(searchPath) quit $$$OK
   
   if '$isobject(fs) {
     set fs = ##class(%SQL.Statement).%New()
@@ -1470,9 +1485,12 @@ Scan(group, type, created)
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
   if $piece(path, ..Slash, *)?1"."3A quit ""
-  if isWebPath set sliceSize = 0
-  else  set sliceSize = 1
-  // -1 to ignore last piece (.txt) when not inside web path.
+  if isWebPath || (..GetSourceExtension() = "") {
+    set sliceSize = 0
+  } else {
+    set sliceSize = 1
+  }
+  // -1 to ignore last piece (.txt) when not inside web path or when source extension is not provided.
   quit "."_$zconvert($piece(path, ".", *-sliceSize), "U")
 ]]></Implementation>
 </Method>
@@ -1518,7 +1536,7 @@ Scan(group, type, created)
 
 <Method name="AssertUtilityCreation">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>type:%String,path:%String,logLevel:%String,sc:%Status</FormalSpec>
+<FormalSpec>type:%String,path:%String,logLevel:%String,sourceExtension:%String,sc:%Status</FormalSpec>
 <Private>1</Private>
 <ReturnType>Port.Project.Base</ReturnType>
 <Implementation><![CDATA[
@@ -1529,7 +1547,7 @@ Scan(group, type, created)
   set utilityTypes("X") = "Port.Project.XMLExporter"
   
   try {
-    set utility = $classmethod(utilityTypes(type), "%New", path, logLevel)
+    set utility = $classmethod(utilityTypes(type), "%New", path, logLevel, sourceExtension)
     quit
   } catch ex {
     set sc = ex.AsStatus()
@@ -1540,10 +1558,10 @@ Scan(group, type, created)
 
 <Method name="Export">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>outputPath:%String,logLevel:%Boolean=2,force:%Boolean=0,ignoredPaths:%ListOfDataTypes=""</FormalSpec>
+<FormalSpec>outputPath:%String,logLevel:%Boolean=2,force:%Boolean=0,ignoredPaths:%ListOfDataTypes="",sourceExtension:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set exporter = ..AssertUtilityCreation("E", outputPath, logLevel, .sc)
+  set exporter = ..AssertUtilityCreation("E", outputPath, logLevel, sourceExtension, .sc)
   $$$QuitOnError(sc)
   set exporter.Overwrite = force    
   $$$QuitOnError(exporter.Ignore(ignoredPaths))
@@ -1561,7 +1579,7 @@ Scan(group, type, created)
 <FormalSpec>outputPath:%String,justProject:%Boolean=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set exporter = ..AssertUtilityCreation("X", outputPath, 0, .sc)
+  set exporter = ..AssertUtilityCreation("X", outputPath, 0, "", .sc)
   $$$QuitOnError(sc)  
   quit exporter.ExportToXML(justProject)
 ]]></Implementation>
@@ -1569,17 +1587,21 @@ Scan(group, type, created)
 
 <Method name="Import">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>inputPath:%String,logLevel:%Boolean=2,skipBackup:%Boolean=0,overwrite:%Boolean=0</FormalSpec>
+<FormalSpec>inputPath:%String,logLevel:%Boolean=2,skipBackup:%Boolean=0,overwrite:%Boolean=0,ignoredPaths:%ListOfDataTypes="",sourceExtension:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
-  set importer = ..AssertUtilityCreation("I", inputPath, logLevel, .sc)
+  set importer = ..AssertUtilityCreation("I", inputPath, logLevel, sourceExtension, .sc)
   $$$QuitOnError(sc)
+  $$$QuitOnError(importer.Ignore(ignoredPaths))
+  
   set importer.SkipBackup = skipBackup
   set importer.IsBatch = 1
-  set importer.Overwrite = overwrite  
+  set importer.Overwrite = overwrite   
   set projectName = importer.GetProjectName()
+  
   $$$QuitOnError(importer.Import())
+  
   if importer.AffectedCount > 0 {
     $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, projectName_".PRJ"))
   }
@@ -1589,18 +1611,20 @@ Scan(group, type, created)
 
 <Method name="ImportPartial">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>basePath:%String,target,logLevel:%Boolean=2,skipBackup:%Boolean=0,overwrite:%Boolean=0</FormalSpec>
+<FormalSpec>basePath:%String,target,logLevel:%Boolean=2,skipBackup:%Boolean=0,overwrite:%Boolean=0,ignoredPaths:%ListOfDataTypes="",sourceExtension:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   
-  set importer = ..AssertUtilityCreation("I", basePath, logLevel, .sc)
+  set importer = ..AssertUtilityCreation("I", basePath, logLevel, sourceExtension, .sc)  
   $$$QuitOnError(sc)
+  $$$QuitOnError(importer.Ignore(ignoredPaths))
   
   set importer.LogLevel = logLevel
   set importer.SkipBackup = skipBackup
   set importer.Overwrite = 1  
      
   $$$QuitOnError(importer.ImportPartial(target, .importedList))
+  
   do ..LogFromImportList(importer.GetProjectName(), .importedList)
   quit $$$OK
 ]]></Implementation>
@@ -1649,7 +1673,7 @@ Scan(group, type, created)
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set testPath = ##class(Port.SourceControl.Config).GetTestPath()
-  set exporter = ..AssertUtilityCreation("X", .outputPath, 0, .sc)
+  set exporter = ..AssertUtilityCreation("X", .outputPath, 0, "", .sc)
   $$$QuitOnError(sc)
   quit exporter.ExportTests(outputPath_"/"_testPath)
 ]]></Implementation>
@@ -1745,7 +1769,7 @@ LoopThroughType(projectName, importedList, group)
   if $listvalid(test) && (test '= "") {
     set className = $listget(test, 1)
     set classPath = $listget(test, 2)
-    do ..Logger.Log("[nl]Exporting test class {P1} ... ", 0, $replace(className, ".CLS", ""))
+    do ..Logger.Log("Exporting test class {P1} ... ", 0, $replace(className, ".CLS", ""))
     set sc = $$$ADDSC(sc, $System.OBJ.Export(className, classPath,qspec,, "UTF-8"))
     do ..Logger.Log("done.[nl]", 0)
     set exported = 1
@@ -1773,6 +1797,200 @@ LoopThroughType(projectName, importedList, group)
     ##class(%Library.ClassDefinition).%ExistsId(className) &&
     (##class(%Dictionary.ClassDefinition).%OpenId(className).Super [ "Port.UnitTest.TestCase")
   )
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Class name="Port.REST.API">
+<Super>%CSP.REST</Super>
+<TimeCreated>64398,32675.664927</TimeCreated>
+
+<XData name="UrlMap">
+<XMLNamespace>http://github.com/rfns/port</XMLNamespace>
+<Data><![CDATA[
+<Routes>
+    <Route Url="/:namespace/projects" Method="GET" Call="GetNamespaceProjects"/>
+    <Route Url="/:namespace/projects/:projectName" Method="POST" Call="GetSourceCodeFromProjectItems"/>
+  </Routes>
+]]></Data>
+</XData>
+
+<Method name="CreateHttpRequestHandler">
+<FormalSpec>resourceLocation:%String,*httpRequest:%Net.HttpRequest</FormalSpec>
+<Private>1</Private>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+   
+  set httpRequest = ##class(%Net.HttpRequest).%New()
+  do httpRequest.SetHeader("Content-Type", "application/json; charset=utf-8")
+  $$$QuitOnError(httpRequest.EntityBody.CopyFrom(%request.Content))
+  $$$QuitOnError(httpRequest.Send(%request.Method, resourceLocation))
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="GetNamespaceProjects">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>namespace:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+  #define ThrowOnSQLError(%o) throw:(%o.%SQLCODE > 0) ##class(%Exception.SQL).CreateFromSQLCODE(%o.%SQLCODE, o.%Message) 
+  #dim item As %DynamicObject
+  #dim items As %DynamicArray = []
+    
+  set sc = $$$OK
+  
+  try {
+    set data = {} 
+    new $namespace  
+    set $namespace = namespace
+    set s = ##class(%SQL.Statement).%New()
+    
+    $$$ThrowOnError(s.%PrepareClassQuery("%Studio.Project", "ProjectList"))
+    set c = s.%Execute()
+    $$$ThrowOnSQLError(c)
+    
+    while c.%Next(.sc) {
+      $$$ThrowOnError(sc) 
+      
+      set item = ##class(%DynamicObject).%New()
+      
+      $$$ThrowOnError(item.%Set("id", c.%Get("ID"), "string"))
+      $$$ThrowOnError(item.%Set("name", c.%Get("Name"), "string"))
+      $$$ThrowOnError(item.%Set("last_modified", c.%Get("LastModified"), "string"))
+           
+      $$$ThrowOnError(items.%Push(item))      
+    }
+    do data.%Set("projects", items)
+    write data.%ToJSON()
+  } catch ex {
+    set %response.Status = ..#HTTP500INTERNALSERVERERROR
+    do ..DispatchExceptionAsResponseError(ex)
+    set sc = ex.AsStatus()
+  }
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="DispatchExceptionAsResponseError">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>exception:%Exception.AbstractException</FormalSpec>
+<Implementation><![CDATA[
+  if '$isobject(exception) quit
+  if 'exception.%Extends("%Exception.AbstractException") quit
+  
+  set status = exception.AsStatus()
+  
+  do ..DispatchStatusAsResponseError(status)
+  quit status
+]]></Implementation>
+</Method>
+
+<Method name="DispatchStatusAsResponseError">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>status:%Status,httpStatus:%String=..#HTTP500INTERNALSERVERERROR</FormalSpec>
+<Implementation><![CDATA[
+  set error = {}
+  do error.%Set("code", $System.Status.GetErrorCodes(status))
+  do error.%Set("message", $System.Status.GetErrorText(status))
+  write error.%ToJSON()
+  quit status
+]]></Implementation>
+</Method>
+
+<Method name="FetchProjectItemNames">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>namespace:%String,projectName:%String,*items:%DynamicArray=[]</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+  #define ThrowOnSQLError(%o) throw:(%o.%SQLCODE > 0) ##class(%Exception.SQL).CreateFromSQLCODE(%o.%SQLCODE, o.%Message) 
+  
+  if projectName = "" quit ..DispatchStatusAsResponseError($$$ERROR($$$BadParameter, "missing /:projectName parameter."), ..#HTTP400BADREQUEST)  
+     
+  if '$isobject(%request.Content) quit ..DispatchStatusAsResponseError($$$ERROR($$$GeneralError, "Missing object payload."))
+  set payload = ##class(%DynamicObject).%FromJSON(%request.Content)
+  
+  if '$isobject(payload) quit ..DispatchStatusAsResponseError($$$ERROR($$$GeneralError, "payload must be an object."))
+  if '$isobject(payload.items) quit ..DispatchStatusAsResponseError($$$ERROR($$$BadParameter, "missing items array inside payload."), ..#HTTP400BADREQUEST)
+  if 'payload.items.%IsA("%DynamicArray") quit ..DispatchStatusAsResponseError($$$ERROR($$$BadParameter, "items must be an array."), ..#HTTP400BADREQUEST)  
+  
+  set s = ##class(%SQL.Statement).%New()   
+  
+  try {    
+    new $namespace
+    set $namespace = namespace    
+    $$$ThrowOnError(s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList"))     
+    
+    set c = s.%Execute(projectName)
+    $$$ThrowOnSQLError(c)
+    
+    set items = []
+    set requestItemsLength = payload.items.%Size()
+    
+    while c.%Next(.sc) {
+      $$$ThrowOnError(sc)      
+      set itemName = c.%Get("Name")
+      set type = c.%Get("Type")
+      
+      if type = "CLS" {
+        set itemName = itemName_".cls"
+      } else  {        
+        set itemName = $piece(itemName, ".", *-1)_"."_$piece(c.%Get("Name"), ".", *)        
+      }
+      
+      if requestItemsLength = 0 {        
+        do items.%Push(itemName)
+      } elseif ..ArrayContains(itemName, payload.items) {
+        do items.%Push(itemName)
+      }
+    }
+  } catch ex {
+    set sc = ex.AsStatus()
+  }
+  quit sc
+]]></Implementation>
+</Method>
+
+<Method name="ArrayContains">
+<Internal>1</Internal>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>expression:%String,array:%DynamicArray</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+  set contained = 0
+  
+  if '$isobject(array) quit 0
+  if expression = "" quit 0
+  
+  set iterator = array.%GetIterator()
+  set key = ""
+  set value = ""  
+  
+  while iterator.%GetNext(.key, .value) {
+    if expression = value {
+      set contained = 1
+      quit
+    }
+  }
+  quit contained
+]]></Implementation>
+</Method>
+
+<Method name="GetSourceCodeFromProjectItems">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>namespace:%String,projectName:%String</FormalSpec>
+<Implementation><![CDATA[
+  set sc = ..FetchProjectItemNames(namespace, projectName, .items)
+  if $$$ISERR(sc) quit ..DispatchStatusAsResponseError(sc)
+  
+  do %request.Content.Clear()
+  $$$QuitOnError(%request.Content.Write(items.%ToJSON()))
+  $$$QuitOnError(##class(%Api.Atelier.v1).GetDocs(namespace))
+  
+  quit sc
 ]]></Implementation>
 </Method>
 </Class>
@@ -1919,30 +2137,29 @@ Gets the association prefix.</Description>
 ]]></Implementation>
 </Method>
 
-<Method name="Ignore">
+<Method name="SetSourceExtension">
+<Description>
+Defines the extension to be used for exported source files overwriting their own.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>paths:%String=""</FormalSpec>
+<FormalSpec>value:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  if paths = "" quit $$$ERROR($$$GeneralError, "'paths' cannot be empty.")
-  set ^Port.SourceControl.Settings("export.extraneous.ignore") = $listfromstring(paths)
+  
+  if $extract(value) = "." set value = $extract(value, 2, *)
+  set ^Port.SourceControl.Settings("source.extension") = value
   quit $$$OK
 ]]></Implementation>
 </Method>
 
-<Method name="ClearIgnoredPaths">
+<Method name="GetSourceExtension">
+<Description>
+Gets the source extension.</Description>
 <ClassMethod>1</ClassMethod>
-<ReturnType>%Status</ReturnType>
+<ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
-  kill ^Port.SourceControl.Settings("export.extraneous.ignore")
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="GetIgnoredPaths">
-<ClassMethod>1</ClassMethod>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  quit $get(^Port.SourceControl.Settings("export.extraneous.ignore"))
+  set extension = $get(^Port.SourceControl.Settings("source.extension"))
+  if extension = "" quit extension
+  quit extension
 ]]></Implementation>
 </Method>
 
@@ -2078,6 +2295,7 @@ Gets the association prefix.</Description>
     set testPath = ##class(Config).GetTestPath()
     set logLevel = ##class(Config).GetLogLevel()
     set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
+    set sourceExtension = ##class(Config).GetSourceExtension()
     
     if name = "%ExportProject" {
       set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)     
@@ -2120,6 +2338,7 @@ Gets the association prefix.</Description>
       if $$$ucase(InternalName) '= ($$$ucase(projectName_".PRJ")) {
         set exporter = ##class(Port.Project.Exporter).%New(projectPath)
         set exporter.Overwrite = 1
+        set exporter.SourceExtension = sourceExtension
         set internalName = InternalName
         if $extract(InternalName, 1) = "/" {
           set internalName = $extract(InternalName, 2, *)
@@ -2135,7 +2354,7 @@ Gets the association prefix.</Description>
     
     if name = "%UpdateActiveItem" {
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
-        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1)
+        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, sourceExtension)
       } else {        
         quit ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel)
       }
@@ -2150,13 +2369,14 @@ Gets the association prefix.</Description>
     }
     
     if name = "%ForceExportProject" {
-      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath) 
-      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths))
+      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
     }
     
     if name = "%ForceImportProject" {
-      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1))
+      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
+      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
     }    
   }
@@ -2333,7 +2553,7 @@ Called after the compile of the item is done.</Description>
 <FormalSpec>projectName=^||%Studio.Project,itemName:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  do ..ExtractItemDescription(itemName, .name, .type)  
+  do ..ExtractItemDescription(itemName, .name, .type)
   set ^Port.SourceControl.Projects(projectName, type, name) = $zdatetime($horolog, 3,,,,,,,,,0) 
   quit $$$OK
 ]]></Implementation>
@@ -2447,13 +2667,13 @@ Called after the compile of the item is done.</Description>
   
   set fullPath = ""
   set type = ##class(Port.Project.Helper).GetItemExtension(itemName)
-  set defaultPath = ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetExportPath())
+  set defaultPath = ##class(%File).NormalizeFilename(##class(Config).GetExportPath())
   
   if type = "CLS" {
     set fullPath = ##class(Port.Project.Helper).ClassToFile(defaultPath_"/cls", $piece(itemName, ".", 1, *-1))
   } elseif ##class(Port.Project.Helper).IsRoutine(itemName) {
     set ext = $$$lcase(type)
-    set fileName = $$$lcase(itemName)_".txt"
+    set fileName = $$$lcase(itemName)_"."_##class(Config).GetSourceExtension()
     set fullPath = ##class(%File).NormalizeFilename(defaultPath_"/"_ext_"/"_fileName) 
   } elseif type = "PKG" {
     set fullPath = ##class(%File).GetDirectory(##class(Port.Project.Helper).ClassToFile(defaultPath_"/cls", itemName))
@@ -2484,7 +2704,7 @@ Called after the compile of the item is done.</Description>
 <FormalSpec>className,*testableClass:%String=""</FormalSpec>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[
-  set prefix = ##class(Port.SourceControl.Config).GetTestClassPrefix()
+  set prefix = ##class(Config).GetTestClassPrefix()
   set rootPackage = $piece(className, ".")  
   
   if rootPackage = prefix {
@@ -2918,7 +3138,7 @@ CreateFile
 </Class>
 
 
-<Project name="port" LastModified="2017-04-20 15:16:28.759989" Target="##class(Port.Project.Manager).Import(&quot;/CacheProjects/TDEV/testing&quot;,,,1)" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2017-04-25 16:37:29.85944" Target="##class(Port.Project.Manager).Import(&quot;/CacheProjects/TDEV/testing&quot;,,,1)" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
@@ -2928,6 +3148,7 @@ CreateFile
     <ProjectItem name="Port.Project.Importer" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Manager" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.XMLExporter" type="CLS"></ProjectItem>
+    <ProjectItem name="Port.REST.API" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Config" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Hooks" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Installer" type="CLS"></ProjectItem>

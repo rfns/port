@@ -1,0 +1,3 @@
+#define ImportTypes           $listbuild("INC", "INT", "CLS", "MAC", "MVI", "MVB", "BAS", "DFI", "CSR", "CSP")
+#define ImportTypeDescriptions $listbuild("include files", "intermediate routines", "classes", "macro routines",  "MV Intermediate routines", "MV Basic routines", "Basic routines", "DFI XML", "CSP Rules", "files")
+#define RoutineExtensions     $listbuild(".MAC", ".INT", ".INC", ".MVB", ".MVI", ".BAS", ".DFI")
