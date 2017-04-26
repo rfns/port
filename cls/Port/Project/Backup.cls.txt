@@ -1,7 +1,7 @@
 Class Port.Project.Backup Extends %RegisteredObject
 {
 
-Property BackupDirectory As %String;
+Property BackupDirectory As %String [ Final, InitialExpression = "1" ];
 
 Property Logger As Port.Project.Importer;
 

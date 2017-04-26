@@ -15,9 +15,9 @@ Property ImportList As %String [ InitialExpression = 0, MultiDimensional ];
 
 Property ItemsList As %String [ InitialExpression = 0, MultiDimensional, Private ];
 
-Method %OnNew(inputPath As %String, logLevel As %Integer = 2) As %Status
+Method %OnNew(inputPath As %String, logLevel As %Integer = 2, sourceExtension As %String = "") As %Status
 {
-  do ##super(inputPath, logLevel)
+  $$$QuitOnError(##super(inputPath, logLevel, sourceExtension))
   
   set installDirectory = $System.Util.InstallDirectory()
   
@@ -54,10 +54,7 @@ Method EnqueueItem(target As %String) As %Boolean
   set enqueued = 0    
   set isWebPath = target [ ..WebPath
   
-  if '##class(%File).Exists(target) {
-    set enqueued = 0
-    quit enqueued
-  }
+  if '##class(%File).Exists(target) quit enqueued  
   
   set described = ..Describe(target, isWebPath, .sc, .isOutdated, .internalFileName, .itemName, .itemType, .group, .alias)
   if described && '$data(i%ItemsList(itemName)) {
@@ -66,7 +63,7 @@ Method EnqueueItem(target As %String) As %Boolean
     }
     set i%ItemsList = $increment(i%ItemsList)
     set i%ItemsList(itemName) = ""  
-    
+        
     if isOutdated || ..Overwrite {
       set i%ImportList = $increment(i%ImportList)
       set i%ImportList(group, itemType, alias) = $listbuild(target, internalFileName)
@@ -78,9 +75,12 @@ Method EnqueueItem(target As %String) As %Boolean
 
 Method EnqueueDirectory(searchPath As %String, fs As %SQL.Statement = {$$$NULLOREF}) As %Status
 {
+   
   if '..IsBatch && '$isobject(fs) {
     do ..ResetLists()
   }
+  
+  if ..IsIgnored(searchPath) quit $$$OK
   
   if '$isobject(fs) {
     set fs = ##class(%SQL.Statement).%New()
@@ -163,7 +163,7 @@ Method Describe(origin As %String, isWebPath As %Boolean = 0, sc As %Status, Out
 
 Method ImportList() As %Status [ Internal, Private ]
 {
-  set sc = $$$OK
+  set sc = $$$OK  
   
   for i=1:1:10 {
    set sc = ..ImportType(i)
@@ -372,9 +372,12 @@ ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, fil
 Method GetFileExtension(path As %String, isWebPath As %Boolean) As %String [ Internal, Private ]
 {
   if $piece(path, ..Slash, *)?1"."3A quit ""
-  if isWebPath set sliceSize = 0
-  else  set sliceSize = 1
-  // -1 to ignore last piece (.txt) when not inside web path.
+  if isWebPath || (..GetSourceExtension() = "") {
+    set sliceSize = 0
+  } else {
+    set sliceSize = 1
+  }
+  // -1 to ignore last piece (.txt) when not inside web path or when source extension is not provided.
   quit "."_$zconvert($piece(path, ".", *-sliceSize), "U")
 }
 

@@ -37,13 +37,16 @@ Method OnAfterSave(InternalName As %String) As %Status
   set projectName = $get(^||%Studio.Project)
   set sc = $$$OK
   if projectName '= "" && (projectName '[ "Default") {
-    set exportPath = ##class(Port.SourceControl.Config).GetExportPath()
+    set exportPath = ##class(Config).GetExportPath()
     set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)
     
     if type '= "PRJ" {
+      set sourceExtension = ##class(Config).GetSourceExtension()
       set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
-      set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)           
-      set shouldExportAsXML = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()      
+      set itemName = ##class(Util).ResolveInternalName(InternalName)           
+      set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()      
+      
+      set exporter.SourceExtension = sourceExtension
       
       $$$QuitOnError(exporter.IsProjectMember(InternalName, .isMember))
       if 'isMember quit $$$OK
@@ -58,7 +61,7 @@ Method OnAfterSave(InternalName As %String) As %Status
         set sc = exporter.ExportWebFile(itemName)     
       }
       if '%importingFromXML {        
-        $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, InternalName))
+        $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath))
       }
     }
@@ -93,11 +96,14 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     set testPath = ##class(Config).GetTestPath()
     set logLevel = ##class(Config).GetLogLevel()
     set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
+    set sourceExtension = ##class(Config).GetSourceExtension()    
     
     if name = "%ExportProject" {
+      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
+      if shouldOverwrite do ##class(Config).TrackActiveExtension()
       set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)     
-      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 0, ignoredPaths))
-      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, shouldOverwrite, ignoredPaths, sourceExtension))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))      
       quit $$$OK
     }
     if name = "%ExportProjectToXML" {
@@ -112,19 +118,19 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/load/run/nodelete"))
     }       
     if name = "%ImportProject" {
-      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0))
+      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0,,sourceExtension))
     }
     if name = "%RemoveProjectClasses" {
-      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "CLS"))
-      quit ##class(Port.SourceControl.Log).Synchronize()
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CLS"))
+      quit ##class(Log).Synchronize()
     }
     if name = "%RemoveProjectWebFiles" {
-      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "CSP"))
-      quit ##class(Port.SourceControl.Log).Synchronize()
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CSP"))
+      quit ##class(Log).Synchronize()
     }
     if name = "%RemoveProjectRoutines" {
-      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "MAC"))
-      quit ##class(Port.SourceControl.Log).Synchronize()
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "MAC"))
+      quit ##class(Log).Synchronize()
     }
     if name = "%RemoveInvalidItems" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveInvalidItems(projectName))
@@ -135,12 +141,13 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
       if $$$ucase(InternalName) '= ($$$ucase(projectName_".PRJ")) {
         set exporter = ##class(Port.Project.Exporter).%New(projectPath)
         set exporter.Overwrite = 1
+        set exporter.SourceExtension = sourceExtension
         set internalName = InternalName
         if $extract(InternalName, 1) = "/" {
           set internalName = $extract(InternalName, 2, *)
         }
         $$$QuitOnError(exporter.ExportItem(internalName))
-        $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, internalName))
+        $$$QuitOnError(##class(Log).LogChange(projectName, internalName))
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
       } else {
         set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
@@ -150,14 +157,14 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     
     if name = "%UpdateActiveItem" {
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
-        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1)
+        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, sourceExtension)
       } else {        
         quit ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel)
       }
     }
     
     if name = "%RunActiveItemTest" {
-      set testable = ##class(Port.SourceControl.Util).AssertTestableClass(itemName, .testableClass)      
+      set testable = ##class(Util).AssertTestableClass(itemName, .testableClass)      
       if testable {
         $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
         quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass)
@@ -165,13 +172,18 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     }
     
     if name = "%ForceExportProject" {
-      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath) 
-      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths))
+      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
+      if shouldOverwrite do ##class(Config).TrackActiveExtension()
+      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
     }
     
     if name = "%ForceImportProject" {
-      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1))
+      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
+      if shouldOverwrite do ##class(Config).TrackActiveExtension()      
+      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
+      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
     }    
   }
@@ -216,7 +228,7 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
   
   if name = "%RunActiveItemTest" {
     set DisplayName = "Run Tests Associated to this Item"
-    set Enabled = ##class(Port.SourceControl.Util).AssertTestableClass(itemName)
+    set Enabled = ##class(Util).AssertTestableClass(itemName)
   } 
   
   if name = "%ExportActiveItem" {
@@ -250,17 +262,17 @@ Method OnAfterCompile(InternalName As %String) As %Status
   set sc = $$$OK
   
   if projectName '= "" && (projectName '[ "Default") {
-    set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
-    set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)
+    set projectPath = ##class(Config).GetExportPath()
+    set itemName = ##class(Util).ResolveInternalName(InternalName)
     set type = $$$ucase($piece(InternalName, ".", $length(InternalName, ".")))    
     set exporter = ##class(Port.Project.Exporter).%New(projectPath)
     set xmlExporter = ##class(Port.Project.XMLExporter).%New(projectPath)
     
     if type = "CLS" {     
-      set testPath = ##class(Port.SourceControl.Config).GetTestPath()      
+      set testPath = ##class(Config).GetTestPath()      
       set shouldRunTest = (
-        ##class(Port.SourceControl.Config).IsTestOnDemandEnabled() &&
-        ##class(Port.SourceControl.Util).AssertTestableClass(itemName, .testableClass) &&
+        ##class(Config).IsTestOnDemandEnabled() &&
+        ##class(Util).AssertTestableClass(itemName, .testableClass) &&
         ##class(%File).DirectoryExists(projectPath_"/"_testPath)        
       )
       if shouldRunTest {

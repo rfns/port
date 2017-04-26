@@ -230,7 +230,6 @@ Scan(group, type, created)
 <Property name="SourceExtension">
 <Type>%String</Type>
 <InitialExpression>"txt"</InitialExpression>
-<Private>1</Private>
 </Property>
 
 <Property name="IgnoredPaths">
@@ -468,46 +467,47 @@ Scan(group, type, created)
 </Method>
 
 <Method name="IsOutdated">
-<FormalSpec>resident:%String,contestant:%String,isImport:%Boolean=0</FormalSpec>
+<FormalSpec>current:%String,external:%String,isImport:%Boolean=0</FormalSpec>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[
   
-  if '##class(%File).Exists(contestant) quit 1 
-  set contestantTS = $zdt(##class(%File).GetFileDateModified(##class(%File).NormalizeFilename(contestant)), 3,,,,,,,,,0)
-  
-  if contestantTS < 0 quit 1
-  set lastModified = 0
+  if '##class(%File).Exists(external) quit 1 
+  set externalTS = $zdt(##class(%File).GetFileDateModified(##class(%File).NormalizeFilename(external)), 3,,,,,,,,,0)
+    
+  if externalTS < 0 quit 1
+  set lastModified = 0  
   
   set projectTS = ##class(Port.SourceControl.Log).GetLastChange(..GetProjectName(), ..GetProjectName()_".PRJ")
-  set residentDate = ##class(Port.SourceControl.Log).GetLastChange(..GetProjectName(), resident)
+  set currentDate = ##class(Port.SourceControl.Log).GetLastChange(..GetProjectName(), current)
   
-  if residentDate = 0 set lastModified = projectTS
-  else  set lastModified = $select(residentDate ] projectTS : residentDate, 1: projectTS)
-    
-  if ##class(Port.Project.Helper).IsRoutine(resident) || 
-    (##class(Port.Project.Helper).GetItemExtension(resident) = "CLS") {
-    set residentTS = $piece(##class(%RoutineMgr).TS(resident, .compileTime), ".")
+  if currentDate = 0 set lastModified = projectTS
+  else  set lastModified = $select(currentDate ] projectTS : currentDate, 1: projectTS)
+      
+  if ##class(Port.Project.Helper).IsRoutine(current) || 
+    (##class(Port.Project.Helper).GetItemExtension(current) = "CLS") {
+    set currentTS = $piece(##class(%RoutineMgr).TS(current, .compileTime), ".")
   } else {
     if 'isImport {
-      set fullSourcePath = ##class(%File).NormalizeFilename(resident, $System.Util.InstallDirectory())
+      set fullSourcePath = ##class(%File).NormalizeFilename(current, $System.Util.InstallDirectory())
     } else {
-      set fullSourcePath = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(resident)
+      set fullSourcePath = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(current)
     }
-    set residentTS = $zdatetime(##class(%File).GetFileDateModified(fullSourcePath), 3,,,,,,,,,0)
+    set currentTS = $zdatetime(##class(%File).GetFileDateModified(fullSourcePath), 3,,,,,,,,,0)
     // If the file is missing it's considered outdated as well.
-    if residentTS = 0 quit 1
-  }
+    if currentTS = 0 quit 1
+  }   
+  
   // Same date for both entries? Then consider updated.
-  if residentTS = contestantTS quit 0
+  if currentTS = externalTS quit 0
   if 'isImport {  
     quit (
-      (residentTS ] contestantTS) && 
-      (residentTS ] lastModified)
+      (currentTS ] externalTS) && 
+      (currentTS ] lastModified)
     )
   }
   quit (
-    (contestantTS ] residentTS) && 
-    (contestantTS ] lastModified)
+    (externalTS ] currentTS) && 
+    (externalTS ] lastModified)
   )
 ]]></Implementation>
 </Method>
@@ -551,9 +551,9 @@ Scan(group, type, created)
 <FormalSpec>path:%String,logLevel:%Integer=2,sourceExtension:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  $$$QuitOnError(##super(path, logLevel, sourceExtension))
+  $$$QuitOnError(##super(path, logLevel, sourceExtension))  
        
-  if '$isobject(..Project) {
+  if '$isobject(..Project) {    
     set ..ProjectName = "null"
     throw ##class(%Exception.StatusException).CreateFromStatus($$$ERROR(5001, "Invalid project name ("_..ProjectName_")."))
   }
@@ -1082,10 +1082,10 @@ Scan(group, type, created)
 </Property>
 
 <Method name="%OnNew">
-<FormalSpec>inputPath:%String,logLevel:%Integer=2</FormalSpec>
+<FormalSpec>inputPath:%String,logLevel:%Integer=2,sourceExtension:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  do ##super(inputPath, logLevel)
+  $$$QuitOnError(##super(inputPath, logLevel, sourceExtension))
   
   set installDirectory = $System.Util.InstallDirectory()
   
@@ -1127,10 +1127,7 @@ Scan(group, type, created)
   set enqueued = 0    
   set isWebPath = target [ ..WebPath
   
-  if '##class(%File).Exists(target) {
-    set enqueued = 0
-    quit enqueued
-  }
+  if '##class(%File).Exists(target) quit enqueued  
   
   set described = ..Describe(target, isWebPath, .sc, .isOutdated, .internalFileName, .itemName, .itemType, .group, .alias)
   if described && '$data(i%ItemsList(itemName)) {
@@ -1139,7 +1136,7 @@ Scan(group, type, created)
     }
     set i%ItemsList = $increment(i%ItemsList)
     set i%ItemsList(itemName) = ""  
-    
+        
     if isOutdated || ..Overwrite {
       set i%ImportList = $increment(i%ImportList)
       set i%ImportList(group, itemType, alias) = $listbuild(target, internalFileName)
@@ -1159,7 +1156,7 @@ Scan(group, type, created)
     do ..ResetLists()
   }
   
-  if '..IsIgnored(searchPath) quit $$$OK
+  if ..IsIgnored(searchPath) quit $$$OK
   
   if '$isobject(fs) {
     set fs = ##class(%SQL.Statement).%New()
@@ -1254,7 +1251,7 @@ Scan(group, type, created)
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set sc = $$$OK
+  set sc = $$$OK  
   
   for i=1:1:10 {
    set sc = ..ImportType(i)
@@ -1642,7 +1639,7 @@ Scan(group, type, created)
 ]]></Implementation>
 </Method>
 
-<Method name="RemoveItemsFromCategory">
+<Method name="RemoveItemsByType">
 <ClassMethod>1</ClassMethod>
 <FormalSpec>projectName:%String,type:%String,*items:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -2031,9 +2028,9 @@ Gets the current configured log level.</Description>
 <Description>
 Sets the path where the files are to be exported. Supports template.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>newExportPath:%String</FormalSpec>
+<FormalSpec>newExportPath:%String=""</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("source.path") = $get(newExportPath, "/CacheProjects/{NAMESPACE}/{PROJECT}")
+<Implementation><![CDATA[  set ^Port.SourceControl.Settings("source.path") = $select(newExportPath = "" : "/CacheProjects/{NAMESPACE}/{PROJECT}", 1: newExportPath)
 ]]></Implementation>
 </Method>
 
@@ -2078,10 +2075,10 @@ Returns if the auto-export feature is enabled. </Description>
 <Description>
 Sets the path which the source control should export and look up for tests on XML format.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>newPath:%String</FormalSpec>
+<FormalSpec>newPath:%String=""</FormalSpec>
 <Implementation><![CDATA[
   
-  set ^Port.SourceControl.Settings("test.path") = $get(newPath, "__tests__/cls")
+  set ^Port.SourceControl.Settings("test.path") = $select(newPath = "" : "tests/cls", 1: newPath)
 ]]></Implementation>
 </Method>
 
@@ -2123,8 +2120,8 @@ Returns 1 if association is enabled, 0 if not.</Description>
 <Description>
 Sets the prefix used to associate the source with it's test class.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>newPrefix:%String</FormalSpec>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("test.prefix") = newPrefix
+<FormalSpec>newPrefix:%String=""</FormalSpec>
+<Implementation><![CDATA[  set ^Port.SourceControl.Settings("test.prefix") = $select(newPrefix = "" : "UnitTest", 1: newPrefix)
 ]]></Implementation>
 </Method>
 
@@ -2144,7 +2141,7 @@ Defines the extension to be used for exported source files overwriting their own
 <FormalSpec>value:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  
+  do ..TrackPreviousExtension()
   if $extract(value) = "." set value = $extract(value, 2, *)
   set ^Port.SourceControl.Settings("source.extension") = value
   quit $$$OK
@@ -2157,9 +2154,29 @@ Gets the source extension.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
+  
   set extension = $get(^Port.SourceControl.Settings("source.extension"))
   if extension = "" quit extension
   quit extension
+]]></Implementation>
+</Method>
+
+<Method name="IsSameSourceExtension">
+<Final>1</Final>
+<Internal>1</Internal>
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+  set extension = ..GetSourceExtension()
+  quit (extension '= $get(^Port.SourceControl.Settings("internals.trackers.extension")))
+]]></Implementation>
+</Method>
+
+<Method name="TrackPreviousExtension">
+<Final>1</Final>
+<Internal>1</Internal>
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[  set ^Port.SourceControl.Settings("internals.trackers.extension") = ..GetSourceExtension()
 ]]></Implementation>
 </Method>
 
@@ -2234,13 +2251,16 @@ Gets the source extension.</Description>
   set projectName = $get(^||%Studio.Project)
   set sc = $$$OK
   if projectName '= "" && (projectName '[ "Default") {
-    set exportPath = ##class(Port.SourceControl.Config).GetExportPath()
+    set exportPath = ##class(Config).GetExportPath()
     set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)
     
     if type '= "PRJ" {
+      set sourceExtension = ##class(Config).GetSourceExtension()
       set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
-      set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)           
-      set shouldExportAsXML = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()      
+      set itemName = ##class(Util).ResolveInternalName(InternalName)           
+      set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()      
+      
+      set exporter.SourceExtension = sourceExtension
       
       $$$QuitOnError(exporter.IsProjectMember(InternalName, .isMember))
       if 'isMember quit $$$OK
@@ -2255,7 +2275,7 @@ Gets the source extension.</Description>
         set sc = exporter.ExportWebFile(itemName)     
       }
       if '%importingFromXML {        
-        $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, InternalName))
+        $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath))
       }
     }
@@ -2295,12 +2315,14 @@ Gets the source extension.</Description>
     set testPath = ##class(Config).GetTestPath()
     set logLevel = ##class(Config).GetLogLevel()
     set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
-    set sourceExtension = ##class(Config).GetSourceExtension()
+    set sourceExtension = ##class(Config).GetSourceExtension()    
     
     if name = "%ExportProject" {
+      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
+      if shouldOverwrite do ##class(Config).TrackActiveExtension()
       set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)     
-      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 0, ignoredPaths))
-      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, shouldOverwrite, ignoredPaths, sourceExtension))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))      
       quit $$$OK
     }
     if name = "%ExportProjectToXML" {
@@ -2315,19 +2337,19 @@ Gets the source extension.</Description>
       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/load/run/nodelete"))
     }       
     if name = "%ImportProject" {
-      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0))
+      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0,,sourceExtension))
     }
     if name = "%RemoveProjectClasses" {
-      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "CLS"))
-      quit ##class(Port.SourceControl.Log).Synchronize()
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CLS"))
+      quit ##class(Log).Synchronize()
     }
     if name = "%RemoveProjectWebFiles" {
-      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "CSP"))
-      quit ##class(Port.SourceControl.Log).Synchronize()
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CSP"))
+      quit ##class(Log).Synchronize()
     }
     if name = "%RemoveProjectRoutines" {
-      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsFromCategory(projectName, "MAC"))
-      quit ##class(Port.SourceControl.Log).Synchronize()
+      $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "MAC"))
+      quit ##class(Log).Synchronize()
     }
     if name = "%RemoveInvalidItems" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveInvalidItems(projectName))
@@ -2344,7 +2366,7 @@ Gets the source extension.</Description>
           set internalName = $extract(InternalName, 2, *)
         }
         $$$QuitOnError(exporter.ExportItem(internalName))
-        $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, internalName))
+        $$$QuitOnError(##class(Log).LogChange(projectName, internalName))
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
       } else {
         set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
@@ -2361,7 +2383,7 @@ Gets the source extension.</Description>
     }
     
     if name = "%RunActiveItemTest" {
-      set testable = ##class(Port.SourceControl.Util).AssertTestableClass(itemName, .testableClass)      
+      set testable = ##class(Util).AssertTestableClass(itemName, .testableClass)      
       if testable {
         $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
         quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass)
@@ -2369,14 +2391,18 @@ Gets the source extension.</Description>
     }
     
     if name = "%ForceExportProject" {
+      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
+      if shouldOverwrite do ##class(Config).TrackActiveExtension()
       set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
     }
     
     if name = "%ForceImportProject" {
+      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
+      if shouldOverwrite do ##class(Config).TrackActiveExtension()      
       set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
-      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths))
+      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
     }    
   }
@@ -2424,7 +2450,7 @@ Gets the source extension.</Description>
   
   if name = "%RunActiveItemTest" {
     set DisplayName = "Run Tests Associated to this Item"
-    set Enabled = ##class(Port.SourceControl.Util).AssertTestableClass(itemName)
+    set Enabled = ##class(Util).AssertTestableClass(itemName)
   } 
   
   if name = "%ExportActiveItem" {
@@ -2462,17 +2488,17 @@ Called after the compile of the item is done.</Description>
   set sc = $$$OK
   
   if projectName '= "" && (projectName '[ "Default") {
-    set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
-    set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)
+    set projectPath = ##class(Config).GetExportPath()
+    set itemName = ##class(Util).ResolveInternalName(InternalName)
     set type = $$$ucase($piece(InternalName, ".", $length(InternalName, ".")))    
     set exporter = ##class(Port.Project.Exporter).%New(projectPath)
     set xmlExporter = ##class(Port.Project.XMLExporter).%New(projectPath)
     
     if type = "CLS" {     
-      set testPath = ##class(Port.SourceControl.Config).GetTestPath()      
+      set testPath = ##class(Config).GetTestPath()      
       set shouldRunTest = (
-        ##class(Port.SourceControl.Config).IsTestOnDemandEnabled() &&
-        ##class(Port.SourceControl.Util).AssertTestableClass(itemName, .testableClass) &&
+        ##class(Config).IsTestOnDemandEnabled() &&
+        ##class(Util).AssertTestableClass(itemName, .testableClass) &&
         ##class(%File).DirectoryExists(projectPath_"/"_testPath)        
       )
       if shouldRunTest {
@@ -2504,16 +2530,38 @@ Called after the compile of the item is done.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  $$$QuitOnError(..CreateGlobalMapping())
-  do ##class(Port.SourceControl.Config).SetExportPath("/CacheProjects/{NAMESPACE}/{PROJECT}") 
-  do ##class(Port.SourceControl.Config).SetTestPath("tests/{PROJECT}")
-  do ##class(Port.SourceControl.Config).SetTestClassPrefix("UnitTest")
-  do ##class(Port.SourceControl.Config).EnableTestOnDemand()
-  do ##class(Port.SourceControl.Config).EnableAutoExportXML()
-  do ##class(Port.SourceControl.Config).SetLogLevel(1)
+  set sc = $$$OK
   
-  $$$QuitOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
-  quit ##class(Port.SourceControl.LogCleaner).StartTask()
+  try {
+    write !, "Installing Port ... please wait a moment.", !
+    write "> Creating global mappings ...", !
+    $$$ThrowOnError(..CreateGlobalMapping())
+    write "> Setting up workspace structure ... ", !
+    do ##class(Config).SetExportPath("/CacheProjects/{NAMESPACE}/{PROJECT}")
+    write "> Setting up test files directory ...", !
+    do ##class(Config).SetTestPath("tests/{PROJECT}")
+    write "> Defining default test class prefix ..", !
+    do ##class(Config).SetTestClassPrefix("UnitTest")
+    write "> Enabling auto-testing ...", !
+    do ##class(Config).EnableTestOnDemand()
+    write "> Enabling auto-export for project XML ...", !
+    do ##class(Config).EnableAutoExportXML()
+    write "> Setting up log level ...", !
+    do ##class(Config).SetLogLevel(1)
+    write "> Setting up source extension ...", !
+    do ##class(Config).SetSourceExtension("txt")    
+    write "> Registering LogCleaner task ...", !
+    $$$ThrowOnError(##class(LogCleaner).StartTask())
+    write "> Activating source control class ...", !!
+    $$$ThrowOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
+    write "ALL DONE.", !
+    write "NOTE: Please note that you must restart Studio in order to make the new settings have effect."
+  } catch ex {
+    set sc = ex.AsStatus()
+    write !!, "FATAL: Failed to install port due to the following reason: "
+    do $System.OBJ.DisplayError(sc)
+  }
+  quit sc
 ]]></Implementation>
 </Method>
 
@@ -2927,6 +2975,332 @@ Called after the compile of the item is done.</Description>
 </Class>
 
 
+<Class name="Port.Wizard">
+<Abstract>1</Abstract>
+<TimeCreated>64399,33218.690245</TimeCreated>
+
+<Method name="Start">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>hideIntroduction:%Boolean=0</FormalSpec>
+<Implementation><![CDATA[
+  set validChoices = $listbuild(1,2,3,4,5,6)
+  set invalidChoice = 1
+  set choice = ""  
+  
+  if 'hideIntroduction {
+    write !, "Welcome to the Port configuration wizard."
+  }
+  
+  while invalidChoice {
+    if invalidChoice && (choice '= "") write "Invalid choice."
+    do Menu
+  }
+    
+  if choice = 1 do ..StartWorkspaceConfigAssistant() quit
+  if choice = 2 do ..StartTestConfigAssistant() quit
+  if choice = 3 do ..StartAutoExportXMLConfigAssistant() quit
+  if choice = 4 do ..StartLogLevelConfigAssistant() quit
+  if choice = 5 do ..StartSourceExtensionConfigAssistant() quit
+  if choice = 6 write !, "Bye." quit  
+  //if choice = 4 quit ..StartLogLevelConfigAssistant()
+  //if choice = 5 quit ..StartGlobalMappingsConfigAssistant()
+         
+Menu
+  set choice = ""
+  write !!, "What do you want to do? (type the number)", !!
+  
+  write "1. Change workspace pattern.", !
+  write "2. Change test settings.", !
+  write "3. Toggle project XML auto-export.", !
+  write "4. Set log level.", !
+  write "5. Set source extension.", !
+  write "6. Exit.", !!
+  
+  write "Your choice: "
+  
+  read choice
+  write !  
+  set invalidChoice = ($listfind(validChoices, choice) = 0)
+  quit
+]]></Implementation>
+</Method>
+
+<Method name="StartWorkspaceConfigAssistant">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  set isPathValid = 0
+    
+  
+  write !, "Configures which directory should be used to export your source code."
+  
+  write !!, "You can use the following specific placeholders: ", !!
+  
+  write "{PROJECT} - The active project name.", !
+  write "{NAMESPACE} - The active namespace name.", !
+  write "{USERNAME} - The active user name.", !
+  write "{INSTALLDIR} - The Caché installation directory."
+  
+  write !!, "Please type the ABSOLUTE path to be used when exporting your source files.", !
+  
+  write "You can use both: UNIX or Windows schemes.", !!
+  write "Default is: ", !, "/CacheProjects/{NAMESPACE}/{PROJECT}", !
+  write "Current is: ", !, $get(^Port.SourceControl.Settings("source.path"), "none"), !!
+  write "New: ", !
+  read path
+   
+  do ##class(Port.SourceControl.Config).SetExportPath(path)
+  write !!, "The workspace is now set to: "_^Port.SourceControl.Settings("source.path")_"."
+  do ..Start(1)
+]]></Implementation>
+</Method>
+
+<Method name="StartTestConfigAssistant">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>hideIntroduction:%Boolean=0</FormalSpec>
+<Implementation><![CDATA[
+  set validChoices = $listbuild(1,2,3,4)
+  set invalidChoice = 1
+  set choice = ""    
+  
+  if 'hideIntroduction {  
+    write !, "Configures settings related to the Studio test integration.", !!
+  }
+  
+  while invalidChoice {
+    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    do Menu
+  }
+  
+  if choice = 1 do ..StartTestChoice1ConfigAssistant() quit
+  if choice = 2 do ..StartTestChoice2ConfigAssistant() quit
+  if choice = 3 do ..StartTestChoice3ConfigAssistant() quit
+  if choice = 4 do ..Start(1) quit
+    
+Menu
+  set choice = ""
+  write "What do you want to do? (type the number)", !!
+  
+  write "1. Enable or disable test on demand.", !
+  write "2. Define a new test class prefix.", !
+  write "3. Define the path where unit test classes should exported (XML).", !
+  write "4. Go back.", !!
+  
+  write "Your choice: "
+  
+  read choice
+  write !  
+  set invalidChoice = ($listfind(validChoices, choice) = 0)
+  quit
+]]></Implementation>
+</Method>
+
+<Method name="StartAutoExportXMLConfigAssistant">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  set validChoices = $listbuild(1,2)
+  set choice = ""
+  set invalidChoice = 1
+  
+  set labels(1) = "ENABLED"
+  set labels(0) = "DISABLED"  
+  
+  write !, "Exports an XML file from project when a document is saved on Studio.", !!
+
+  while invalidChoice {
+    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    do Menu
+  }
+  
+  if choice = 1 {
+    do ##class(Port.SourceControl.Config).EnableAutoExportXML()
+    write "Auto-export XML is now ENABLED."
+  }
+  
+  if choice = 2 {
+    do ##class(Port.SourceControl.Config).DisableAutoExportXML()
+    write "Auto-export XML is now DISABLED."
+  }
+  
+  write !!
+  do ..Start(1) quit
+  
+Menu
+  set choice = ""
+  write "What do you want to do? (type the number)", !!
+    
+  write "1. Enable project XML auto-export.", ! 
+  write "2. Disable project XML auto-export.", !!  
+     
+  set status = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()
+  
+  write "Auto-export XML is currently: "_labels(status), !!
+  write "Your choice: "
+  
+  read choice
+  set invalidChoice = ($listfind(validChoices, choice) = 0)
+  write !
+  quit
+]]></Implementation>
+</Method>
+
+<Method name="StartLogLevelConfigAssistant">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  set validChoices = $listbuild(1,2)
+  set invalidChoice = 1
+  set choice = ""
+  
+  write !, "Specifies the log verbosity level when displaying operations.", !!
+  
+  while invalidChoice {
+    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    do Menu
+  }
+  
+  do ##class(Port.SourceControl.Config).SetLogLevel(choice)
+  write "Log verbosity level is now: "_##class(Port.SourceControl.Config).GetLogLevel()
+  do ..Start(1) quit
+  
+Menu
+  set choice = ""
+  write "Please set the log verbosity level (type the number):", !!
+    
+  write "1. Level 1: Displays item equeieing, import categories, backup notifications, repository status and error messages.", ! 
+  write "2. Level 2: Same as Level 1, but includes atomical operations.", !!  
+     
+  set status = ##class(Port.SourceControl.Config).IsTestOnDemandEnabled()
+  
+  write "Log verbosity level is currently: "_##class(Port.SourceControl.Config).GetLogLevel(), !!
+  write "Your choice: "
+  
+  read choice
+  set invalidChoice = ($listfind(validChoices, choice) = 0)
+  write !
+  quit
+]]></Implementation>
+</Method>
+
+<Method name="StartSourceExtensionConfigAssistant">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  set currentExtension = $get(^Port.SourceControl.Settings("source.extension"))
+  write !, "Defines an extension to be appended globaly to every exported routine.", !!
+  
+  write "Please type the extension below: ", !!
+  write "Current is: "_$select(currentExtension = "" : "none.", 1: "."_currentExtension), !
+  write "New: "
+  read extension   
+  
+  do ##class(Port.SourceControl.Config).SetSourceExtension(extension)
+  set savedExtension = $get(^Port.SourceControl.Settings("source.extension"))
+  write !!, "The extension is now set to: "_$select(savedExtension = "" : "none.", 1: "."_savedExtension)
+  do ..Start(1)
+]]></Implementation>
+</Method>
+
+<Method name="StartTestChoice1ConfigAssistant">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  set validChoices = $listbuild(1,2)  
+  set invalidChoice = 1
+  set choice = ""
+  
+  set labels(1) = "ENABLED"
+  set labels(0) = "DISABLED"
+  
+  write !, "When this settings is enabled, Port will try to match the test class prefix and run the related test.", !!  
+  
+  while invalidChoice {
+    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    do Menu
+  }
+  
+  if choice = 1 {
+    do ##class(Port.SourceControl.Config).EnableTestOnDemand()
+    write "Test on demand is now ENABLED."
+  }
+  
+  if choice = 2 {
+    do ##class(Port.SourceControl.Config).DisableTestOnDemand()
+    write "Test on demand is now DISABLED."
+  }
+  
+  write !!
+  do ..StartTestConfigAssistant(1) quit
+  
+Menu
+  set choice = ""
+  write "What do you want to do? (type the number)", !!
+    
+  write "1. Enable test on demand.", ! 
+  write "2. Disable test on demand.", !!  
+     
+  set status = ##class(Port.SourceControl.Config).IsTestOnDemandEnabled()
+  
+  write "Test on demand is currently: "_labels(status), !!
+  write "Your choice: "
+  
+  read choice
+  set invalidChoice = ($listfind(validChoices, choice) = 0)
+  write !
+  quit
+]]></Implementation>
+</Method>
+
+<Method name="StartTestChoice2ConfigAssistant">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  
+  write !, "A test class prefix is required to inform Port which package should be considered as a test package."
+  write " Port uses this prefix when trying to find an equivalent implementation class."
+  write !, "Ex: UnitTest.MyPackage.MyClass -> MyPackage.MyClass.", !!
+  
+  write "Please type the prefix below. Note that prefixes can also be composed.", !
+  write "Ex: Package.UnitTest.", !!
+  write "Default is: UnitTest", !
+  write "Current is: "_##class(Port.SourceControl.Config).GetTestClassPrefix(), !
+  write "New: "
+  read prefix   
+  
+  do ##class(Port.SourceControl.Config).SetTestClassPrefix(prefix)
+  write !!, "The prefix is now set to: "_##class(Port.SourceControl.Config).GetTestClassPrefix()_"."
+  write !!
+  do ..StartTestConfigAssistant(1)
+]]></Implementation>
+</Method>
+
+<Method name="StartTestChoice3ConfigAssistant">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  write !, "Defines the path where the each test classes should be exported."
+  
+  write !!, "You can use the following specific placeholders: ", !!
+  
+  write "{PROJECT} - The active project name.", !
+  write "{NAMESPACE} - The active namespace name.", !
+  write "{USERNAME} - The active user name.", !
+  write "{INSTALLDIR} - The Caché installation directory.", !!
+    
+  write "Please type the RELATIVE path to be used when exporting your test files.", !
+  write "You can use both: UNIX or Windows schemes.", !
+  write "Test paths are relative to each project root.", !
+  write "This is equivalent to: "_^Port.SourceControl.Settings("source.path"), !!
+  
+  write "You can use both: UNIX or Windows schemes.", !!
+  write "Default is: ", !, "tests/cls", !
+  write "Current is: ", !, $get(^Port.SourceControl.Settings("test.path")), !!
+  write "New: ", !
+  read path
+   
+  do ##class(Port.SourceControl.Config).SetTestPath(path)
+  write !!, "The test path is now set to: "_^Port.SourceControl.Settings("test.path")_"."
+  write !!
+  do ..StartTestConfigAssistant(1)
+]]></Implementation>
+</Method>
+</Class>
+
+
 <Class name="UnitTest.Port.Project.Base">
 <Super>Port.UnitTest.TestCase,Port.TestUtils.MockProject</Super>
 <TimeCreated>64392,32671.263313</TimeCreated>
@@ -3138,7 +3512,7 @@ CreateFile
 </Class>
 
 
-<Project name="port" LastModified="2017-04-25 16:37:29.85944" Target="##class(Port.Project.Manager).Import(&quot;/CacheProjects/TDEV/testing&quot;,,,1)" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2017-04-26 15:19:15.062172" Target="##class(Port.Project.Manager).Import(&quot;/CacheProjects/TDEV/testing&quot;,,,1)" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
@@ -3158,6 +3532,7 @@ CreateFile
     <ProjectItem name="Port.TestUtils.MockProject" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.Manager" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.TestCase" type="CLS"></ProjectItem>
+    <ProjectItem name="Port.Wizard" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Base" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Exporter" type="CLS"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>

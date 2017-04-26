@@ -39,7 +39,11 @@ Property Overwrite As %Boolean [ InitialExpression = 0 ];
 
 Property LogLevel As %Integer [ InitialExpression = 2 ];
 
-Method %OnNew(target As %String, logLevel As %Integer = 2) As %Status
+Property SourceExtension As %String [ InitialExpression = "txt" ];
+
+Property IgnoredPaths As list Of %String;
+
+Method %OnNew(target As %String, logLevel As %Integer = 2, sourceExtension = "") As %Status
 {
   if target = "" {
     throw ##class(%Exception.StatusException).CreateFromStatus($$$ERROR(5001, "No target specified."))
@@ -53,6 +57,7 @@ Method %OnNew(target As %String, logLevel As %Integer = 2) As %Status
     set ..BasePath = ##class(%File).NormalizeFilename(fullProjectPath)
     set ..Project = ##class(%Studio.Project).%OpenId(..ProjectName)
     set ..Logger = ##class(Port.Logger).%New(logLevel)
+    set ..SourceExtension = sourceExtension
     do ..BuildTypePaths(..BasePath)
     quit $$$OK 
   }
@@ -73,6 +78,38 @@ Method Write(message As %Boolean, logLevel As %Integer = 1, params... As %String
 Method GetProjectName() As %String
 {
   quit ..ProjectName
+}
+
+Method Ignore(ignoredPaths As %ArrayOfDataTypes = "") As %Status
+{
+  set sc = $$$OK  
+  
+  if '$isobject(ignoredPaths) quit sc
+  if 'ignoredPaths.%IsA("%Collection.AbstractList") {
+    quit $$$ERROR($$$BadParameter, "ignoredPaths")
+  }  
+  
+  for i=1:1:ignoredPaths.Count() {
+    set absolutePath = ##class(%File).NormalizeFilename(..BasePath_"/"_ignoredPaths.GetAt(i))
+    set sc = ..IgnoredPaths.Insert(absolutePath)
+    if $$$ISERR(sc) quit
+  }
+  quit sc
+}
+
+Method IsIgnored(maybeIgnoredPath As %String) As %Boolean
+{
+  
+  set key = ""
+  set isIgnored = 0
+  
+  for i=1:1:..IgnoredPaths.Count() {
+    set path = ..IgnoredPaths.GetAt(i)
+    set isIgnored = ((path = maybeIgnoredPath) || (maybeIgnoredPath [ path))
+    if isIgnored quit
+  }
+  //write "IGNORED: "_maybeIgnoredPath_" "_isIgnored, !
+  quit isIgnored
 }
 
 Method ResolvePathType(itemType As %String, itemName As %String = "") As %String [ Final, Internal, Private ]
@@ -123,7 +160,7 @@ Method NormalizeOutput(itemName As %String, Output path As %String = "", Output 
     set classPath = $listtostring($listbuild(classBasePath, $replace(classItemName, ".", ..Slash)), ..Slash)
     set packagePath = $piece(classPath, ..Slash, 1, *-1)
     set className = $piece(classPath, ..Slash, $length(classPath, ..Slash))
-    set dest = classPath_".cls.txt"
+    set dest = classPath_".cls"_..GetSourceExtension()
     set path = packagePath
   }
   
@@ -133,7 +170,7 @@ Method NormalizeOutput(itemName As %String, Output path As %String = "", Output 
     set path = ..ResolvePathType(type, itemName)
     set dest = path_..Slash_itemName
     set extPos = $length(dest, ".")
-    set $piece(dest, ".", extPos) = $$$lcase($piece(dest, ".", extPos))_".txt"
+    set $piece(dest, ".", extPos) = $$$lcase($piece(dest, ".", extPos))_..GetSourceExtension()
   }
   
   // /csp/path/to/somefile.(*) -> /web/path/to/somefile.(*).txt
@@ -142,7 +179,7 @@ Method NormalizeOutput(itemName As %String, Output path As %String = "", Output 
     set baseTypePath = ..ResolvePathType("CSP")
     set ext = $$$lcase($piece(itemName, ".", *))
     set fileWithoutExtension = $piece(itemName, ".", 1, *-1)
-    set dest = ##class(%File).NormalizeFilename(baseTypePath_..Slash_$piece(fileWithoutExtension, "/", 3, $length(fileWithoutExtension, "/")))_"."_ext
+    set dest = ##class(%File).NormalizeFilename(baseTypePath_..Slash_$piece(fileWithoutExtension, "/", 3, *))_"."_ext
     set path = ##class(%File).GetDirectory(dest) 
   }
   quit dest
@@ -202,54 +239,60 @@ Method CheckUbiquity(ByRef ubiquityList As %String = 0) As %Status
   }
 }
 
-Method IsOutdated(resident As %String, contestant As %String, isImport As %Boolean = 0) As %Boolean
+Method IsOutdated(current As %String, external As %String, isImport As %Boolean = 0) As %Boolean
 {
   
-  if '##class(%File).Exists(contestant) quit 1 
-  set contestantTS = $zdt(##class(%File).GetFileDateModified(##class(%File).NormalizeFilename(contestant)), 3,,,,,,,,,0)
-  
-  if contestantTS < 0 quit 1
-  set lastModified = 0
+  if '##class(%File).Exists(external) quit 1 
+  set externalTS = $zdt(##class(%File).GetFileDateModified(##class(%File).NormalizeFilename(external)), 3,,,,,,,,,0)
+    
+  if externalTS < 0 quit 1
+  set lastModified = 0  
   
   set projectTS = ##class(Port.SourceControl.Log).GetLastChange(..GetProjectName(), ..GetProjectName()_".PRJ")
-  set residentDate = ##class(Port.SourceControl.Log).GetLastChange(..GetProjectName(), resident)
+  set currentDate = ##class(Port.SourceControl.Log).GetLastChange(..GetProjectName(), current)
   
-  if residentDate = 0 set lastModified = projectTS
-  else  set lastModified = $select(residentDate ] projectTS : residentDate, 1: projectTS)
-    
-  if ##class(Port.Project.Helper).IsRoutine(resident) || 
-    (##class(Port.Project.Helper).GetItemExtension(resident) = "CLS") {
-    set residentTS = $piece(##class(%RoutineMgr).TS(resident, .compileTime), ".")
+  if currentDate = 0 set lastModified = projectTS
+  else  set lastModified = $select(currentDate ] projectTS : currentDate, 1: projectTS)
+      
+  if ##class(Port.Project.Helper).IsRoutine(current) || 
+    (##class(Port.Project.Helper).GetItemExtension(current) = "CLS") {
+    set currentTS = $piece(##class(%RoutineMgr).TS(current, .compileTime), ".")
   } else {
     if 'isImport {
-      set fullSourcePath = ##class(%File).NormalizeFilename(resident, $System.Util.InstallDirectory())
+      set fullSourcePath = ##class(%File).NormalizeFilename(current, $System.Util.InstallDirectory())
     } else {
-      set fullSourcePath = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(resident)
+      set fullSourcePath = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(current)
     }
-    set residentTS = $zdatetime(##class(%File).GetFileDateModified(fullSourcePath), 3,,,,,,,,,0)
+    set currentTS = $zdatetime(##class(%File).GetFileDateModified(fullSourcePath), 3,,,,,,,,,0)
     // If the file is missing it's considered outdated as well.
-    if residentTS = 0 quit 1
-  }
+    if currentTS = 0 quit 1
+  }   
+  
   // Same date for both entries? Then consider updated.
-  if residentTS = contestantTS quit 0
+  if currentTS = externalTS quit 0
   if 'isImport {  
     quit (
-      (residentTS ] contestantTS) && 
-      (residentTS ] lastModified)
+      (currentTS ] externalTS) && 
+      (currentTS ] lastModified)
     )
   }
   quit (
-    (contestantTS ] residentTS) && 
-    (contestantTS ] lastModified)
+    (externalTS ] currentTS) && 
+    (externalTS ] lastModified)
   )
 }
 
-Method IsProjectMember(name As %String, Output isProjectMember As %Boolean, type As %String = "") As %Status
+Method IsProjectMember(name As %String, Output isProjectMember As %Boolean, type As %String = "") As %Status [ Internal ]
 {
   $$$QuitOnError(..Project.NormalizeName(.name, .type))
   set id = ..ProjectName_"||"_name_"||"_type
   set isProjectMember = (..Project.Items.FindObjectId(id) '= "")
   quit $$$OK
+}
+
+Method GetSourceExtension() As %String
+{
+  quit $select(..SourceExtension '= "" : "."_..SourceExtension, 1: "")
 }
 
 }

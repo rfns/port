@@ -21,9 +21,9 @@ ClassMethod GetLogLevel() As %Status
 }
 
 /// Sets the path where the files are to be exported. Supports template.
-ClassMethod SetExportPath(newExportPath As %String) As %String
+ClassMethod SetExportPath(newExportPath As %String = "") As %String
 {
-  set ^Port.SourceControl.Settings("source.path") = $get(newExportPath, "/CacheProjects/{NAMESPACE}/{PROJECT}")
+  set ^Port.SourceControl.Settings("source.path") = $select(newExportPath = "" : "/CacheProjects/{NAMESPACE}/{PROJECT}", 1: newExportPath)
 }
 
 /// Gets the resolved export path. Pass 1 to excludeProject to return the project's parent directory.
@@ -51,10 +51,10 @@ ClassMethod IsAutoExportXMLEnabled() As %Status
 }
 
 /// Sets the path which the source control should export and look up for tests on XML format.
-ClassMethod SetTestPath(newPath As %String)
+ClassMethod SetTestPath(newPath As %String = "")
 {
   
-  set ^Port.SourceControl.Settings("test.path") = $get(newPath, "__tests__/cls")
+  set ^Port.SourceControl.Settings("test.path") = $select(newPath = "" : "tests/cls", 1: newPath)
 }
 
 /// Gets the resolved test path.
@@ -82,9 +82,9 @@ ClassMethod IsTestOnDemandEnabled() As %String
 }
 
 /// Sets the prefix used to associate the source with it's test class.
-ClassMethod SetTestClassPrefix(newPrefix As %String)
+ClassMethod SetTestClassPrefix(newPrefix As %String = "")
 {
-  set ^Port.SourceControl.Settings("test.prefix") = newPrefix
+  set ^Port.SourceControl.Settings("test.prefix") = $select(newPrefix = "" : "UnitTest", 1: newPrefix)
 }
 
 /// Gets the association prefix.
@@ -93,22 +93,24 @@ ClassMethod GetTestClassPrefix() As %String
   quit $get(^Port.SourceControl.Settings("test.prefix"))
 }
 
-ClassMethod Ignore(paths As %String = "") As %Status
+/// Defines the extension to be used for exported source files overwriting their own.
+ClassMethod SetSourceExtension(value As %String = "") As %Status
 {
-  if paths = "" quit $$$ERROR($$$GeneralError, "'paths' cannot be empty.")
-  set ^Port.SourceControl.Settings("export.extraneous.ignore") = $listfromstring(paths)
+  set ^Port.SourceControl.Settings("internals.oldExtension") = ..GetSourceExtension()
+  if $extract(value) = "." set value = $extract(value, 2, *)
+  set ^Port.SourceControl.Settings("source.extension") = value
   quit $$$OK
 }
 
-ClassMethod ClearIgnoredPaths() As %Status
+/// Gets the source extension.
+ClassMethod GetSourceExtension(Output modified As %Boolean = 0) As %String
 {
-  kill ^Port.SourceControl.Settings("export.extraneous.ignore")
-  quit $$$OK
-}
-
-ClassMethod GetIgnoredPaths() As %Status
-{
-  quit $get(^Port.SourceControl.Settings("export.extraneous.ignore"))
+  
+  set extension = $get(^Port.SourceControl.Settings("source.extension"))
+  set modified = (extension '= $get(^Port.SourceControl.Settings("internals.oldExtension")))
+  if modified = 1 set ^Port.SourceControl.Settings("internals.oldExtension") = extension
+  if extension = "" quit extension
+  quit extension
 }
 
 ClassMethod rewritePlaceHolders(basePath As %String, excludeProject As %Boolean = 0, params... As %String) As %String [ Internal ]

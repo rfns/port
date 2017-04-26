@@ -3,7 +3,7 @@ Include portutils
 Class Port.Project.Manager
 {
 
-ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As %String, sc As %Status) As Port.Project.Base [ Private ]
+ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As %String, sourceExtension As %String, sc As %Status) As Port.Project.Base [ Private ]
 {
   set sc = $$$OK
   set utility = ""  
@@ -12,7 +12,7 @@ ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As 
   set utilityTypes("X") = "Port.Project.XMLExporter"
   
   try {
-    set utility = $classmethod(utilityTypes(type), "%New", path, logLevel)
+    set utility = $classmethod(utilityTypes(type), "%New", path, logLevel, sourceExtension)
     quit
   } catch ex {
     set sc = ex.AsStatus()
@@ -20,9 +20,9 @@ ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As 
   quit utility
 }
 
-ClassMethod Export(outputPath As %String, logLevel As %Boolean = 2, force As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "") As %Status
+ClassMethod Export(outputPath As %String, logLevel As %Boolean = 2, force As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "", sourceExtension As %String = "") As %Status
 {
-  set exporter = ..AssertUtilityCreation("E", outputPath, logLevel, .sc)
+  set exporter = ..AssertUtilityCreation("E", outputPath, logLevel, sourceExtension, .sc)
   $$$QuitOnError(sc)
   set exporter.Overwrite = force    
   $$$QuitOnError(exporter.Ignore(ignoredPaths))
@@ -36,38 +36,44 @@ ClassMethod Export(outputPath As %String, logLevel As %Boolean = 2, force As %Bo
 
 ClassMethod ExportToXML(outputPath As %String, justProject As %Boolean = 0) As %Status
 {
-  set exporter = ..AssertUtilityCreation("X", outputPath, 0, .sc)
+  set exporter = ..AssertUtilityCreation("X", outputPath, 0, "", .sc)
   $$$QuitOnError(sc)  
   quit exporter.ExportToXML(justProject)
 }
 
-ClassMethod Import(inputPath As %String, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0) As %Status
+ClassMethod Import(inputPath As %String, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "", sourceExtension As %String = "") As %Status
 {
   set sc = $$$OK
-  set importer = ..AssertUtilityCreation("I", inputPath, logLevel, .sc)
+  set importer = ..AssertUtilityCreation("I", inputPath, logLevel, sourceExtension, .sc)
   $$$QuitOnError(sc)
+  $$$QuitOnError(importer.Ignore(ignoredPaths))
+  
   set importer.SkipBackup = skipBackup
   set importer.IsBatch = 1
-  set importer.Overwrite = overwrite  
+  set importer.Overwrite = overwrite   
   set projectName = importer.GetProjectName()
+  
   $$$QuitOnError(importer.Import())
+  
   if importer.AffectedCount > 0 {
     $$$QuitOnError(##class(Port.SourceControl.Log).LogChange(projectName, projectName_".PRJ"))
   }
   quit sc
 }
 
-ClassMethod ImportPartial(basePath As %String, target, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0) As %Status
+ClassMethod ImportPartial(basePath As %String, target, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "", sourceExtension As %String = "") As %Status
 {
   
-  set importer = ..AssertUtilityCreation("I", basePath, logLevel, .sc)
+  set importer = ..AssertUtilityCreation("I", basePath, logLevel, sourceExtension, .sc)  
   $$$QuitOnError(sc)
+  $$$QuitOnError(importer.Ignore(ignoredPaths))
   
   set importer.LogLevel = logLevel
   set importer.SkipBackup = skipBackup
   set importer.Overwrite = 1  
      
   $$$QuitOnError(importer.ImportPartial(target, .importedList))
+  
   do ..LogFromImportList(importer.GetProjectName(), .importedList)
   quit $$$OK
 }
@@ -80,7 +86,7 @@ ClassMethod RemoveInvalidItems(projectName As %String = {^||%Studio.Project}) As
   quit $$$OK
 }
 
-ClassMethod RemoveItemsFromCategory(projectName As %String, type As %String, Output items As %String) As %Status
+ClassMethod RemoveItemsByType(projectName As %String, type As %String, Output items As %String) As %Status
 {
   set sc = $$$OK
   set project = ##class(%Studio.Project).%OpenId(projectName)
@@ -104,7 +110,7 @@ ClassMethod RemoveItemsFromCategory(projectName As %String, type As %String, Out
 ClassMethod ExportTestSuiteToXML(outputPath As %String) As %Status
 {
   set testPath = ##class(Port.SourceControl.Config).GetTestPath()
-  set exporter = ..AssertUtilityCreation("X", .outputPath, 0, .sc)
+  set exporter = ..AssertUtilityCreation("X", .outputPath, 0, "", .sc)
   $$$QuitOnError(sc)
   quit exporter.ExportTests(outputPath_"/"_testPath)
 }

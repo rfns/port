@@ -3,16 +3,38 @@ Class Port.SourceControl.Installer [ Abstract ]
 
 ClassMethod Install() As %Status
 {
-  $$$QuitOnError(..CreateGlobalMapping())
-  do ##class(Port.SourceControl.Config).SetExportPath("/CacheProjects/{NAMESPACE}/{PROJECT}") 
-  do ##class(Port.SourceControl.Config).SetTestPath("tests/{PROJECT}")
-  do ##class(Port.SourceControl.Config).SetTestClassPrefix("UnitTest")
-  do ##class(Port.SourceControl.Config).EnableTestOnDemand()
-  do ##class(Port.SourceControl.Config).EnableAutoExportXML()
-  do ##class(Port.SourceControl.Config).SetLogLevel(1)
+  set sc = $$$OK
   
-  $$$QuitOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
-  quit ##class(Port.SourceControl.LogCleaner).StartTask()
+  try {
+    write !, "Installing Port ... please wait a moment.", !
+    write "> Creating global mappings ...", !
+    $$$ThrowOnError(..CreateGlobalMapping())
+    write "> Setting up workspace structure ... ", !
+    do ##class(Config).SetExportPath("/CacheProjects/{NAMESPACE}/{PROJECT}")
+    write "> Setting up test files directory ...", !
+    do ##class(Config).SetTestPath("tests/{PROJECT}")
+    write "> Defining default test class prefix ..", !
+    do ##class(Config).SetTestClassPrefix("UnitTest")
+    write "> Enabling auto-testing ...", !
+    do ##class(Config).EnableTestOnDemand()
+    write "> Enabling auto-export for project XML ...", !
+    do ##class(Config).EnableAutoExportXML()
+    write "> Setting up log level ...", !
+    do ##class(Config).SetLogLevel(1)
+    write "> Setting up source extension ...", !
+    do ##class(Config).SetSourceExtension("txt")    
+    write "> Registering LogCleaner task ...", !
+    $$$ThrowOnError(##class(LogCleaner).StartTask())
+    write "> Activating source control class ...", !!
+    $$$ThrowOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
+    write "ALL DONE.", !
+    write "NOTE: Please note that you must restart Studio in order to make the new settings have effect."
+  } catch ex {
+    set sc = ex.AsStatus()
+    write !!, "FATAL: Failed to install port due to the following reason: "
+    do $System.OBJ.DisplayError(sc)
+  }
+  quit sc
 }
 
 ClassMethod CreateGlobalMapping() As %Status
