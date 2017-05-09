@@ -56,7 +56,7 @@ ClassMethod CreateGlobalMapping() As %Status
   try {
     $$$ThrowOnError(##class(Config.Namespaces).Get(thisNamespace, .nsProperties))
     set glProperties("Database") = nsProperties("Globals")
-    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl.*", .glProperties))
+    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl*", .glProperties))
     set $namespace = thisNamespace
   } catch ex {
     set $namespace = thisNamespace
