@@ -29,6 +29,8 @@ In order to install Port, you just need to follow the steps below:
 You might also want to check out the class ``Port.SourceControl.Config`` and configure
 the source control integration according to your taste.
 
+Or you could simply call `do ##class(Port.SourceControl.Wizard).Start()` and let the wizard help you.
+
 ## How to use
 
 ### Source Control Menu
@@ -65,7 +67,7 @@ cls/Package/ignoreme <- This ignores the folder called ignoreme and anything ins
 int/ignoreme <- This also ignores the folder called ignoreme but only if it's inside the int folder.
 ```
 
-## TODO 
+## TODO
 
 Check the [Projects](https://github.com/rfns/port/projects).
 
