@@ -12,10 +12,10 @@ ClassMethod LogChange(projectName = {^||%Studio.Project}, itemName As %String = 
 
 ClassMethod ExtractItemDescription(itemName, Output name = "", Output type = "") As %String [ Private ]
 {
-  set len = $length(itemName, ".")
-  set type = $$$ucase($piece(itemName, ".", len))
-  set name = $piece(itemName, ".", 1, len - 1)
-  if '$listfind($$$ImportTypes, type) {
+  
+  set type = $$$ucase($piece(itemName, ".", *))
+  set name = $piece(itemName, ".", 1, *-1)
+  if '$listfind($$$ImportTypes, type) && (type '= "PRJ") {
     set name = itemName
     set type = "CSP"
   }

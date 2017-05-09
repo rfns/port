@@ -128,5 +128,18 @@ CreateFile
   quit
 ]]></Implementation>
 </Method>
+
+<Method name="test">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+   set ^||%Studio.Project = "port"
+   set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
+   set shouldOverwrite = '##class(Port.SourceControl.Config).IsSameSourceExtension()
+   if shouldOverwrite do ##class(Port.SourceControl.Config).TrackActiveExtension()
+   set ignoredPaths = ##class(Port.SourceControl.Util).GetIgnoredPaths(projectPath)     
+   set sc = ##class(Port.Project.Manager).Export(projectPath, 2, 1, ignoredPaths, "txt")
+   quit $$$OK
+]]></Implementation>
+</Method>
 </Class>
 </Export>

@@ -108,7 +108,6 @@ Method IsIgnored(maybeIgnoredPath As %String) As %Boolean
     set isIgnored = ((path = maybeIgnoredPath) || (maybeIgnoredPath [ path))
     if isIgnored quit
   }
-  //write "IGNORED: "_maybeIgnoredPath_" "_isIgnored, !
   quit isIgnored
 }
 
@@ -261,7 +260,8 @@ Method IsOutdated(current As %String, external As %String, isImport As %Boolean 
     if 'isImport {
       set fullSourcePath = ##class(%File).NormalizeFilename(current, $System.Util.InstallDirectory())
     } else {
-      set fullSourcePath = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(current)
+      do ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(current, .fullSourcePath)
+      //set fullSourcePath = ##class(Port.Project.Helper).CSPLogicalToPhysical(current)
     }
     set currentTS = $zdatetime(##class(%File).GetFileDateModified(fullSourcePath), 3,,,,,,,,,0)
     // If the file is missing it's considered outdated as well.
@@ -290,7 +290,7 @@ Method IsProjectMember(name As %String, Output isProjectMember As %Boolean, type
   quit $$$OK
 }
 
-Method GetSourceExtension() As %String
+Method GetSourceExtension() As %String [ Private ]
 {
   quit $select(..SourceExtension '= "" : "."_..SourceExtension, 1: "")
 }

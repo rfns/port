@@ -180,11 +180,8 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     }
     
     if name = "%ForceImportProject" {
-      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
-      if shouldOverwrite do ##class(Config).TrackActiveExtension()      
       set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
-      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension))
-      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+      quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
     }    
   }
   quit $$$OK

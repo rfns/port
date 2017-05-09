@@ -46,6 +46,8 @@
 
 <Property name="BackupDirectory">
 <Type>%String</Type>
+<Internal>1</Internal>
+<Private>1</Private>
 </Property>
 
 <Property name="Logger">
@@ -315,7 +317,6 @@ Scan(group, type, created)
     set isIgnored = ((path = maybeIgnoredPath) || (maybeIgnoredPath [ path))
     if isIgnored quit
   }
-  //write "IGNORED: "_maybeIgnoredPath_" "_isIgnored, !
   quit isIgnored
 ]]></Implementation>
 </Method>
@@ -490,7 +491,8 @@ Scan(group, type, created)
     if 'isImport {
       set fullSourcePath = ##class(%File).NormalizeFilename(current, $System.Util.InstallDirectory())
     } else {
-      set fullSourcePath = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(current)
+      do ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(current, .fullSourcePath)
+      //set fullSourcePath = ##class(Port.Project.Helper).CSPLogicalToPhysical(current)
     }
     set currentTS = $zdatetime(##class(%File).GetFileDateModified(fullSourcePath), 3,,,,,,,,,0)
     // If the file is missing it's considered outdated as well.
@@ -525,6 +527,7 @@ Scan(group, type, created)
 </Method>
 
 <Method name="GetSourceExtension">
+<Private>1</Private>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[  quit $select(..SourceExtension '= "" : "."_..SourceExtension, 1: "")
 ]]></Implementation>
@@ -632,7 +635,7 @@ Scan(group, type, created)
   
   do ..Write("[nl]Checking for extraneous files or directories ...")
   
-  for ipath = ..MacPath,..IntPath,..IncPath,..ClassPath,..WebPath,..MvbPath,..MviPath,..DfiPath {
+  for ipath = ..MacPath,..IntPath,..IncPath,..ClassPath,..BasPath,..WebPath,..MvbPath,..MviPath,..DfiPath {
     set sc = ..SearchExtraneousEntries(s, ipath, .extraneousFiles)
     if $$$ISERR(sc) quit
   }
@@ -755,7 +758,7 @@ Scan(group, type, created)
     quit $$$OK
   } 
       
-  set source = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(name)
+  set source = ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(name)
   set dest = ..NormalizeOutput(name, .path, .ext)  
   
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))  
@@ -785,8 +788,7 @@ Scan(group, type, created)
 <FormalSpec>name:%String,exportList:%List=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  do ##class(Port.Project.Helper).Normalize(name, .extension, .type, .itemName)
-  set normalizedName = $piece(name, ".", 1, *-1) 
+  do ##class(Port.Project.Helper).Describe(name, .extension, .type, .itemName) 
   
   if '##class(%Studio.ProjectItem).%ExistsId(..Project.Name_"||"_itemName_"||"_type) {
     quit $$$OK
@@ -798,7 +800,7 @@ Scan(group, type, created)
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))
     
   if '##class(%RoutineMgr).Exists(name) { 
-    quit $$$ERROR($$$GeneralError, "Unable to export "_name_". Routine does not exist.")
+    quit $$$ERROR($$$GeneralError, "Unable to export "_name_": routine does not exist.")
   }
   
   if ..Overwrite = 0 && '..IsOutdated(name, dest) {
@@ -942,12 +944,9 @@ Scan(group, type, created)
   
   if extension = "MAC"  || (extension = "INT") ||
     (extension = "MVB") || (extension = "MVI") || 
-    (extension = "BAS") {
+    (extension = "BAS") || (extension = "INC") ||
+    (extension = "DFI") {
     quit 1
-  }
-  
-  if 'onlyCompilables {
-    quit (extension = "INC" || (extension = "DFI"))
   }  
   quit 0
 ]]></Implementation>
@@ -955,58 +954,68 @@ Scan(group, type, created)
 
 <Method name="GetItemExtension">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>itemName:%String,upperCase:%Boolean=1</FormalSpec>
+<FormalSpec>itemName:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
-  set ext = $piece(itemName, ".", $length(itemName, "."))
-  quit $select(upperCase = 1 : $$$ucase(ext), 1: ext)
+  set ext = $piece(itemName, ".", *)
+  quit $$$ucase(ext)
 ]]></Implementation>
 </Method>
 
-<Method name="CSPToAbsoluteAppPath">
+<Method name="CSPLogicalToPhysicalPath">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>cspItem:%String</FormalSpec>
-<ReturnType>%String</ReturnType>
+<FormalSpec>cspItem:%String,*absolutePath:%String="",namespace:%String=$namespace</FormalSpec>
+<ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set installDirectory = $System.Util.InstallDirectory()
-  set cspAppDirectory = $System.CSP.GetDefaultApp($namespace)
+  set cspAppDirectory = $System.CSP.GetDefaultApp(namespace)
+  if cspAppDirectory = "" quit $$$ERROR($$$GeneralError, "Unable to retrieve the physical path for the namespace '"_$namespace_"': web application or namespace doesn't exists.")
   set cspAppDirectory = $extract(cspAppDirectory, 2, *)
-  quit ##class(%File).NormalizeFilename($replace(cspItem, cspAppDirectory, installDirectory_"csp/"_$$$lcase($namespace)))
+  set absolutePath = ##class(%File).NormalizeFilename($replace(cspItem, cspAppDirectory, installDirectory_"csp/"_$$$lcase($namespace)))
+  quit $$$OK
 ]]></Implementation>
 </Method>
 
 <Method name="FileToClass">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>path:%String</FormalSpec>
+<FormalSpec>path:%String,extension:%String=##class(Port.SourceControl.Config).GetSourceExtension()</FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
-  set divider = $select($$$isWINDOWS : "\", 1: "/")
+  set slash = $select($$$isWINDOWS : "\", 1: "/")
   set normalizedPath = ##class(%File).NormalizeFilename(path)
-  quit $replace($extract(normalizedPath, $find(normalizedPath, divider_"cls")+1, $length(normalizedPath)-8), divider, ".")
+  set fileName = ##class(%File).GetFilename(normalizedPath)
+  set extSize = $length($select(extension = "" : $piece(fileName, ".", *), 1: ".cls"_extension)) 
+  set contextPath = $extract(normalizedPath, $find(normalizedPath, slash_"cls") + 1, ($length(normalizedPath) - 1) - extSize)  
+  quit $replace(contextPath, slash, ".")
 ]]></Implementation>
 </Method>
 
 <Method name="ClassToFile">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>basePath:%String,className:%String,extension:%String="txt"</FormalSpec>
+<FormalSpec>basePath:%String,className:%String,extension:%String=##class(Port.SourceControl.Config).GetSourceExtension()</FormalSpec>
 <Implementation><![CDATA[
+ 
   set divider = $select($$$isWINDOWS : "\", 1: "/")
-  quit ##class(%File).NormalizeFilename(basePath_"/"_$replace(className, ".", divider)_".cls."_extension)
+  if extension '= "" set extension = "."_extension
+  quit ##class(%File).NormalizeFilename(basePath_"/"_$replace(className, ".", divider)_".cls"_extension)
 ]]></Implementation>
 </Method>
 
-<Method name="Normalize">
+<Method name="Describe">
 <ClassMethod>1</ClassMethod>
 <FormalSpec>name:%String,*extension:%String,*itemType:%String,*itemName:%String</FormalSpec>
 <Implementation><![CDATA[
    
-  set nameOnly = $piece(name, ".", 1, $length(name, ".") - 1)  
+  set nameOnly = $piece(name, ".", 1, *-1)  
   set routines = $listbuild("MAC", "INT", "INC", "MVB", "MVI", "BAS", "DFI")
   set extension = ..GetItemExtension(name)
 
   if ..IsRoutine(name) {
     set itemType = extension
-    if extension = "INC" || (extension = "BAS") || (extension = "MVI") || (extension = "INT") {
+    if extension = "INC" || 
+      (extension = "BAS") || 
+      (extension = "MVI") || 
+      (extension = "INT") {
       set itemType = "MAC"
     }
     set itemName = nameOnly_"."_extension  
@@ -1020,18 +1029,21 @@ Scan(group, type, created)
 ]]></Implementation>
 </Method>
 
-<Method name="FileToCSPItem">
+<Method name="CSPPhysicalToLogicalPath">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>source:%String,*itemPath:%String,*itemName:%String</FormalSpec>
+<FormalSpec>physicalPath:%String,*logicalPath:%String,namespace:%String=$namespace</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set slash = $select($$$isWINDOWS : "\", 1: "/") 
+  set slash = $select($$$isWINDOWS : "\", 1: "/")  
   set installDir = $System.Util.InstallDirectory()
-  set webFilePath = $extract(source, $find(source, slash_"web"_slash), *)
-  set itemPath = ##class(%File).NormalizeFilename($System.Util.InstallDirectory()_"/csp/"_$namespace_"/"_webFilePath)
-  set path = ##class(%File).GetDirectory(itemPath)
-  set cspAppPath = $System.CSP.GetDefaultApp($namespace)
-  set itemName = $extract(cspAppPath, 2, *)_"/"_$replace(webFilePath, "\", "/")
+  set webFilePath = $extract(physicalPath, $find(physicalPath, slash_"web"_slash), *)
+  if '$find(##class(%File).NormalizeFilename(physicalPath), slash_"web"_slash) {
+    quit $$$ERROR($$$GeneralError, "Invalid physical path: parameter doesn't correspond to the /web/ path.")
+  }
+  set cspAppPath = $System.CSP.GetDefaultApp(namespace)  
+  if cspAppPath = "" quit $$$ERROR($$$GeneralError, "Unable to retrieve to logical path for the namespace '"_$namespace_"': web application or namespace doesn't exists.")
+  if $extract(cspAppPath, *) '[ "/" set cspAppPath = cspAppPath_"/"
+  set logicalPath = $extract(cspAppPath, 2, *)_$replace(webFilePath, "\", "/")
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -1112,7 +1124,7 @@ Scan(group, type, created)
   do ..ResetLists()
   
   set sc = $$$OK
-  for i = ..IncPath, ..IntPath, ..ClassPath, ..MacPath, ..MviPath, ..MvbPath, ..DfiPath, ..WebPath {
+  for i = ..IncPath, ..IntPath, ..ClassPath, ..MacPath, ..BasPath, ..MviPath, ..MvbPath, ..DfiPath, ..WebPath {
     set sc = ..EnqueueDirectory(i)
     if $$$ISERR(sc) quit
   }
@@ -1122,14 +1134,13 @@ Scan(group, type, created)
 
 <Method name="EnqueueItem">
 <FormalSpec>target:%String</FormalSpec>
-<ReturnType>%Boolean</ReturnType>
+<ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set enqueued = 0    
-  set isWebPath = target [ ..WebPath
+  set isWebPath = target [ ..WebPath  
   
-  if '##class(%File).Exists(target) quit enqueued  
+  set sc = ..Describe(target, isWebPath, .described, .isOutdated, .internalFileName, .itemName, .itemType, .group, .alias)
+  $$$QuitOnError(sc)
   
-  set described = ..Describe(target, isWebPath, .sc, .isOutdated, .internalFileName, .itemName, .itemType, .group, .alias)
   if described && '$data(i%ItemsList(itemName)) {
     if '..Backup.IsRequired && '..SkipBackup && ((itemType = "CSP") || (itemType = "CSR") && isOutdated) {
       set ..Backup.IsRequired = 1
@@ -1151,7 +1162,7 @@ Scan(group, type, created)
 <FormalSpec>searchPath:%String,fs:%SQL.Statement=$$$NULLOREF</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-   
+  
   if '..IsBatch && '$isobject(fs) {
     do ..ResetLists()
   }
@@ -1171,8 +1182,10 @@ Scan(group, type, created)
     set compilable = 0
     set type = rows.%Get("Type")
     set external = rows.%Get("Name")
-    if type = "F" { do ..EnqueueItem(external) }
-    elseif type = "D" {
+    if type = "F" { 
+      set sc = ..EnqueueItem(external) 
+      if $$$ISERR(sc) quit
+    } elseif type = "D" {
       set targetDir = $piece(external, ..Slash, $length(external, ..Slash))
       if '(targetDir?1".".AN) {
         set sc = ..EnqueueDirectory(external, fs)
@@ -1185,7 +1198,9 @@ Scan(group, type, created)
 </Method>
 
 <Method name="GetTypePriority">
+<Internal>1</Internal>
 <FormalSpec>type:%String</FormalSpec>
+<Private>1</Private>
 <ReturnType>%Integer</ReturnType>
 <Implementation><![CDATA[
   if type = ".INC" quit 1
@@ -1203,36 +1218,41 @@ Scan(group, type, created)
 
 <Method name="Describe">
 <Internal>1</Internal>
-<FormalSpec>origin:%String,isWebPath:%Boolean=0,sc:%Status,*isOutdated:%Boolean=0,*itemDestination:%String,*itemName:%String,*itemType:%String,*priority:%String,*alias:%String</FormalSpec>
+<FormalSpec>origin:%String,isWebPath:%Boolean=0,described:%Boolean=0,*isOutdated:%Boolean=0,*itemDestination:%String,*itemName:%String,*itemType:%String,*priority:%String,*alias:%String</FormalSpec>
 <Private>1</Private>
-<ReturnType>%Boolean</ReturnType>
+<ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   
-  set sc = $$$OK
   set described = 0 
   set extension = ..GetFileExtension(origin, isWebPath)
+  set extSize = $length(..GetSourceExtension())
+  
+  if 'isWebPath $$$QuitOnError(..AssertValidExtension(origin))
   
   if '(extension?1".".AN) quit described
-  if extension = "" quit described
+  if extension = "" quit described  
     
   set priority = ..GetTypePriority(extension)
   
   if extension = ".CLS" {
     set itemType = "CLS"
-    set itemDestination = ##class(Port.Project.Helper).FileToClass(origin)       
+    set itemDestination = ##class(Port.Project.Helper).FileToClass(origin)      
     set itemName = itemDestination_extension
     set alias = itemDestination
     set described = 1
   } elseif $listfind($$$RoutineExtensions, extension) {
-    set itemType = $piece(extension, ".", 2)
-    set itemDestination = $extract(##class(%File).GetFilename(origin), 1, *-8)_extension
+    set itemType = $piece(extension, ".", 2)    
+    set itemDestination = $extract(##class(%File).GetFilename(origin), 1, *-(4 + extSize))_extension
     set itemName = itemDestination
     set alias = itemName
     set described = 1
   } else {
     if extension = ".CSR" set itemType = "CSR"
     else  set itemType = "CSP"
-    set sc = ##class(Port.Project.Helper).FileToCSPItem(origin, .itemDestination, .itemName)
+    $$$QuitOnError(##class(Port.Project.Helper).CSPPhysicalToLogicalPath(origin, .logicalPath))
+    $$$QuitOnError(##class(Port.Project.Helper).CSPLogicalToPhysicalPath(logicalPath, .physicalPath))
+    set itemName = logicalPath
+    set itemDestination = physicalPath    
     set alias = itemName
     set described = 1
   }
@@ -1242,7 +1262,7 @@ Scan(group, type, created)
   } else {
     set isOutdated = 1
   }
-  quit described
+  quit $$$OK
 ]]></Implementation>
 </Method>
 
@@ -1314,7 +1334,6 @@ Scan(group, type, created)
   #define NormalizePath(%path)  ##class(%File).NormalizeFilename(%path)
   set sc = $$$OK
   
-  write target
   set resolvedTarget = ##class(%File).NormalizeFilename(target, ..BasePath)
   
   if (resolvedTarget = ..BasePath) {
@@ -1457,7 +1476,7 @@ Scan(group, type, created)
     } else {
       set routine = ##class(%RoutineMgr).%New(itemName)
     }
-    
+        
     set code = routine.Code
     do code.Clear()
     
@@ -1520,8 +1539,31 @@ Scan(group, type, created)
 
 <Method name="ResetLists">
 <Implementation><![CDATA[
+  
   kill i%ImportList, i%ItemsList
   set (i%ImportList, i%ItemsList) = 0
+]]></Implementation>
+</Method>
+
+<Method name="AssertValidExtension">
+<Final>1</Final>
+<Internal>1</Internal>
+<FormalSpec>origin:%String</FormalSpec>
+<Private>1</Private>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set sourceFileExtension = "."_$$$ucase($piece(origin, ".", *))
+  
+  if $listfind($$$RoutineExtensions, sourceFileExtension) || (sourceFileExtension = ".CLS") {
+    set sourceFileExtension = ""
+  }  
+  
+  if (sourceFileExtension '= $$$ucase(..GetSourceExtension())) {
+    set fileName = ##class(%File).GetFilename(origin)
+    set expectedSourceExtension = $select(..SourceExtension = "" : "keep the Caché routine format", 1: "terminate with "_..SourceExtension)
+    quit $$$ERROR($$$GeneralError, "Unable to describe the file "_fileName_ " as it violates the current source extension. "_$c(10, 10)_"It must "_expectedSourceExtension_".")
+  }
+  quit $$$OK
 ]]></Implementation>
 </Method>
 </Class>
@@ -2141,7 +2183,7 @@ Defines the extension to be used for exported source files overwriting their own
 <FormalSpec>value:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  do ..TrackPreviousExtension()
+  do ..TrackActiveExtension()
   if $extract(value) = "." set value = $extract(value, 2, *)
   set ^Port.SourceControl.Settings("source.extension") = value
   quit $$$OK
@@ -2168,11 +2210,11 @@ Gets the source extension.</Description>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[
   set extension = ..GetSourceExtension()
-  quit (extension '= $get(^Port.SourceControl.Settings("internals.trackers.extension")))
+  quit (extension = $get(^Port.SourceControl.Settings("internals.trackers.extension")))
 ]]></Implementation>
 </Method>
 
-<Method name="TrackPreviousExtension">
+<Method name="TrackActiveExtension">
 <Final>1</Final>
 <Internal>1</Internal>
 <ClassMethod>1</ClassMethod>
@@ -2399,11 +2441,8 @@ Gets the source extension.</Description>
     }
     
     if name = "%ForceImportProject" {
-      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
-      if shouldOverwrite do ##class(Config).TrackActiveExtension()      
       set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
-      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension))
-      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+      quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
     }    
   }
   quit $$$OK
@@ -2532,6 +2571,13 @@ Called after the compile of the item is done.</Description>
 <Implementation><![CDATA[
   set sc = $$$OK
   
+  if $data(^Port.SourceControl("installed")) {
+    write !, "Port is already installed. The installer has been aborted.", !
+    write "If you wish to change current settings then please use the wizard.", !
+    write "do ##class(Port.SourceControl.Wizard).Start()", !
+    quit $$$ERROR($$$GeneralError, "Port is already installed.")
+  }
+  
   try {
     write !, "Installing Port ... please wait a moment.", !
     write "> Creating global mappings ...", !
@@ -2556,8 +2602,9 @@ Called after the compile of the item is done.</Description>
     $$$ThrowOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
     write "ALL DONE.", !
     write "NOTE: Please note that you must restart Studio in order to make the new settings have effect."
+    set ^Port.SourceControl("installed") = 1
   } catch ex {
-    set sc = ex.AsStatus()
+    set sc = ex.AsStatus()    
     write !!, "FATAL: Failed to install port due to the following reason: "
     do $System.OBJ.DisplayError(sc)
   }
@@ -2578,8 +2625,7 @@ Called after the compile of the item is done.</Description>
   try {
     $$$ThrowOnError(##class(Config.Namespaces).Get(thisNamespace, .nsProperties))
     set glProperties("Database") = nsProperties("Globals")
-    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl.Projects", .glProperties))
-    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl.Settings", .glProperties))
+    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl.*", .glProperties))
     set $namespace = thisNamespace
   } catch ex {
     set $namespace = thisNamespace
@@ -2613,10 +2659,10 @@ Called after the compile of the item is done.</Description>
 <Private>1</Private>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
-  set len = $length(itemName, ".")
-  set type = $$$ucase($piece(itemName, ".", len))
-  set name = $piece(itemName, ".", 1, len - 1)
-  if '$listfind($$$ImportTypes, type) {
+  
+  set type = $$$ucase($piece(itemName, ".", *))
+  set name = $piece(itemName, ".", 1, *-1)
+  if '$listfind($$$ImportTypes, type) && (type '= "PRJ") {
     set name = itemName
     set type = "CSP"
   }
@@ -2786,196 +2832,7 @@ Called after the compile of the item is done.</Description>
 </Class>
 
 
-<Class name="Port.TestUtils.MockProject">
-<Super>%RegisteredObject</Super>
-<TimeCreated>64239,32011.631107</TimeCreated>
-
-<Parameter name="MOCKNAME">
-<Default>Faux</Default>
-</Parameter>
-
-<Property name="Project">
-<Type>%Studio.Project</Type>
-</Property>
-
-<Property name="ItemsList">
-<Type>%String</Type>
-<MultiDimensional>1</MultiDimensional>
-</Property>
-
-<Property name="FixtureDirectory">
-<Type>%String</Type>
-</Property>
-
-<Method name="%OnNew">
-<FormalSpec>fixtureDir:%String,withFauxFiles:%Boolean=0,addToProject:%Boolean=0</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set ..FixtureDirectory = fixtureDir
-  $$$QuitOnError(..Create(withFauxFiles, addToProject))
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="%OnClose">
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  $$$QuitOnError(..Delete())
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="Delete">
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  if ##class(%Studio.Project).%ExistsId(..#MOCKNAME) {    
-    $$$QuitOnError(##class(%Studio.Project).Delete(..#MOCKNAME))
-    $$$QuitOnError(..DisposeFauxItems())
-  }  
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="Create">
-<FormalSpec>withFauxFiles:%Boolean=0,addToProject:%Boolean=0</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  
-  $$$QuitOnError(..Delete())
-  set ..Project = ##class(%Studio.Project).%New(..#MOCKNAME)
-  set ..Project.Name = ..#MOCKNAME
-  if withFauxFiles  $$$QuitOnError(..CreateFauxItems())
-  if addToProject   $$$QuitOnError(..AddItemsToProject())
-  set sc = ..Project.%Save()
-  $$$QuitOnError(sc)
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="CreateFauxItems">
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  
-  #define TAB $char(9)
-  #define GetAbsolutePath(%relative) ##class(%File).Normalize($System.Util.InstallDirectory, %relative)    
-  set sc = $$$OK
-  
-  set fauxItems = 13
-  set fauxItems(1)  = "Faux.Class.cls"
-  set fauxItems(2)  = "fauxjs.js"
-  set fauxItems(3)  = "fauxcss.css"
-  set fauxItems(4)  = "fauxinc.inc"
-  set fauxItems(5)  = "fauxmac.mac"
-  set fauxItems(6)  = "fauxint.int"
-  set fauxItems(7)  = "fauxmvi.mvi"
-  set fauxItems(8)  = "fauxmvb.mvb"
-  set fauxItems(9)  = "fauxbas.bas"
-  set fauxItems(10) = "fauxdfi.dfi"
-  set fauxItems(11) = "fauxcsp.csp"
-  set fauxItems(12) = "fauxcsr.csr"
-  set fauxItems(13) = "fauxhtml.html"
-  
-  for i=1:1:fauxItems {    
-    set contentType = 0       
-    set name = fauxItems(i)
-    set ext = $piece(name, ".", *)
-    set destination = name
-    set absoluteFilePath = ##class(%File).NormalizeFilename(..FixtureDirectory_"/"_name)
-    if '##class(%File).Exists(absoluteFilePath) continue
-    if $lf($lfs("inc,mac,int,dfi,mvi,mvb,bas"), ext) {
-      set file = ##class(%FileCharacterStream).%New()
-      set file.Filename = absoluteFilePath
-      if ##class(%RoutineMgr).Exists(name) {
-        do ##class(%RoutineMgr).Delete(name)
-      }
-      set routine = ##class(%RoutineMgr).%OpenId(name)     
-      set sc = routine.Code.CopyFrom(file)
-      if $$$ISERR(sc) quit
-      set sc = routine.Code.%Save()
-      if $$$ISERR(sc) quit
-      set routine = ""
-      set contentType = 1
-    } elseif ext = "cls" {
-      set sc = ##class(%Compiler.UDL.TextServices).SetTextFromFile($namespace, ##class(%File).GetFilename(absoluteFilePath), absoluteFilePath)
-      if $$$ISERR(sc) quit
-    } else {
-      set name = $extract($System.CSP.GetDefaultApp($namespace)_"/"_name, 2, *)
-      set destination = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(name)
-      set sc = ##class(%File).CopyFile(absoluteFilePath, destination, 1, .o)
-      if 'sc quit
-      set contentType = 2
-    }
-    set i%ItemsList = $increment(i%ItemsList)
-    set i%ItemsList(destination) = contentType
-    set file = ""
-  }
-  quit sc
-]]></Implementation>
-</Method>
-
-<Method name="DisposeFauxItems">
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  if $data(i%ItemsList) quit $$$OK
-  set name = ""
-  for {
-    set name = $order(i%ItemsList(name), 1, type)
-    quit:name=""
-    
-    if type = 1 do ##class(%Routine).Delete(name)
-    if type = 2 do $System.OBJ.Delete(name)
-    if type = 3 do ##class(%File).Delete($System.Util.InstallDirectory()_"/csp/"_$$$lcase($namespace)_"/name")
-  }
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="AddItemsToProject">
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set name = ""
-  for {    
-    set name = $order(i%ItemsList(name))
-    quit:name=""
-    
-    do ..Project.AddItem(name)
-  }
-  quit $$$OK
-]]></Implementation>
-</Method>
-</Class>
-
-
-<Class name="Port.UnitTest.Manager">
-<Super>%UnitTest.Manager</Super>
-<TimeCreated>64306,34529.705584</TimeCreated>
-
-<Method name="Root">
-<ClassMethod>1</ClassMethod>
-<ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  quit ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetExportPath())
-]]></Implementation>
-</Method>
-</Class>
-
-
-<Class name="Port.UnitTest.TestCase">
-<Super>%UnitTest.TestCase</Super>
-<TimeCreated>64306,34529.790238</TimeCreated>
-
-<Method name="GetTestDirectory">
-<FormalSpec>filePath:%String=""</FormalSpec>
-<ReturnType>%String</ReturnType>
-<Implementation><![CDATA[
-  
-  set testPath = ##class(Port.SourceControl.Config).GetTestPath()
-  quit ##class(%File).NormalizeFilename(..Manager.Root()_"/"_testPath_"/"_filePath)
-]]></Implementation>
-</Method>
-</Class>
-
-
-<Class name="Port.Wizard">
+<Class name="Port.SourceControl.Wizard">
 <Abstract>1</Abstract>
 <TimeCreated>64399,33218.690245</TimeCreated>
 
@@ -3002,8 +2859,6 @@ Called after the compile of the item is done.</Description>
   if choice = 4 do ..StartLogLevelConfigAssistant() quit
   if choice = 5 do ..StartSourceExtensionConfigAssistant() quit
   if choice = 6 write !, "Bye." quit  
-  //if choice = 4 quit ..StartLogLevelConfigAssistant()
-  //if choice = 5 quit ..StartGlobalMappingsConfigAssistant()
          
 Menu
   set choice = ""
@@ -3301,6 +3156,195 @@ Menu
 </Class>
 
 
+<Class name="Port.TestUtils.MockProject">
+<Super>%RegisteredObject</Super>
+<TimeCreated>64239,32011.631107</TimeCreated>
+
+<Parameter name="MOCKNAME">
+<Default>Faux</Default>
+</Parameter>
+
+<Property name="Project">
+<Type>%Studio.Project</Type>
+</Property>
+
+<Property name="ItemsList">
+<Type>%String</Type>
+<MultiDimensional>1</MultiDimensional>
+</Property>
+
+<Property name="FixtureDirectory">
+<Type>%String</Type>
+</Property>
+
+<Method name="%OnNew">
+<FormalSpec>fixtureDir:%String,withFauxFiles:%Boolean=0,addToProject:%Boolean=0</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set ..FixtureDirectory = fixtureDir
+  $$$QuitOnError(..Create(withFauxFiles, addToProject))
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="%OnClose">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  $$$QuitOnError(..Delete())
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="Delete">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  if ##class(%Studio.Project).%ExistsId(..#MOCKNAME) {    
+    $$$QuitOnError(##class(%Studio.Project).Delete(..#MOCKNAME))
+    $$$QuitOnError(..DisposeFauxItems())
+  }  
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="Create">
+<FormalSpec>withFauxFiles:%Boolean=0,addToProject:%Boolean=0</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+  $$$QuitOnError(..Delete())
+  set ..Project = ##class(%Studio.Project).%New(..#MOCKNAME)
+  set ..Project.Name = ..#MOCKNAME
+  if withFauxFiles  $$$QuitOnError(..CreateFauxItems())
+  if addToProject   $$$QuitOnError(..AddItemsToProject())
+  set sc = ..Project.%Save()
+  $$$QuitOnError(sc)
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="CreateFauxItems">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+  #define TAB $char(9)
+  #define GetAbsolutePath(%relative) ##class(%File).Normalize($System.Util.InstallDirectory, %relative)    
+  set sc = $$$OK
+  
+  set fauxItems = 13
+  set fauxItems(1)  = "Faux.Class.cls"
+  set fauxItems(2)  = "fauxjs.js"
+  set fauxItems(3)  = "fauxcss.css"
+  set fauxItems(4)  = "fauxinc.inc"
+  set fauxItems(5)  = "fauxmac.mac"
+  set fauxItems(6)  = "fauxint.int"
+  set fauxItems(7)  = "fauxmvi.mvi"
+  set fauxItems(8)  = "fauxmvb.mvb"
+  set fauxItems(9)  = "fauxbas.bas"
+  set fauxItems(10) = "fauxdfi.dfi"
+  set fauxItems(11) = "fauxcsp.csp"
+  set fauxItems(12) = "fauxcsr.csr"
+  set fauxItems(13) = "fauxhtml.html"
+  
+  for i=1:1:fauxItems {    
+    set contentType = 0       
+    set name = fauxItems(i)
+    set ext = $piece(name, ".", *)
+    set destination = name
+    set absoluteFilePath = ##class(%File).NormalizeFilename(..FixtureDirectory_"/"_name)
+    if '##class(%File).Exists(absoluteFilePath) continue
+    if $lf($lfs("inc,mac,int,dfi,mvi,mvb,bas"), ext) {
+      set file = ##class(%FileCharacterStream).%New()
+      set file.Filename = absoluteFilePath
+      if ##class(%RoutineMgr).Exists(name) {
+        do ##class(%RoutineMgr).Delete(name)
+      }
+      set routine = ##class(%RoutineMgr).%OpenId(name)     
+      set sc = routine.Code.CopyFrom(file)
+      if $$$ISERR(sc) quit
+      set sc = routine.Code.%Save()
+      if $$$ISERR(sc) quit
+      set routine = ""
+      set contentType = 1
+    } elseif ext = "cls" {
+      set sc = ##class(%Compiler.UDL.TextServices).SetTextFromFile($namespace, ##class(%File).GetFilename(absoluteFilePath), absoluteFilePath)
+      if $$$ISERR(sc) quit
+    } else {
+      set name = $extract($System.CSP.GetDefaultApp($namespace)_"/"_name, 2, *)
+      set destination = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(name)
+      set sc = ##class(%File).CopyFile(absoluteFilePath, destination, 1, .o)
+      if 'sc quit
+      set contentType = 2
+    }
+    set i%ItemsList = $increment(i%ItemsList)
+    set i%ItemsList(destination) = contentType
+    set file = ""
+  }
+  quit sc
+]]></Implementation>
+</Method>
+
+<Method name="DisposeFauxItems">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  if $data(i%ItemsList) quit $$$OK
+  set name = ""
+  for {
+    set name = $order(i%ItemsList(name), 1, type)
+    quit:name=""
+    
+    if type = 1 do ##class(%Routine).Delete(name)
+    if type = 2 do $System.OBJ.Delete(name)
+    if type = 3 do ##class(%File).Delete($System.Util.InstallDirectory()_"/csp/"_$$$lcase($namespace)_"/name")
+  }
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="AddItemsToProject">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set name = ""
+  for {    
+    set name = $order(i%ItemsList(name))
+    quit:name=""
+    
+    do ..Project.AddItem(name)
+  }
+  quit $$$OK
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Class name="Port.UnitTest.Manager">
+<Super>%UnitTest.Manager</Super>
+<TimeCreated>64306,34529.705584</TimeCreated>
+
+<Method name="Root">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[  quit ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetExportPath())
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Class name="Port.UnitTest.TestCase">
+<Super>%UnitTest.TestCase</Super>
+<TimeCreated>64306,34529.790238</TimeCreated>
+
+<Method name="GetTestDirectory">
+<FormalSpec>filePath:%String=""</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+  
+  set testPath = ##class(Port.SourceControl.Config).GetTestPath()
+  quit ##class(%File).NormalizeFilename(..Manager.Root()_"/"_testPath_"/"_filePath)
+]]></Implementation>
+</Method>
+</Class>
+
+
 <Class name="UnitTest.Port.Project.Base">
 <Super>Port.UnitTest.TestCase,Port.TestUtils.MockProject</Super>
 <TimeCreated>64392,32671.263313</TimeCreated>
@@ -3429,6 +3473,19 @@ CreateFile
   quit
 ]]></Implementation>
 </Method>
+
+<Method name="test">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+   set ^||%Studio.Project = "port"
+   set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
+   set shouldOverwrite = '##class(Port.SourceControl.Config).IsSameSourceExtension()
+   if shouldOverwrite do ##class(Port.SourceControl.Config).TrackActiveExtension()
+   set ignoredPaths = ##class(Port.SourceControl.Util).GetIgnoredPaths(projectPath)     
+   set sc = ##class(Port.Project.Manager).Export(projectPath, 2, 0, ignoredPaths, "txt")
+   quit $$$OK
+]]></Implementation>
+</Method>
 </Class>
 
 
@@ -3512,7 +3569,239 @@ CreateFile
 </Class>
 
 
-<Project name="port" LastModified="2017-04-26 15:19:15.062172" Target="##class(Port.Project.Manager).Import(&quot;/CacheProjects/TDEV/testing&quot;,,,1)" TargetType="2" HttpServer="http://localhost:57772">
+<Class name="UnitTest.Port.Project.Helper">
+<Super>Port.UnitTest.TestCase</Super>
+<TimeCreated>64400,53982.96807</TimeCreated>
+
+<Parameter name="MOCKAPPNAME">
+<Default>/unittest/mockapp</Default>
+</Parameter>
+
+<Method name="TestImplyDirectoryCreation">
+<Implementation><![CDATA[
+  set sc = ##class(Port.Project.Helper).ImplyDirectoryCreation("/temp/dummy/foo/bar")
+  do $$$AssertStatusOK(sc, "creates the directory /temp/dummy/foo/bar.")
+  
+  do ##class(%File).RemoveDirectoryTree("/temp/dummy/foo/bar")
+  
+  set sc = ##class(Port.Project.Helper).ImplyDirectoryCreation("/temp/dummy/foo:bar_¨¨sdd")
+  do $$$AssertStatusNotOK(sc, "fails gracefully if some OS error happens.")
+]]></Implementation>
+</Method>
+
+<Method name="TestIsRoutine">
+<Implementation><![CDATA[
+  #define IsRoutine(%dummyRoutine) ##class(Port.Project.Helper).IsRoutine(%dummyRoutine)
+  
+  do $$$AssertTrue($$$IsRoutine("dummy.inc"), "expects inc to be a routine.")
+  do $$$AssertTrue($$$IsRoutine("dummy.int"), "expects int to be a routine.")
+  do $$$AssertTrue($$$IsRoutine("dummy.mac"), "expects mac to be a routine.")
+  do $$$AssertTrue($$$IsRoutine("dummy.mvb"), "expects mvb to be a routine.")
+  do $$$AssertTrue($$$IsRoutine("dummy.bas"), "expects bas to be a routine.")
+  
+  do $$$AssertNotTrue($$$IsRoutine("dummy.txt"), "expects txt to not be a routine.")
+  do $$$AssertNotTrue($$$IsRoutine("dummy.csp"), "expects csp to not be a routine.")
+  do $$$AssertNotTrue($$$IsRoutine("dummy.cls"), "expects cls to not be a routine.")
+]]></Implementation>
+</Method>
+
+<Method name="TestCSPLogicalToPhysicalPath">
+<Implementation><![CDATA[
+  #define CSPLogicalToPhysicalPath(%CSPItem, %path, %ns) set sc = ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(%CSPItem, %path, %ns)
+  #define Normalize(%path) ##class(%File).NormalizeFilename(%path)
+  
+  set sc = $$$OK
+  set expectedPath = $$$Normalize($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace)_"/dummyfile.js")
+  
+  do $$$LogMessage("Creating mock application ...")
+  
+  set sc = ..CreateMockApplication()  
+  
+  if $$$ISERR(sc) {
+    do $$$LogMessage("Unable to create mock application. Aborting current test ...")
+    do $$$LogMessage("Reason: "_$System.Status.GetErrorText(sc))
+    do $$$AssertStatusOK(sc, "should have created the mock app.")
+    quit
+  } else {
+    do $$$LogMessage("Mock application created with success.")
+  }
+  
+  $$$CSPLogicalToPhysicalPath("unittest/mockapp/dummyfile.js", .resolvedPath, $namespace)
+  do $$$LogMessage("Resulting physical path is: "_resolvedPath)
+  
+  do $$$AssertEquals(resolvedPath, expectedPath, "resolves dummyfile.js's physical path.")
+  
+  set expectedPath = $$$Normalize($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace)_"/subpath/dummyfile.js")
+  
+  $$$CSPLogicalToPhysicalPath("unittest/mockapp/subpath/dummyfile.js", .resolvedPath, $namespace)
+  do $$$LogMessage("Resulting physical path is: "_resolvedPath)
+  
+  do $$$AssertEquals(resolvedPath, expectedPath, "resolves subpath/dummyfile.js's physical path.")
+  
+  set sc = ..DestroyMockApplication()
+  
+  if $$$ISERR(sc) {
+    do $$$LogMessage("Unable to destroy mock application.")
+    do $$$LogMessage("Reason: "_$System.Status.GetErrorText(sc))
+    do $$$AssertStatusOK(sc, "destroys the mock app.")
+  } else {
+    do $$$LogMessage("Mock application destroyed with success.")
+  }
+  
+  $$$CSPLogicalToPhysicalPath("unittest/mockapp/dummyfile.js", .absolutePath, "dummyns")
+  do $$$AssertStatusNotOK(sc, "returns a status code indicating that the current namespace doesn't have an application.")
+]]></Implementation>
+</Method>
+
+<Method name="TestClassToFile">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+   for i="txt","whatever","composed.txt","" {
+     set assertionSufix = $select(i="" : "nothing", 1: i)_"."
+     do ..AssertTestClassToFile(i, assertionSufix)
+   }
+]]></Implementation>
+</Method>
+
+<Method name="TestFileToClass">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+   for i="txt","whatever","composed.txt","" {
+     set assertionSufix = $select(i="" : "nothing", 1: i)_"."     
+     do ..AssertTestFileToClass(i, assertionSufix)
+   }
+]]></Implementation>
+</Method>
+
+<Method name="TestGetItemExtension">
+<Implementation><![CDATA[
+  set dummy = "dummy"
+  set index = 0
+  set extensions = $listbuild(".inc",".int",".mac",".txt.cls",".dfi",".bas",".mvi",".mvb")
+  for expected = "INC","INT","MAC","CLS","DFI","BAS","MVI","MVB" {
+    set index = index + 1
+    set extension = $listget(extensions, index)
+    do $$$AssertEquals(##class(Port.Project.Helper).GetItemExtension(dummy_extension), expected, "dummy"_extension_" should match "_expected_".")
+  }
+]]></Implementation>
+</Method>
+
+<Method name="TestDescribe">
+<Implementation><![CDATA[
+  set dummy = "dummy"
+  set index = 0
+  set extensions = $listbuild(".inc",".int",".mac",".cls",".dfi",".bas",".mvi",".mvb", ".js", ".html", ".css")
+  
+  for i=1:1:$listlength(extensions) {    
+    set extension = $listget(extensions, i)
+    set inputName = dummy_extension
+    set isRoutine = ##class(Port.Project.Helper).IsRoutine(dummy_extension)
+    set expectedType = $case(extension, 
+      ".inc": "MAC",
+      ".int": "MAC",
+      ".mac": "MAC",
+      ".bas": "MAC",
+      ".bas": "MAC",
+      ".mvi": "MAC",
+      ".cls": "CLS",
+      ".dfi": "DFI",
+      ".mvb": "MVB",
+      : "CSP"
+    )    
+    
+    set expectedExtension = $$$ucase($piece(extension, ".", *))
+    set expectedItemName = dummy_$select(extension = ".cls" : "", isRoutine :"."_expectedExtension, 1: extension)
+        
+    do ##class(Port.Project.Helper).Describe(inputName, .ext, .type, .itemName)
+    
+    do $$$AssertEquals(type, expectedType, inputName_" resolves to type "_expectedType_".")
+    do $$$AssertEquals(ext, expectedExtension, inputName_" resolves to extension "_expectedExtension_".")
+    do $$$AssertEquals(itemName, expectedItemName, inputName_" resolves the name to "_expectedItemName_".")
+  }
+]]></Implementation>
+</Method>
+
+<Method name="TestCSPPhysicalToLogicalPath">
+<Implementation><![CDATA[
+  set input = ##class(%File).NormalizeFilename("/foo/web/bar/dummy.txt")
+  set expectedResult = $e($System.CSP.GetDefaultApp($namespace)_"/bar/dummy.txt", 2, *)
+  
+  set sc = ##class(Port.Project.Helper).CSPPhysicalToLogicalPath(input, .logicalPath)
+  do $$$AssertStatusOK(sc, "returns the logical path without errors.")
+    
+  do $$$AssertEquals(logicalPath, expectedResult, "resolves the path to logical.")
+  
+  set sc = ##class(Port.Project.Helper).CSPPhysicalToLogicalPath(input, .logicalPath, "dummyns")  
+  do $$$AssertStatusNotOK(sc, "returns an error when called with an invalid namespace.")
+  
+  set sc = ##class(Port.Project.Helper).CSPPhysicalToLogicalPath("/foo/bar/dummy.txt", .logicalPath)
+  do $$$AssertStatusNotOK(sc, "returns an error when called with an invalid namespace.")
+]]></Implementation>
+</Method>
+
+<Method name="AssertTestClassToFile">
+<FormalSpec>extension:%String="",assertionSuffix:%String</FormalSpec>
+<Implementation><![CDATA[
+  set slash = $select($$$isWINDOWS : "\", 1: "/")
+  set basePath = "/CacheProjects/MOCKNS/mockproject/cls"
+  set input = "MockApp.Package.Test"
+  set expected = ##class(%File).NormalizeFilename(basePath_"/MockApp/Package/Test.cls."_extension)
+  
+  set result = ##class(Port.Project.Helper).ClassToFile(basePath, input, extension)
+  do $$$AssertEquals(result, expected, "resolves correctly the class when the extension is "_assertionSuffix_".")
+]]></Implementation>
+</Method>
+
+<Method name="AssertTestFileToClass">
+<FormalSpec>extension:%String="",assertionSuffix:%String</FormalSpec>
+<Implementation><![CDATA[
+  set input = "/CacheProjects/"_$namespace_"/MockProject/cls/MockApp/Package/Test.cls."_extension
+  set expectedOutput = "MockApp.Package.Test"
+  set result = ##class(Port.Project.Helper).FileToClass(input, extension)
+  
+  do $$$AssertEquals(result, expectedOutput, "resolves the source file to Caché class name when extension is "_assertionSuffix)
+]]></Implementation>
+</Method>
+
+<Method name="CreateMockApplication">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set ns = $namespace
+  new $namespace
+  
+  set $namespace = "%SYS"
+  set properties("Path") = ##class(%File).NormalizeFilename($System.Util.InstallDirectory()_"csp/mockapp")
+  set properties("NameSpace") = ns
+  set properties("IsNameSpaceDefault") = 1
+  
+  if ##class(Security.Applications).Exists(..#MOCKAPPNAME) {
+    $$$QuitOnError(..DestroyMockApplication())
+  }
+  set sc = ##class(Security.Applications).Create("/unittest/mockapp", .properties)
+  quit sc
+]]></Implementation>
+</Method>
+
+<Method name="DestroyMockApplication">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+  set ns = $namespace
+  new $namespace
+  
+  set $namespace = "%SYS"
+  do ##class(%File).RemoveDirectoryTree($System.Util.InstallDirectory()_"csp/mockapp")
+  quit ##class(Security.Applications).Delete(..#MOCKAPPNAME)
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Project name="port" LastModified="2017-05-09 16:59:46.012436" Target="##class(UnitTest.Port.Project.Base).test()" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
@@ -3529,14 +3818,19 @@ CreateFile
     <ProjectItem name="Port.SourceControl.Log" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.LogCleaner" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Util" type="CLS"></ProjectItem>
+    <ProjectItem name="Port.SourceControl.Wizard" type="CLS"></ProjectItem>
     <ProjectItem name="Port.TestUtils.MockProject" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.Manager" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.TestCase" type="CLS"></ProjectItem>
-    <ProjectItem name="Port.Wizard" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Base" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Exporter" type="CLS"></ProjectItem>
+    <ProjectItem name="UnitTest.Port.Project.Helper" type="CLS"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>
   </Items>
+  <BreakPoints>
+    <BreakPoint Routine="Port.Project.Exporter.CLS" Offset="Export+22"></BreakPoint>
+    <BreakPoint Routine="UnitTest.Port.Project.Base.CLS" Offset="test+1"></BreakPoint>
+  </BreakPoints>
 </Project>
 
 

@@ -113,5 +113,16 @@ CreateFile
   quit
 }
 
+ClassMethod test()
+{
+   set ^||%Studio.Project = "port"
+   set projectPath = ##class(Port.SourceControl.Config).GetExportPath()
+   set shouldOverwrite = '##class(Port.SourceControl.Config).IsSameSourceExtension()
+   if shouldOverwrite do ##class(Port.SourceControl.Config).TrackActiveExtension()
+   set ignoredPaths = ##class(Port.SourceControl.Util).GetIgnoredPaths(projectPath)     
+   set sc = ##class(Port.Project.Manager).Export(projectPath, 2, 0, ignoredPaths, "txt")
+   quit $$$OK
+}
+
 }
 

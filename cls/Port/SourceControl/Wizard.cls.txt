@@ -1,4 +1,4 @@
-Class Port.Wizard [ Abstract ]
+Class Port.SourceControl.Wizard [ Abstract ]
 {
 
 ClassMethod Start(hideIntroduction As %Boolean = 0)
@@ -22,8 +22,6 @@ ClassMethod Start(hideIntroduction As %Boolean = 0)
   if choice = 4 do ..StartLogLevelConfigAssistant() quit
   if choice = 5 do ..StartSourceExtensionConfigAssistant() quit
   if choice = 6 write !, "Bye." quit  
-  //if choice = 4 quit ..StartLogLevelConfigAssistant()
-  //if choice = 5 quit ..StartGlobalMappingsConfigAssistant()
          
 Menu
   set choice = ""

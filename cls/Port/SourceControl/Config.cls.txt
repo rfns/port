@@ -96,21 +96,30 @@ ClassMethod GetTestClassPrefix() As %String
 /// Defines the extension to be used for exported source files overwriting their own.
 ClassMethod SetSourceExtension(value As %String = "") As %Status
 {
-  set ^Port.SourceControl.Settings("internals.oldExtension") = ..GetSourceExtension()
+  do ..TrackActiveExtension()
   if $extract(value) = "." set value = $extract(value, 2, *)
   set ^Port.SourceControl.Settings("source.extension") = value
   quit $$$OK
 }
 
 /// Gets the source extension.
-ClassMethod GetSourceExtension(Output modified As %Boolean = 0) As %String
+ClassMethod GetSourceExtension() As %String
 {
   
   set extension = $get(^Port.SourceControl.Settings("source.extension"))
-  set modified = (extension '= $get(^Port.SourceControl.Settings("internals.oldExtension")))
-  if modified = 1 set ^Port.SourceControl.Settings("internals.oldExtension") = extension
   if extension = "" quit extension
   quit extension
+}
+
+ClassMethod IsSameSourceExtension() As %Boolean [ Final, Internal ]
+{
+  set extension = ..GetSourceExtension()
+  quit (extension = $get(^Port.SourceControl.Settings("internals.trackers.extension")))
+}
+
+ClassMethod TrackActiveExtension() [ Final, Internal ]
+{
+  set ^Port.SourceControl.Settings("internals.trackers.extension") = ..GetSourceExtension()
 }
 
 ClassMethod rewritePlaceHolders(basePath As %String, excludeProject As %Boolean = 0, params... As %String) As %String [ Internal ]

@@ -42,21 +42,20 @@ Method EnqueueAll() As %Status
   do ..ResetLists()
   
   set sc = $$$OK
-  for i = ..IncPath, ..IntPath, ..ClassPath, ..MacPath, ..MviPath, ..MvbPath, ..DfiPath, ..WebPath {
+  for i = ..IncPath, ..IntPath, ..ClassPath, ..MacPath, ..BasPath, ..MviPath, ..MvbPath, ..DfiPath, ..WebPath {
     set sc = ..EnqueueDirectory(i)
     if $$$ISERR(sc) quit
   }
   quit sc
 }
 
-Method EnqueueItem(target As %String) As %Boolean
+Method EnqueueItem(target As %String) As %Status
 {
-  set enqueued = 0    
-  set isWebPath = target [ ..WebPath
+  set isWebPath = target [ ..WebPath  
   
-  if '##class(%File).Exists(target) quit enqueued  
+  set sc = ..Describe(target, isWebPath, .described, .isOutdated, .internalFileName, .itemName, .itemType, .group, .alias)
+  $$$QuitOnError(sc)
   
-  set described = ..Describe(target, isWebPath, .sc, .isOutdated, .internalFileName, .itemName, .itemType, .group, .alias)
   if described && '$data(i%ItemsList(itemName)) {
     if '..Backup.IsRequired && '..SkipBackup && ((itemType = "CSP") || (itemType = "CSR") && isOutdated) {
       set ..Backup.IsRequired = 1
@@ -75,7 +74,7 @@ Method EnqueueItem(target As %String) As %Boolean
 
 Method EnqueueDirectory(searchPath As %String, fs As %SQL.Statement = {$$$NULLOREF}) As %Status
 {
-   
+  
   if '..IsBatch && '$isobject(fs) {
     do ..ResetLists()
   }
@@ -95,8 +94,10 @@ Method EnqueueDirectory(searchPath As %String, fs As %SQL.Statement = {$$$NULLOR
     set compilable = 0
     set type = rows.%Get("Type")
     set external = rows.%Get("Name")
-    if type = "F" { do ..EnqueueItem(external) }
-    elseif type = "D" {
+    if type = "F" { 
+      set sc = ..EnqueueItem(external) 
+      if $$$ISERR(sc) quit
+    } elseif type = "D" {
       set targetDir = $piece(external, ..Slash, $length(external, ..Slash))
       if '(targetDir?1".".AN) {
         set sc = ..EnqueueDirectory(external, fs)
@@ -107,7 +108,7 @@ Method EnqueueDirectory(searchPath As %String, fs As %SQL.Statement = {$$$NULLOR
   quit sc
 }
 
-Method GetTypePriority(type As %String) As %Integer
+Method GetTypePriority(type As %String) As %Integer [ Internal, Private ]
 {
   if type = ".INC" quit 1
   if type = ".INT" quit 2
@@ -121,34 +122,39 @@ Method GetTypePriority(type As %String) As %Integer
   quit 10
 }
 
-Method Describe(origin As %String, isWebPath As %Boolean = 0, sc As %Status, Output isOutdated As %Boolean = 0, Output itemDestination As %String, Output itemName As %String, Output itemType As %String, Output priority As %String, Output alias As %String) As %Boolean [ Internal, Private ]
+Method Describe(origin As %String, isWebPath As %Boolean = 0, described As %Boolean = 0, Output isOutdated As %Boolean = 0, Output itemDestination As %String, Output itemName As %String, Output itemType As %String, Output priority As %String, Output alias As %String) As %Status [ Internal, Private ]
 {
   
-  set sc = $$$OK
   set described = 0 
   set extension = ..GetFileExtension(origin, isWebPath)
+  set extSize = $length(..GetSourceExtension())
+  
+  if 'isWebPath $$$QuitOnError(..AssertValidExtension(origin))
   
   if '(extension?1".".AN) quit described
-  if extension = "" quit described
+  if extension = "" quit described  
     
   set priority = ..GetTypePriority(extension)
   
   if extension = ".CLS" {
     set itemType = "CLS"
-    set itemDestination = ##class(Port.Project.Helper).FileToClass(origin)       
+    set itemDestination = ##class(Port.Project.Helper).FileToClass(origin)      
     set itemName = itemDestination_extension
     set alias = itemDestination
     set described = 1
   } elseif $listfind($$$RoutineExtensions, extension) {
-    set itemType = $piece(extension, ".", 2)
-    set itemDestination = $extract(##class(%File).GetFilename(origin), 1, *-8)_extension
+    set itemType = $piece(extension, ".", 2)    
+    set itemDestination = $extract(##class(%File).GetFilename(origin), 1, *-(4 + extSize))_extension
     set itemName = itemDestination
     set alias = itemName
     set described = 1
   } else {
     if extension = ".CSR" set itemType = "CSR"
     else  set itemType = "CSP"
-    set sc = ##class(Port.Project.Helper).FileToCSPItem(origin, .itemDestination, .itemName)
+    $$$QuitOnError(##class(Port.Project.Helper).CSPPhysicalToLogicalPath(origin, .logicalPath))
+    $$$QuitOnError(##class(Port.Project.Helper).CSPLogicalToPhysicalPath(logicalPath, .physicalPath))
+    set itemName = logicalPath
+    set itemDestination = physicalPath    
     set alias = itemName
     set described = 1
   }
@@ -158,7 +164,7 @@ Method Describe(origin As %String, isWebPath As %Boolean = 0, sc As %Status, Out
   } else {
     set isOutdated = 1
   }
-  quit described
+  quit $$$OK
 }
 
 Method ImportList() As %Status [ Internal, Private ]
@@ -218,7 +224,6 @@ Method ImportPartial(target As %String, importedList As %String = 0) As %Status
   #define NormalizePath(%path)  ##class(%File).NormalizeFilename(%path)
   set sc = $$$OK
   
-  write target
   set resolvedTarget = ##class(%File).NormalizeFilename(target, ..BasePath)
   
   if (resolvedTarget = ..BasePath) {
@@ -352,7 +357,7 @@ ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, fil
     } else {
       set routine = ##class(%RoutineMgr).%New(itemName)
     }
-    
+        
     set code = routine.Code
     do code.Clear()
     
@@ -406,8 +411,25 @@ Method SynchronizeProject(Output addedCount As %String = 0, Output removedCount 
 
 Method ResetLists()
 {
+  
   kill i%ImportList, i%ItemsList
   set (i%ImportList, i%ItemsList) = 0
+}
+
+Method AssertValidExtension(origin As %String) As %Status [ Final, Internal, Private ]
+{
+  set sourceFileExtension = "."_$$$ucase($piece(origin, ".", *))
+  
+  if $listfind($$$RoutineExtensions, sourceFileExtension) || (sourceFileExtension = ".CLS") {
+    set sourceFileExtension = ""
+  }  
+  
+  if (sourceFileExtension '= $$$ucase(..GetSourceExtension())) {
+    set fileName = ##class(%File).GetFilename(origin)
+    set expectedSourceExtension = $select(..SourceExtension = "" : "keep the Caché routine format", 1: "terminate with "_..SourceExtension)
+    quit $$$ERROR($$$GeneralError, "Unable to describe the file "_fileName_ " as it violates the current source extension. "_$c(10, 10)_"It must "_expectedSourceExtension_".")
+  }
+  quit $$$OK
 }
 
 }

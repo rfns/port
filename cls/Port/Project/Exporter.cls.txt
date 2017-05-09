@@ -82,7 +82,7 @@ Method PurgeExtraneousEntries() As %Status
   
   do ..Write("[nl]Checking for extraneous files or directories ...")
   
-  for ipath = ..MacPath,..IntPath,..IncPath,..ClassPath,..WebPath,..MvbPath,..MviPath,..DfiPath {
+  for ipath = ..MacPath,..IntPath,..IncPath,..ClassPath,..BasPath,..WebPath,..MvbPath,..MviPath,..DfiPath {
     set sc = ..SearchExtraneousEntries(s, ipath, .extraneousFiles)
     if $$$ISERR(sc) quit
   }
@@ -191,7 +191,7 @@ Method ExportWebFile(itemName As %String, ByRef exportList As %List = "") As %St
     quit $$$OK
   } 
       
-  set source = ##class(Port.Project.Helper).CSPToAbsoluteAppPath(name)
+  set source = ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(name)
   set dest = ..NormalizeOutput(name, .path, .ext)  
   
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))  
@@ -218,8 +218,7 @@ Method ExportWebFile(itemName As %String, ByRef exportList As %List = "") As %St
 
 Method ExportRoutine(name As %String, exportList As %List = "") As %Status
 {
-  do ##class(Port.Project.Helper).Normalize(name, .extension, .type, .itemName)
-  set normalizedName = $piece(name, ".", 1, *-1) 
+  do ##class(Port.Project.Helper).Describe(name, .extension, .type, .itemName) 
   
   if '##class(%Studio.ProjectItem).%ExistsId(..Project.Name_"||"_itemName_"||"_type) {
     quit $$$OK
@@ -231,7 +230,7 @@ Method ExportRoutine(name As %String, exportList As %List = "") As %Status
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))
     
   if '##class(%RoutineMgr).Exists(name) { 
-    quit $$$ERROR($$$GeneralError, "Unable to export "_name_". Routine does not exist.")
+    quit $$$ERROR($$$GeneralError, "Unable to export "_name_": routine does not exist.")
   }
   
   if ..Overwrite = 0 && '..IsOutdated(name, dest) {

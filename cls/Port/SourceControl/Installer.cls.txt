@@ -5,6 +5,13 @@ ClassMethod Install() As %Status
 {
   set sc = $$$OK
   
+  if $data(^Port.SourceControl("installed")) {
+    write !, "Port is already installed. The installer has been aborted.", !
+    write "If you wish to change current settings then please use the wizard.", !
+    write "do ##class(Port.SourceControl.Wizard).Start()", !
+    quit $$$ERROR($$$GeneralError, "Port is already installed.")
+  }
+  
   try {
     write !, "Installing Port ... please wait a moment.", !
     write "> Creating global mappings ...", !
@@ -29,8 +36,9 @@ ClassMethod Install() As %Status
     $$$ThrowOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
     write "ALL DONE.", !
     write "NOTE: Please note that you must restart Studio in order to make the new settings have effect."
+    set ^Port.SourceControl("installed") = 1
   } catch ex {
-    set sc = ex.AsStatus()
+    set sc = ex.AsStatus()    
     write !!, "FATAL: Failed to install port due to the following reason: "
     do $System.OBJ.DisplayError(sc)
   }
@@ -48,8 +56,7 @@ ClassMethod CreateGlobalMapping() As %Status
   try {
     $$$ThrowOnError(##class(Config.Namespaces).Get(thisNamespace, .nsProperties))
     set glProperties("Database") = nsProperties("Globals")
-    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl.Projects", .glProperties))
-    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl.Settings", .glProperties))
+    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl.*", .glProperties))
     set $namespace = thisNamespace
   } catch ex {
     set $namespace = thisNamespace
