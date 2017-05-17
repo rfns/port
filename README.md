@@ -14,7 +14,7 @@ Since it uses a project based approach to handle the source code, the following 
 * **Tests**: Allows the code to be tested atomically within the same project (which means no ^UnitTestRoot).
 * **SourceControl integration**: Seamlessly exports the active item when saved. No need to check-in items manually.
 * **Synchronization**: Keeps your repository in-sync with the project. Removes extraneous items when exported avoiding check-out usage.
-* **Smart backup**: Mirrors the application directory and backups only what is changed.
+* **Smart backup**: Mirrors the application directory and backups only what is changed inside the project.
 
 ## How to install
 
