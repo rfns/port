@@ -78,7 +78,7 @@ The deal is: you might want something simplier to do something simplier.
 
 No, I've been [experimenting](https://github.com/rfns/port/blob/master/cls/Port/REST/API.cls.txt) things out with it's REST API to provide integrations with [source code editors](https://en.wikipedia.org/wiki/Source_code_editor) like VSCode and Atom.
 
-There are already some few options like (cos-vscode)[https://github.com/doublefint/cos-vscode]. But since I wanted to focus on using projects, I decided to implement my own.
+There are already some few options like [cos-vscode](https://github.com/doublefint/cos-vscode). But since I wanted to focus on using projects, I decided to implement my own.
 
 ## TODO
 
