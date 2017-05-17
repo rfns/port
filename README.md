@@ -4,7 +4,7 @@
 
 # Port
 
-Port is a Caché Studio source control utility to export or import Caché files based on projects instead of namespaces.
+Port is a VCS-agnostic Caché Studio source control utility to export or import Caché files based on projects instead of namespaces.
 
 ## The Five 'Why Projects?' Reasons
 
@@ -66,6 +66,19 @@ In the example below, notice that cls and int folders are included. These are th
 cls/Package/ignoreme <- This ignores the folder called ignoreme and anything inside it.
 int/ignoreme <- This also ignores the folder called ignoreme but only if it's inside the int folder.
 ```
+
+## FAQ: Why not Atelier?
+
+Really, I started this project some few months before Atelier 1.0 was released, by that time Atelier hadn't support for static files.
+I also wanted to provide an alternative for those who like me prefer to use something less bloated than Eclipse or simply that doesn't need integration with multiple 3rd party tools.
+
+The deal is: you might want something simplier to do something simplier.
+
+## FAQ: So, does that mean you are ignoring Atelier?
+
+No, I've been [experimenting](https://github.com/rfns/port/blob/master/cls/Port/REST/API.cls.txt) things out with it's REST API to provide integrations with [source code editors](https://en.wikipedia.org/wiki/Source_code_editor) like VSCode and Atom.
+
+There are already some few options like (cos-vscode)[https://github.com/doublefint/cos-vscode]. But since I wanted to focus on using projects, I decided to implement my own.
 
 ## TODO
 
