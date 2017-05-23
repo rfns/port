@@ -54,7 +54,7 @@ ClassMethod GetIgnoredPaths(basePath As %String) As %ListOfDataTypes
   set ignoredPaths = ##class(%ListOfDataTypes).%New()
   
   set f = ##class(%FileCharacterStream).%New()
-  set f.Filename = basePath_"/.portignore" 
+  set f.Filename = basePath_"/port.json"  
   
   if f.Size > 0 {    
     while 'f.AtEnd {      

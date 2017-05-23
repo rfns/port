@@ -40,6 +40,64 @@
 </Class>
 
 
+<Class name="Port.Manifest">
+<Super>%RegisteredObject</Super>
+<TimeCreated>64426,42344.824048</TimeCreated>
+
+<Property name="ignore">
+<Type>%DynamicArray</Type>
+</Property>
+
+<Property name="dependencies">
+<Type>%DynamicObject</Type>
+</Property>
+
+<Method name="Read">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>fileName:%String,*manifest:Port.Manifest=""</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set sc = $$$OK
+  set manifestName = ""
+  if '##class(%File).Exists(fileName) set manifestName = ""
+  
+  set manifestName = ##class(%File).GetFilename(fileName)    
+  set directory = ##class(%File).GetDirectory(fileName)  
+  
+  set object = ""
+  set f = ##class(%FileBinaryStream).%New()
+  
+  for target = manifestName, "port.json", "port.manifest", "package.json" {
+    set f.Filename = directory_target
+    if f.Size > 0 quit
+  }
+  
+  if f.Size = 0 quit $$$OK
+  
+  try {
+    set object = ##class(%DynamicObject).%FromJSON(f)
+  } catch ex {
+    set sc = ex.AsStatus()
+  }
+  
+  $$$QuitOnError(sc)
+  
+  set manifest = ..%New()
+  
+  if $isobject(object.ignore) && object.ignore.%IsA("%DynamicArray") {
+    set manifest.ignore = object.ignore
+  }
+  
+  if $isobject(object.dependencies) && object.dependencies.%IsA("%DynamicObject") {
+    set manifest.dependencies = object.dependencies
+  }
+  
+  quit sc
+]]></Implementation>
+</Method>
+</Class>
+
+
 <Class name="Port.Project.Backup">
 <Super>%RegisteredObject</Super>
 <TimeCreated>64306,37561.640431</TimeCreated>
@@ -1330,7 +1388,7 @@ Scan(group, type, created)
 <FormalSpec>target:%String,importedList:%String=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
- 
+  
   #define NormalizePath(%path)  ##class(%File).NormalizeFilename(%path)
   set sc = $$$OK
   
@@ -1344,7 +1402,7 @@ Scan(group, type, created)
       (resolvedTarget [ ..IncPath)  || (resolvedTarget [ ..MacPath) ||
       (resolvedTarget [ ..WebPath)) {    
     quit $$$ERROR($$$GeneralError, "Action supressed: attempted to import files outside the project scope.")
-  }    
+  }  
   
   if ##class(%File).DirectoryExists(resolvedTarget) {
     do ..Write("[nl]Enqueuing directory to be imported ...", 1)   
@@ -1559,8 +1617,9 @@ Scan(group, type, created)
   }  
   
   if (sourceFileExtension '= $$$ucase(..GetSourceExtension())) {
+    write !, sourceFileExtension, " - ", $$$ucase(..GetSourceExtension())
     set fileName = ##class(%File).GetFilename(origin)
-    set expectedSourceExtension = $select(..SourceExtension = "" : "keep the Caché routine format", 1: "terminate with "_..SourceExtension)
+    set expectedSourceExtension = $select(..SourceExtension = "" : "keep the Caché format", 1: "terminate with "_..SourceExtension)
     quit $$$ERROR($$$GeneralError, "Unable to describe the file "_fileName_ " as it violates the current source extension. "_$c(10, 10)_"It must "_expectedSourceExtension_".")
   }
   quit $$$OK
@@ -1660,7 +1719,7 @@ Scan(group, type, created)
   
   set importer.LogLevel = logLevel
   set importer.SkipBackup = skipBackup
-  set importer.Overwrite = 1  
+  set importer.Overwrite = 1
      
   $$$QuitOnError(importer.ImportPartial(target, .importedList))
   
@@ -2357,12 +2416,12 @@ Gets the source extension.</Description>
     set testPath = ##class(Config).GetTestPath()
     set logLevel = ##class(Config).GetLogLevel()
     set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
-    set sourceExtension = ##class(Config).GetSourceExtension()    
+    set sourceExtension = ##class(Config).GetSourceExtension()
+    set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
     
     if name = "%ExportProject" {
       set shouldOverwrite = '##class(Config).IsSameSourceExtension()
-      if shouldOverwrite do ##class(Config).TrackActiveExtension()
-      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)     
+      if shouldOverwrite do ##class(Config).TrackActiveExtension()      
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, shouldOverwrite, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))      
       quit $$$OK
@@ -2416,11 +2475,11 @@ Gets the source extension.</Description>
       }
     }
     
-    if name = "%UpdateActiveItem" {
+    if name = "%ImportActiveItem" {
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
-        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, sourceExtension)
-      } else {        
-        quit ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel)
+        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
+      } else {       
+        quit ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
       }
     }
     
@@ -2435,13 +2494,11 @@ Gets the source extension.</Description>
     if name = "%ForceExportProject" {
       set shouldOverwrite = '##class(Config).IsSameSourceExtension()
       if shouldOverwrite do ##class(Config).TrackActiveExtension()
-      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
     }
     
     if name = "%ForceImportProject" {
-      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
       quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
     }    
   }
@@ -2585,7 +2642,7 @@ Called after the compile of the item is done.</Description>
     write "> Setting up workspace structure ... ", !
     do ##class(Config).SetExportPath("/CacheProjects/{NAMESPACE}/{PROJECT}")
     write "> Setting up test files directory ...", !
-    do ##class(Config).SetTestPath("tests/{PROJECT}")
+    do ##class(Config).SetTestPath("tests")
     write "> Defining default test class prefix ..", !
     do ##class(Config).SetTestClassPrefix("UnitTest")
     write "> Enabling auto-testing ...", !
@@ -2819,7 +2876,7 @@ Called after the compile of the item is done.</Description>
   set ignoredPaths = ##class(%ListOfDataTypes).%New()
   
   set f = ##class(%FileCharacterStream).%New()
-  set f.Filename = basePath_"/.portignore" 
+  set f.Filename = basePath_"/port.json"  
   
   if f.Size > 0 {    
     while 'f.AtEnd {      
@@ -3345,9 +3402,44 @@ Menu
 </Class>
 
 
+<Class name="UnitTest.Port.Manifest">
+<Super>Port.UnitTest.TestCase</Super>
+<TimeCreated>64426,42177.044048</TimeCreated>
+
+<Method name="TestRead">
+<Implementation><![CDATA[
+  
+  set nonExistentStatus = ##class(Port.Manifest).Read(..GetTestDirectory("fixtures/manifest/dummydir/nothing"), .manifest)
+  set invalidStatus = ##class(Port.Manifest).Read(..GetTestDirectory("fixtures/manifest/broken.json"), .manifest)
+  set validStatus = ##class(Port.Manifest).Read(..GetTestDirectory("fixtures/manifest/port.json"), .manifest)
+  
+  do $$$AssertStatusOK(nonExistentStatus, "quits normally if manifest doesn't exists.")     
+  do $$$AssertStatusOK(validStatus, "returns OK if manifest was found and is valid.")
+  do $$$AssertStatusNotOK(invalidStatus, "catches exception if json is broken.")
+  
+  do $$$AssertTrue(manifest.%IsA("Port.Manifest"), "generates a Port.Manifest instance.")  
+  
+  do $$$AssertTrue(manifest.dependencies.%IsA("%DynamicObject"), "dependencies is a %DynamicObject.")  
+  do $$$AssertEquals(manifest.dependencies."dummy-project", "git+ssh://git@github.com/rfns/port.git", "matches the URL.")
+  
+  do $$$AssertTrue(manifest.ignore.%IsA("%DynamicArray"), "ignore is a %DynamicArray.")
+  do $$$AssertNotEquals(manifest.ignore.%Get(0), "", "has a path inside.")
+]]></Implementation>
+</Method>
+
+<Method name="Call">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  set ^||%Studio.Project = "port"
+  do ##class(Port.UnitTest.Manager).DebugRunTestCase(##class(Port.SourceControl.Config).GetTestPath(), "UnitTest.Port.Manifest")
+]]></Implementation>
+</Method>
+</Class>
+
+
 <Class name="UnitTest.Port.Project.Base">
 <Super>Port.UnitTest.TestCase,Port.TestUtils.MockProject</Super>
-<TimeCreated>64392,32671.263313</TimeCreated>
+<TimeCreated>64426,56009.814762</TimeCreated>
 
 <Parameter name="MOCKNAME">
 <Default>TestProject</Default>
@@ -3491,7 +3583,7 @@ CreateFile
 
 <Class name="UnitTest.Port.Project.Exporter">
 <Super>Port.UnitTest.TestCase</Super>
-<TimeCreated>64392,32671.331475</TimeCreated>
+<TimeCreated>64426,56009.879156</TimeCreated>
 
 <Property name="Exporter">
 <Type>Port.Project.Exporter</Type>
@@ -3510,7 +3602,7 @@ CreateFile
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   if '$data(^||%Studio.Project) set ^||%Studio.Project = "port"
-  set ..Project = ##class(Port.TestUtils.MockProject).%New(..GetTestDirectory("fixtures"), 1,1)
+  set ..Project = ##class(Port.TestUtils.MockProject).%New(..GetTestDirectory("fixtures/import"), 1,1)
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -3571,7 +3663,7 @@ CreateFile
 
 <Class name="UnitTest.Port.Project.Helper">
 <Super>Port.UnitTest.TestCase</Super>
-<TimeCreated>64400,53982.96807</TimeCreated>
+<TimeCreated>64426,56009.948567</TimeCreated>
 
 <Parameter name="MOCKAPPNAME">
 <Default>/unittest/mockapp</Default>
@@ -3801,9 +3893,10 @@ CreateFile
 </Class>
 
 
-<Project name="port" LastModified="2017-05-09 16:59:46.012436" Target="##class(UnitTest.Port.Project.Base).test()" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2017-05-23 16:38:57.673312" Target="##class(UnitTest.Port.Manifest).Call()" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
+    <ProjectItem name="Port.Manifest" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Base" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Exporter" type="CLS"></ProjectItem>
@@ -3822,15 +3915,12 @@ CreateFile
     <ProjectItem name="Port.TestUtils.MockProject" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.Manager" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.TestCase" type="CLS"></ProjectItem>
+    <ProjectItem name="UnitTest.Port.Manifest" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Base" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Exporter" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Helper" type="CLS"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>
   </Items>
-  <BreakPoints>
-    <BreakPoint Routine="Port.Project.Exporter.CLS" Offset="Export+22"></BreakPoint>
-    <BreakPoint Routine="UnitTest.Port.Project.Base.CLS" Offset="test+1"></BreakPoint>
-  </BreakPoints>
 </Project>
 
 

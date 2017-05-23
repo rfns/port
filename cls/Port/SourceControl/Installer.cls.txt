@@ -19,7 +19,7 @@ ClassMethod Install() As %Status
     write "> Setting up workspace structure ... ", !
     do ##class(Config).SetExportPath("/CacheProjects/{NAMESPACE}/{PROJECT}")
     write "> Setting up test files directory ...", !
-    do ##class(Config).SetTestPath("tests/{PROJECT}")
+    do ##class(Config).SetTestPath("tests")
     write "> Defining default test class prefix ..", !
     do ##class(Config).SetTestClassPrefix("UnitTest")
     write "> Enabling auto-testing ...", !

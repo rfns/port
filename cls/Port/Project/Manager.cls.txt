@@ -70,7 +70,7 @@ ClassMethod ImportPartial(basePath As %String, target, logLevel As %Boolean = 2,
   
   set importer.LogLevel = logLevel
   set importer.SkipBackup = skipBackup
-  set importer.Overwrite = 1  
+  set importer.Overwrite = 1
      
   $$$QuitOnError(importer.ImportPartial(target, .importedList))
   

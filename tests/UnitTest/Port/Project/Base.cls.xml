@@ -2,7 +2,7 @@
 <Export generator="Cache" version="25">
 <Class name="UnitTest.Port.Project.Base">
 <Super>Port.UnitTest.TestCase,Port.TestUtils.MockProject</Super>
-<TimeCreated>64392,32671.263313</TimeCreated>
+<TimeCreated>64426,56009.814762</TimeCreated>
 
 <Parameter name="MOCKNAME">
 <Default>TestProject</Default>
@@ -137,7 +137,7 @@ CreateFile
    set shouldOverwrite = '##class(Port.SourceControl.Config).IsSameSourceExtension()
    if shouldOverwrite do ##class(Port.SourceControl.Config).TrackActiveExtension()
    set ignoredPaths = ##class(Port.SourceControl.Util).GetIgnoredPaths(projectPath)     
-   set sc = ##class(Port.Project.Manager).Export(projectPath, 2, 1, ignoredPaths, "txt")
+   set sc = ##class(Port.Project.Manager).Export(projectPath, 2, 0, ignoredPaths, "txt")
    quit $$$OK
 ]]></Implementation>
 </Method>

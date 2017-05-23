@@ -220,7 +220,7 @@ Method ImportType(group As %Integer) As %Status [ Internal, Private ]
 
 Method ImportPartial(target As %String, importedList As %String = 0) As %Status
 {
- 
+  
   #define NormalizePath(%path)  ##class(%File).NormalizeFilename(%path)
   set sc = $$$OK
   
@@ -234,7 +234,7 @@ Method ImportPartial(target As %String, importedList As %String = 0) As %Status
       (resolvedTarget [ ..IncPath)  || (resolvedTarget [ ..MacPath) ||
       (resolvedTarget [ ..WebPath)) {    
     quit $$$ERROR($$$GeneralError, "Action supressed: attempted to import files outside the project scope.")
-  }    
+  }  
   
   if ##class(%File).DirectoryExists(resolvedTarget) {
     do ..Write("[nl]Enqueuing directory to be imported ...", 1)   
@@ -425,8 +425,9 @@ Method AssertValidExtension(origin As %String) As %Status [ Final, Internal, Pri
   }  
   
   if (sourceFileExtension '= $$$ucase(..GetSourceExtension())) {
+    write !, sourceFileExtension, " - ", $$$ucase(..GetSourceExtension())
     set fileName = ##class(%File).GetFilename(origin)
-    set expectedSourceExtension = $select(..SourceExtension = "" : "keep the Caché routine format", 1: "terminate with "_..SourceExtension)
+    set expectedSourceExtension = $select(..SourceExtension = "" : "keep the Caché format", 1: "terminate with "_..SourceExtension)
     quit $$$ERROR($$$GeneralError, "Unable to describe the file "_fileName_ " as it violates the current source extension. "_$c(10, 10)_"It must "_expectedSourceExtension_".")
   }
   quit $$$OK

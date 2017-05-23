@@ -1,0 +1,49 @@
+Class Port.Manifest Extends %RegisteredObject
+{
+
+Property ignore As %DynamicArray;
+
+Property dependencies As %DynamicObject;
+
+ClassMethod Read(fileName As %String, Output manifest As Port.Manifest = "") As %Status
+{
+  set sc = $$$OK
+  set manifestName = ""
+  if '##class(%File).Exists(fileName) set manifestName = ""
+  
+  set manifestName = ##class(%File).GetFilename(fileName)    
+  set directory = ##class(%File).GetDirectory(fileName)  
+  
+  set object = ""
+  set f = ##class(%FileBinaryStream).%New()
+  
+  for target = manifestName, "port.json", "port.manifest", "package.json" {
+    set f.Filename = directory_target
+    if f.Size > 0 quit
+  }
+  
+  if f.Size = 0 quit $$$OK
+  
+  try {
+    set object = ##class(%DynamicObject).%FromJSON(f)
+  } catch ex {
+    set sc = ex.AsStatus()
+  }
+  
+  $$$QuitOnError(sc)
+  
+  set manifest = ..%New()
+  
+  if $isobject(object.ignore) && object.ignore.%IsA("%DynamicArray") {
+    set manifest.ignore = object.ignore
+  }
+  
+  if $isobject(object.dependencies) && object.dependencies.%IsA("%DynamicObject") {
+    set manifest.dependencies = object.dependencies
+  }
+  
+  quit sc
+}
+
+}
+

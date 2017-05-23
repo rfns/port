@@ -10,7 +10,7 @@ Property Project As %Studio.Project;
 Method OnBeforeAllTests() As %Status
 {
   if '$data(^||%Studio.Project) set ^||%Studio.Project = "port"
-  set ..Project = ##class(Port.TestUtils.MockProject).%New(..GetTestDirectory("fixtures"), 1,1)
+  set ..Project = ##class(Port.TestUtils.MockProject).%New(..GetTestDirectory("fixtures/import"), 1,1)
   quit $$$OK
 }
 

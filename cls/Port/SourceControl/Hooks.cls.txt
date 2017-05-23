@@ -96,12 +96,12 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     set testPath = ##class(Config).GetTestPath()
     set logLevel = ##class(Config).GetLogLevel()
     set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
-    set sourceExtension = ##class(Config).GetSourceExtension()    
+    set sourceExtension = ##class(Config).GetSourceExtension()
+    set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
     
     if name = "%ExportProject" {
       set shouldOverwrite = '##class(Config).IsSameSourceExtension()
-      if shouldOverwrite do ##class(Config).TrackActiveExtension()
-      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)     
+      if shouldOverwrite do ##class(Config).TrackActiveExtension()      
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, shouldOverwrite, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))      
       quit $$$OK
@@ -155,11 +155,11 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
       }
     }
     
-    if name = "%UpdateActiveItem" {
+    if name = "%ImportActiveItem" {
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
-        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, sourceExtension)
-      } else {        
-        quit ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel)
+        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
+      } else {       
+        quit ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
       }
     }
     
@@ -174,13 +174,11 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     if name = "%ForceExportProject" {
       set shouldOverwrite = '##class(Config).IsSameSourceExtension()
       if shouldOverwrite do ##class(Config).TrackActiveExtension()
-      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
     }
     
     if name = "%ForceImportProject" {
-      set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
       quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
     }    
   }

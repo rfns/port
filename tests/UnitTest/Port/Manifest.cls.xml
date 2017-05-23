@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Class name="UnitTest.Port.Manifest">
+<Super>Port.UnitTest.TestCase</Super>
+<TimeCreated>64426,42177.044048</TimeCreated>
+
+<Method name="TestRead">
+<Implementation><![CDATA[
+  
+  set nonExistentStatus = ##class(Port.Manifest).Read(..GetTestDirectory("fixtures/manifest/dummydir/nothing"), .manifest)
+  set invalidStatus = ##class(Port.Manifest).Read(..GetTestDirectory("fixtures/manifest/broken.json"), .manifest)
+  set validStatus = ##class(Port.Manifest).Read(..GetTestDirectory("fixtures/manifest"), .manifest)
+  
+  do $$$AssertStatusOK(nonExistentStatus, "quits normally if manifest doesn't exists.")     
+  do $$$AssertStatusOK(validStatus, "returns OK if manifest was found and is valid.")
+  do $$$AssertStatusNotOK(invalidStatus, "catches exception if json is broken.")
+  
+  do $$$AssertTrue(manifest.%IsA("%DynamicObject"), "generates a %DynamicObject.")  
+  do $$$AssertTrue(manifest.dependencies.%IsA("%DynamicObject"), "dependencies is a %DynamicObject.")
+  
+  do $$$AssertEquals(manifest.dependencies."dummy-project", "git+ssh://git@github.com/rfns/port.git", "matches the URL.")
+]]></Implementation>
+</Method>
+
+<Method name="Call">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  set ^||%Studio.Project = "port"
+  do ##class(Port.UnitTest.Manager).DebugRunTestCase(##class(Port.SourceControl.Config).GetTestPath(), "UnitTest.Port.Manifest")
+]]></Implementation>
+</Method>
+</Class>
+</Export>
