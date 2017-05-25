@@ -45,16 +45,17 @@ Method Export() As %Status
   quit $$$OK
 }
 
-Method SearchExtraneousEntries(statement As %SQL.Statement, path As %String, ByRef files As %String = "")
+Method SearchExtraneousEntries(statement As %SQL.Statement, path As %String, ByRef files As %List = "")
 {
    
   set dir = ##class(%File).NormalizeDirectory(path)
   set row = statement.%Execute(dir)
-  set sc = $$$OK   
+  set sc = $$$OK
   
   while row.%Next(.sc) {
+    if $$$ISERR(sc) quit
     set type = row.%Get("Type")    
-    set fullPath = row.%Get("Name")        
+    set fullPath = row.%Get("Name")     
     
     if ..IsIgnored(fullPath) continue
             
@@ -191,7 +192,7 @@ Method ExportWebFile(itemName As %String, ByRef exportList As %List = "") As %St
     quit $$$OK
   } 
       
-  set source = ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(name)
+  $$$QuitOnError(##class(Port.Project.Helper).CSPLogicalToPhysicalPath(name, .source))
   set dest = ..NormalizeOutput(name, .path, .ext)  
   
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))  

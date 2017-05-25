@@ -40,64 +40,6 @@
 </Class>
 
 
-<Class name="Port.Manifest">
-<Super>%RegisteredObject</Super>
-<TimeCreated>64426,42344.824048</TimeCreated>
-
-<Property name="ignore">
-<Type>%DynamicArray</Type>
-</Property>
-
-<Property name="dependencies">
-<Type>%DynamicObject</Type>
-</Property>
-
-<Method name="Read">
-<ClassMethod>1</ClassMethod>
-<FormalSpec>fileName:%String,*manifest:Port.Manifest=""</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set sc = $$$OK
-  set manifestName = ""
-  if '##class(%File).Exists(fileName) set manifestName = ""
-  
-  set manifestName = ##class(%File).GetFilename(fileName)    
-  set directory = ##class(%File).GetDirectory(fileName)  
-  
-  set object = ""
-  set f = ##class(%FileBinaryStream).%New()
-  
-  for target = manifestName, "port.json", "port.manifest", "package.json" {
-    set f.Filename = directory_target
-    if f.Size > 0 quit
-  }
-  
-  if f.Size = 0 quit $$$OK
-  
-  try {
-    set object = ##class(%DynamicObject).%FromJSON(f)
-  } catch ex {
-    set sc = ex.AsStatus()
-  }
-  
-  $$$QuitOnError(sc)
-  
-  set manifest = ..%New()
-  
-  if $isobject(object.ignore) && object.ignore.%IsA("%DynamicArray") {
-    set manifest.ignore = object.ignore
-  }
-  
-  if $isobject(object.dependencies) && object.dependencies.%IsA("%DynamicObject") {
-    set manifest.dependencies = object.dependencies
-  }
-  
-  quit sc
-]]></Implementation>
-</Method>
-</Class>
-
-
 <Class name="Port.Project.Backup">
 <Super>%RegisteredObject</Super>
 <TimeCreated>64306,37561.640431</TimeCreated>
@@ -654,16 +596,17 @@ Scan(group, type, created)
 </Method>
 
 <Method name="SearchExtraneousEntries">
-<FormalSpec><![CDATA[statement:%SQL.Statement,path:%String,&files:%String=""]]></FormalSpec>
+<FormalSpec><![CDATA[statement:%SQL.Statement,path:%String,&files:%List=""]]></FormalSpec>
 <Implementation><![CDATA[
    
   set dir = ##class(%File).NormalizeDirectory(path)
   set row = statement.%Execute(dir)
-  set sc = $$$OK   
+  set sc = $$$OK
   
   while row.%Next(.sc) {
+    if $$$ISERR(sc) quit
     set type = row.%Get("Type")    
-    set fullPath = row.%Get("Name")        
+    set fullPath = row.%Get("Name")     
     
     if ..IsIgnored(fullPath) continue
             
@@ -816,7 +759,7 @@ Scan(group, type, created)
     quit $$$OK
   } 
       
-  set source = ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(name)
+  $$$QuitOnError(##class(Port.Project.Helper).CSPLogicalToPhysicalPath(name, .source))
   set dest = ..NormalizeOutput(name, .path, .ext)  
   
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))  
@@ -1814,7 +1757,9 @@ LoopThroughType(projectName, importedList, group)
 <FormalSpec>justProject:%Boolean=0,qspec:%String="/diffexport=1/nodisplay",charset:%String="UTF8",*errorlog:%Status=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set destination = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_".xml")  
+  set destination = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_".xml")
+  //set directory = ##class(%File).GetDirectory(destination)
+  //$$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(directory))  
   do ..Write("[nl]Exporting project {P1} to XML ...", 0, ..GetProjectName())
   $$$QuitOnError(..Project.Export(destination, qspec, justProject, errorlog, charset))
   do ..Write("[nl]Project exported to {P1}[nl]", 0, destination)
@@ -3402,41 +3347,6 @@ Menu
 </Class>
 
 
-<Class name="UnitTest.Port.Manifest">
-<Super>Port.UnitTest.TestCase</Super>
-<TimeCreated>64426,42177.044048</TimeCreated>
-
-<Method name="TestRead">
-<Implementation><![CDATA[
-  
-  set nonExistentStatus = ##class(Port.Manifest).Read(..GetTestDirectory("fixtures/manifest/dummydir/nothing"), .manifest)
-  set invalidStatus = ##class(Port.Manifest).Read(..GetTestDirectory("fixtures/manifest/broken.json"), .manifest)
-  set validStatus = ##class(Port.Manifest).Read(..GetTestDirectory("fixtures/manifest/port.json"), .manifest)
-  
-  do $$$AssertStatusOK(nonExistentStatus, "quits normally if manifest doesn't exists.")     
-  do $$$AssertStatusOK(validStatus, "returns OK if manifest was found and is valid.")
-  do $$$AssertStatusNotOK(invalidStatus, "catches exception if json is broken.")
-  
-  do $$$AssertTrue(manifest.%IsA("Port.Manifest"), "generates a Port.Manifest instance.")  
-  
-  do $$$AssertTrue(manifest.dependencies.%IsA("%DynamicObject"), "dependencies is a %DynamicObject.")  
-  do $$$AssertEquals(manifest.dependencies."dummy-project", "git+ssh://git@github.com/rfns/port.git", "matches the URL.")
-  
-  do $$$AssertTrue(manifest.ignore.%IsA("%DynamicArray"), "ignore is a %DynamicArray.")
-  do $$$AssertNotEquals(manifest.ignore.%Get(0), "", "has a path inside.")
-]]></Implementation>
-</Method>
-
-<Method name="Call">
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[
-  set ^||%Studio.Project = "port"
-  do ##class(Port.UnitTest.Manager).DebugRunTestCase(##class(Port.SourceControl.Config).GetTestPath(), "UnitTest.Port.Manifest")
-]]></Implementation>
-</Method>
-</Class>
-
-
 <Class name="UnitTest.Port.Project.Base">
 <Super>Port.UnitTest.TestCase,Port.TestUtils.MockProject</Super>
 <TimeCreated>64426,56009.814762</TimeCreated>
@@ -3893,10 +3803,9 @@ CreateFile
 </Class>
 
 
-<Project name="port" LastModified="2017-05-23 16:38:57.673312" Target="##class(UnitTest.Port.Manifest).Call()" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2017-05-25 14:35:10.45749" Target="##class(UnitTest.Port.Manifest).GetAllFiles()" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
-    <ProjectItem name="Port.Manifest" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Base" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Exporter" type="CLS"></ProjectItem>
@@ -3915,12 +3824,14 @@ CreateFile
     <ProjectItem name="Port.TestUtils.MockProject" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.Manager" type="CLS"></ProjectItem>
     <ProjectItem name="Port.UnitTest.TestCase" type="CLS"></ProjectItem>
-    <ProjectItem name="UnitTest.Port.Manifest" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Base" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Exporter" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Helper" type="CLS"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>
   </Items>
+  <BreakPoints>
+    <BreakPoint Routine="UnitTest.Port.Manifest.CLS" Offset="GetAllFiles+4"></BreakPoint>
+  </BreakPoints>
 </Project>
 
 
