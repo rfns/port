@@ -1187,7 +1187,7 @@ Scan(group, type, created)
       set sc = ..EnqueueItem(external) 
       if $$$ISERR(sc) quit
     } elseif type = "D" {
-      set targetDir = $piece(external, ..Slash, $length(external, ..Slash))
+      set targetDir = $piece(external, ..Slash, *)
       if '(targetDir?1".".AN) {
         set sc = ..EnqueueDirectory(external, fs)
         if $$$ISERR(sc) quit
@@ -2626,7 +2626,7 @@ Called after the compile of the item is done.</Description>
   
   try {
     $$$ThrowOnError(##class(Config.Namespaces).Get(thisNamespace, .nsProperties))
-    set glProperties("Database") = nsProperties("Globals")
+    set glProperties("Database") = thisNamespace
     $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl*", .glProperties))
     set $namespace = thisNamespace
   } catch ex {
