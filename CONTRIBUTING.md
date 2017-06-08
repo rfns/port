@@ -1,6 +1,6 @@
 # CONTRIBUTING
 
-In order to contribute to this repository, some few guildes should be followed.
+In order to contribute to this repository, some few guidelines should be followed.
 
 ## When opening issues
 
