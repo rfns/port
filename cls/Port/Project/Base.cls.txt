@@ -184,7 +184,7 @@ Method NormalizeOutput(itemName As %String, Output path As %String = "", Output 
   quit dest
 }
 
-Method CheckUbiquity(ByRef ubiquityList As %String = 0) As %Status
+ClassMethod CheckUbiquity(projectName As %String, ByRef ubiquityList As %String = 0) As %Status
 {
   set sc = $$$OK
   set (name, type, projects) = ""
@@ -195,12 +195,12 @@ Method CheckUbiquity(ByRef ubiquityList As %String = 0) As %Status
   
   set sProjectItems = ##class(%SQL.Statement).%New()
   $$$QuitOnError(sProjectItems.%PrepareClassQuery("%Studio.Project", "ProjectItemsList"))
-  set projectItemsRows = sProjectItems.%Execute(..Project.Name)
+  set projectItemsRows = sProjectItems.%Execute(projectName)
   
   while projectRows.%Next(.sc) {
     if $$$ISERR(sc) quit
-    set projectName = projectRows.%Get("Name")
-    if projectName '= ..Project.Name {
+    set currentProject = projectRows.%Get("Name")
+    if projectName '= currentProject {
       set projects(projectName) = ""     
     }
   }

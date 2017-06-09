@@ -98,7 +98,7 @@ Method EnqueueDirectory(searchPath As %String, fs As %SQL.Statement = {$$$NULLOR
       set sc = ..EnqueueItem(external) 
       if $$$ISERR(sc) quit
     } elseif type = "D" {
-      set targetDir = $piece(external, ..Slash, $length(external, ..Slash))
+      set targetDir = $piece(external, ..Slash, *)
       if '(targetDir?1".".AN) {
         set sc = ..EnqueueDirectory(external, fs)
         if $$$ISERR(sc) quit

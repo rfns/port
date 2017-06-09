@@ -8,7 +8,7 @@ ClassMethod GetFullItemPath(itemName As %String) As %String
   
   set fullPath = ""
   set type = ##class(Port.Project.Helper).GetItemExtension(itemName)
-  set defaultPath = ##class(%File).NormalizeFilename(##class(Config).GetExportPath())
+  set defaultPath = ##class(%File).NormalizeFilename(##class(Config).GetWorkspace())
   
   if type = "CLS" {
     set fullPath = ##class(Port.Project.Helper).ClassToFile(defaultPath_"/cls", $piece(itemName, ".", 1, *-1))

@@ -40,6 +40,17 @@
 </Class>
 
 
+<Routine name="Port" type="MAC" languagemode="0"><![CDATA[
+Install
+  do ##class(Port.SourceControl.Installer).Install()
+  quit
+
+Wizard
+  do ##class(Port.SourceControl.Wizard).Start()
+  quit
+]]></Routine>
+
+
 <Class name="Port.Project.Backup">
 <Super>%RegisteredObject</Super>
 <TimeCreated>64306,37561.640431</TimeCreated>
@@ -411,7 +422,8 @@ Scan(group, type, created)
 </Method>
 
 <Method name="CheckUbiquity">
-<FormalSpec><![CDATA[&ubiquityList:%String=0]]></FormalSpec>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[projectName:%String,&ubiquityList:%String=0]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
@@ -423,12 +435,12 @@ Scan(group, type, created)
   
   set sProjectItems = ##class(%SQL.Statement).%New()
   $$$QuitOnError(sProjectItems.%PrepareClassQuery("%Studio.Project", "ProjectItemsList"))
-  set projectItemsRows = sProjectItems.%Execute(..Project.Name)
+  set projectItemsRows = sProjectItems.%Execute(projectName)
   
   while projectRows.%Next(.sc) {
     if $$$ISERR(sc) quit
-    set projectName = projectRows.%Get("Name")
-    if projectName '= ..Project.Name {
+    set currentProject = projectRows.%Get("Name")
+    if projectName '= currentProject {
       set projects(projectName) = ""     
     }
   }
@@ -1585,7 +1597,7 @@ Scan(group, type, created)
   set utility = ""  
   set utilityTypes("E") = "Port.Project.Exporter"
   set utilityTypes("I") = "Port.Project.Importer"
-  set utilityTypes("X") = "Port.Project.XMLExporter"
+  set utilityTypes("X") = "Port.Project.XMLExporter"  
   
   try {
     set utility = $classmethod(utilityTypes(type), "%New", path, logLevel, sourceExtension)
@@ -1833,13 +1845,27 @@ LoopThroughType(projectName, importedList, group)
 </Method>
 
 <Method name="IsUnitTestClass">
+<ClassMethod>1</ClassMethod>
 <FormalSpec>className:%String</FormalSpec>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[
-  quit (
-    ##class(%Library.ClassDefinition).%ExistsId(className) &&
-    (##class(%Dictionary.ClassDefinition).%OpenId(className).Super [ "Port.UnitTest.TestCase")
-  )
+  
+  set isUnitTest = 0
+  set descriptor = ##class(%Dictionary.CompiledClass).%OpenId(className)
+  if '$isobject(descriptor) || ($isobject(descriptor) && (descriptor.Super = "")) quit 0
+  
+  if descriptor.Super [ "Port.UnitTest.TestCase" quit 1  
+  
+  // If the target class have some super class defined, we must consider that it could be
+  // extending from multiple super classes. So we need to check each of them.
+  for i=1:1:$length(descriptor.Super, ",") {
+  	set extension = $piece(descriptor.Super, ",", i)
+  	if ..IsUnitTestClass(extension) {
+	  	set isUnitTest = 1
+	  	quit
+  	}  	
+  }
+	quit isUnitTest
 ]]></Implementation>
 </Method>
 </Class>
@@ -2050,7 +2076,7 @@ Sets the log level used to display the info. Ranging from 1 to 3, greater is mor
 <FormalSpec>logLevel:%Integer</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  if '$isvalidnum(logLevel) {
+  if '$isvalidnum(logLevel) { 
     quit $$$ERROR($$$GeneralError, "Log level must be a number between 0 and 2.")
   }
   if logLevel > 0 && (logLevel < 3) {
@@ -2070,23 +2096,26 @@ Gets the current configured log level.</Description>
 ]]></Implementation>
 </Method>
 
-<Method name="SetExportPath">
+<Method name="SetPrimaryWorkspace">
 <Description>
-Sets the path where the files are to be exported. Supports template.</Description>
+Sets the path where the files are to be exported..</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>newExportPath:%String=""</FormalSpec>
+<FormalSpec>newWorkspace:%String=""</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("source.path") = $select(newExportPath = "" : "/CacheProjects/{NAMESPACE}/{PROJECT}", 1: newExportPath)
+<Implementation><![CDATA[  set ^Port.SourceControl.Settings("source.path") = $select(newWorkspace = "" : "/CacheProjects/{NAMESPACE}/{PROJECT}", 1: newWorkspace)
 ]]></Implementation>
 </Method>
 
-<Method name="GetExportPath">
+<Method name="GetWorkspace">
 <Description>
 Gets the resolved export path. Pass 1 to excludeProject to return the project's parent directory.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>excludeProject:%Boolean=0</FormalSpec>
+<FormalSpec>projectName:%String=$get(^||%Studio.Project)</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("source.path")), excludeProject)
+<Implementation><![CDATA[
+  set customWorkspace = ..GetCustomWorkspace(projectName)
+  if customWorkspace '= "" quit ..rewritePlaceHolders(customWorkspace, projectName)
+  quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("source.path")), projectName)
 ]]></Implementation>
 </Method>
 
@@ -2095,7 +2124,7 @@ Gets the resolved export path. Pass 1 to excludeProject to return the project's 
 Enables the feature: exports the project as XML when it is saved or plainly exported.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Boolean</ReturnType>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("xml.autoExport") = 1
+<Implementation><![CDATA[  set ^Port.SourceControl.Settings("xml.autoexport") = 1
 ]]></Implementation>
 </Method>
 
@@ -2104,7 +2133,7 @@ Enables the feature: exports the project as XML when it is saved or plainly expo
 Disables the feature: exports the project as XML when it is saved or plainly exported.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Boolean</ReturnType>
-<Implementation><![CDATA[  set ^Port.SourceControl.Settings("xml.autoExport") = 0
+<Implementation><![CDATA[  set ^Port.SourceControl.Settings("xml.autoexport") = 0
 ]]></Implementation>
 </Method>
 
@@ -2113,7 +2142,7 @@ Disables the feature: exports the project as XML when it is saved or plainly exp
 Returns if the auto-export feature is enabled. </Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  quit ($get(^Port.SourceControl.Settings("xml.autoExport")) = 1)
+<Implementation><![CDATA[  quit ($get(^Port.SourceControl.Settings("xml.autoexport")) = 1)
 ]]></Implementation>
 </Method>
 
@@ -2176,7 +2205,9 @@ Sets the prefix used to associate the source with it's test class.</Description>
 Gets the association prefix.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  quit $get(^Port.SourceControl.Settings("test.prefix"))
+<Implementation><![CDATA[
+  
+  quit $get(^Port.SourceControl.Settings("test.prefix"))
 ]]></Implementation>
 </Method>
 
@@ -2226,14 +2257,54 @@ Gets the source extension.</Description>
 ]]></Implementation>
 </Method>
 
+<Method name="SetCustomWorkspace">
+<Internal>1</Internal>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>projectName:%String,path:%String=..GetWorkspace()</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set ^Port.SourceControl.Settings("workspace.project", projectName) = path
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="GetCustomWorkspace">
+<Internal>1</Internal>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>projectName:%String</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+  set customWorkspace = $get(^Port.SourceControl.Settings("workspace.project", projectName))
+  quit ..rewritePlaceHolders(customWorkspace, projectName)
+]]></Implementation>
+</Method>
+
+<Method name="HasCustomWorkspace">
+<Internal>1</Internal>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>projectName:%String</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+ 
+  quit (..GetCustomWorkspace(projectName) '= "")
+]]></Implementation>
+</Method>
+
+<Method name="RemoveCustomWorkspace">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>projectName:%String</FormalSpec>
+<Implementation><![CDATA[  kill ^Port.SourceControl.Settings("workspace.project", projectName)
+]]></Implementation>
+</Method>
+
 <Method name="rewritePlaceHolders">
 <Internal>1</Internal>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>basePath:%String,excludeProject:%Boolean=0,params...:%String</FormalSpec>
+<FormalSpec>basePath:%String,projectName:%String=$get(^||%Studio.Project),params...:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
-  if '$data(params) set params = ""
-  set translatedPath = basePath 
+  if '$data(params) set params = ""  
+  set translatedPath = basePath  
   #define RewriteIfPathContains(%expression, %replacement) set translatedPath = $select(translatedPath [ %expression : $replace(translatedPath, %expression, %replacement), 1: translatedPath) 
   
   set installDirectory = $System.Util.InstallDirectory()
@@ -2241,10 +2312,11 @@ Gets the source extension.</Description>
   $$$RewriteIfPathContains("{NAMESPACE}", $namespace)
   $$$RewriteIfPathContains("{INSTALLDIR}", installDirectory)
   $$$RewriteIfPathContains("{USERNAME}", $username) 
-  $$$RewriteIfPathContains("{EXPORTPATH}", ..GetExportPath())
-  $$$RewriteIfPathContains("{FULLEXPORTPATH}", ##class(%File).NormalizeFilename(..GetExportPath())) 
+  $$$RewriteIfPathContains("{EXPORTPATH}", ..GetWorkspace())
+  $$$RewriteIfPathContains("{FULLEXPORTPATH}", ##class(%File).NormalizeFilename(..GetWorkspace())) 
   $$$RewriteIfPathContains("{SLASH}", $select($$$isWINDOWS: "\", 1: "/"))
-  if 'excludeProject $$$RewriteIfPathContains("{PROJECT}", $get(^||%Studio.Project))
+  $$$RewriteIfPathContains("{PROJECT}", projectName) 
+  
   if params {
     for i=1:1:params $$$RewriteIfPathContains("{P"_i_"}", params(i))
   }
@@ -2272,7 +2344,7 @@ Gets the source extension.</Description>
 <MenuItem Separator="1" />
 <MenuItem Name="%RemoveInvalidItems"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%RunTestSuite"/>
+<MenuItem Name="%RunTestSuite"/> 
 <MenuItem Separator="1" />
 <MenuItem Name="%ImportProject"/>
 <MenuItem Separator="1" />
@@ -2293,18 +2365,18 @@ Gets the source extension.</Description>
 <FormalSpec>InternalName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  #dim exporter As Port.Project.Exporter
+  #dim exporter As Port.Project.Exporter 
   set projectName = $get(^||%Studio.Project)
   set sc = $$$OK
   if projectName '= "" && (projectName '[ "Default") {
-    set exportPath = ##class(Config).GetExportPath()
-    set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)
+    set exportPath = ##class(Config).GetWorkspace()
+    set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)    
     
     if type '= "PRJ" {
       set sourceExtension = ##class(Config).GetSourceExtension()
       set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
       set itemName = ##class(Util).ResolveInternalName(InternalName)           
-      set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()      
+      set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()            
       
       set exporter.SourceExtension = sourceExtension
       
@@ -2324,8 +2396,11 @@ Gets the source extension.</Description>
         $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath))
       }
-    }
+    }  
   }
+  if '##class(Config).HasCustomWorkspace(projectName) { 
+    do ##class(Config).SetCustomWorkspace(projectName)
+  }   
   quit sc
 ]]></Implementation>
 </Method>
@@ -2357,7 +2432,7 @@ Gets the source extension.</Description>
     set projectName = ^||%Studio.Project
     set fullPath = ##class(Util).GetFullItemPath(InternalName)
     set itemName = ##class(Util).ResolveInternalName(InternalName)
-    set projectPath = ##class(Config).GetExportPath()
+    set projectPath = ##class(Config).GetWorkspace()
     set testPath = ##class(Config).GetTestPath()
     set logLevel = ##class(Config).GetLogLevel()
     set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
@@ -2441,6 +2516,9 @@ Gets the source extension.</Description>
       if shouldOverwrite do ##class(Config).TrackActiveExtension()
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+      if '##class(Config).HasCustomWorkspace(projectName) { 
+        do ##class(Config).SetCustomWorkspace(projectName)
+      }
     }
     
     if name = "%ForceImportProject" {
@@ -2529,10 +2607,9 @@ Called after the compile of the item is done.</Description>
   set sc = $$$OK
   
   if projectName '= "" && (projectName '[ "Default") {
-    set projectPath = ##class(Config).GetExportPath()
+    set projectPath = ##class(Config).GetWorkspace()
     set itemName = ##class(Util).ResolveInternalName(InternalName)
-    set type = $$$ucase($piece(InternalName, ".", $length(InternalName, ".")))    
-    set exporter = ##class(Port.Project.Exporter).%New(projectPath)
+    set type = $$$ucase($piece(InternalName, ".", $length(InternalName, ".")))
     set xmlExporter = ##class(Port.Project.XMLExporter).%New(projectPath)
     
     if type = "CLS" {     
@@ -2554,8 +2631,23 @@ Called after the compile of the item is done.</Description>
           $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath, "/nodisplay"))
         }       
         $$$QuitOnError(##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass))   
-      }
+      } 
     }
+  }
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="OnBeforeDelete">
+<Description>
+Called before an item is deleted. Returning an error code prevents the delete from occuring.</Description>
+<FormalSpec>InternalName:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  
+  if (InternalName?1".PRJ") {
+    set projectName = $piece(InternalName, ".", 1, *-1)
+    do ##class(Config).RemoveCustomWorkspace(projectName)
   }
   quit $$$OK
 ]]></Implementation>
@@ -2569,23 +2661,26 @@ Called after the compile of the item is done.</Description>
 
 <Method name="Install">
 <ClassMethod>1</ClassMethod>
+<FormalSpec>force:%Boolean=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
   
-  if $data(^Port.SourceControl("installed")) {
-    write !, "Port is already installed. The installer has been aborted.", !
-    write "If you wish to change current settings then please use the wizard.", !
-    write "do ##class(Port.SourceControl.Wizard).Start()", !
-    quit $$$ERROR($$$GeneralError, "Port is already installed.")
+  if 'force {
+    if $data(^Port.SourceControl("installed")) {
+      write !, "Port is already installed. The installer has been aborted.", !
+      write "If you wish to change current settings then please use the wizard.", !!
+      write "do Wizard^Port", !
+      quit $$$ERROR($$$GeneralError, "Port is already installed.")
+    }
   }
   
   try {
     write !, "Installing Port ... please wait a moment.", !
-    write "> Creating global mappings ...", !
+    write "> Creating global mappings ...", !    
     $$$ThrowOnError(..CreateGlobalMapping())
     write "> Setting up workspace structure ... ", !
-    do ##class(Config).SetExportPath("/CacheProjects/{NAMESPACE}/{PROJECT}")
+    do ##class(Config).SetPrimaryWorkspace("/CacheProjects/{NAMESPACE}/{PROJECT}")
     write "> Setting up test files directory ...", !
     do ##class(Config).SetTestPath("tests")
     write "> Defining default test class prefix ..", !
@@ -2598,7 +2693,7 @@ Called after the compile of the item is done.</Description>
     do ##class(Config).SetLogLevel(1)
     write "> Setting up source extension ...", !
     do ##class(Config).SetSourceExtension("txt")    
-    write "> Registering LogCleaner task ...", !
+    write "> Registering log cleaner task for "_$namespace_" ...", !
     $$$ThrowOnError(##class(LogCleaner).StartTask())
     write "> Activating source control class ...", !!
     $$$ThrowOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
@@ -2623,6 +2718,11 @@ Called after the compile of the item is done.</Description>
   new $namespace
   
   set $namespace = "%SYS"
+  
+  if ##class(Config.MapGlobals).Exists(thisNamespace, "Port.SourceControl*") {
+    write "> Global is already mapped. Skipping ...", !
+    quit $$$OK
+  }
   
   try {
     $$$ThrowOnError(##class(Config.Namespaces).Get(thisNamespace, .nsProperties))
@@ -2703,7 +2803,7 @@ Called after the compile of the item is done.</Description>
     if type '= "CLS" && (type '= "PRJ") set itemName = itemName_"."_type
     if type = "CSP" set itemName = $extract(itemName, 2, $length(itemName))
     set itemId = projectName_"||"_itemName_"||"_type
-    if '$$$ProjectExists(itemName) && '$$$ItemExists(itemId) {
+    if '$$$ProjectExists(projectName) || '$$$ItemExists(itemId) {
       kill @q
     }
     set q = $query(@q, 1)
@@ -2722,26 +2822,26 @@ Called after the compile of the item is done.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set taskName = "Port Log Synchronizer"
-	if ##class(%SYS.Task).FindId(taskName) quit $$$OK		 
-	set task = ##class(%SYS.Task).%New()
-	set task.TimePeriod = 0
-	set task.Description = "Removes extraneous project entries"
-	set task.Name = taskName
-	set task.TimePeriodEvery = 1
-	set task.DailyFrequency = 1
-	set task.DailyFrequencyTime = 0
-	set task.DailyStartTime = 28800
-	set task.DailyIncrement = 180
-	set task.NameSpace = $namespace
-	set task.TaskClass = $classname($this)
-	quit task.%Save()
+  set taskName = "Port Log Synchronizer for "_$namespace
+  if ##class(%SYS.Task).FindId(taskName) quit $$$OK    
+  set task = ##class(%SYS.Task).%New()
+  set task.TimePeriod = 0
+  set task.Description = "Keeps the log synchronized with existing projects and files."
+  set task.Name = taskName
+  set task.TimePeriodEvery = 1
+  set task.DailyFrequency = 1
+  set task.DailyFrequencyTime = 0
+  set task.DailyStartTime = 28800
+  set task.DailyIncrement = 180
+  set task.NameSpace = $namespace
+  set task.TaskClass = $classname($this)
+  quit task.%Save()
 ]]></Implementation>
 </Method>
 
 <Method name="OnTask">
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[	quit ##class(Port.SourceControl.Log).Synchronize()
+<Implementation><![CDATA[  quit ##class(Port.SourceControl.Log).Synchronize()
 ]]></Implementation>
 </Method>
 </Class>
@@ -2763,7 +2863,7 @@ Called after the compile of the item is done.</Description>
   
   set fullPath = ""
   set type = ##class(Port.Project.Helper).GetItemExtension(itemName)
-  set defaultPath = ##class(%File).NormalizeFilename(##class(Config).GetExportPath())
+  set defaultPath = ##class(%File).NormalizeFilename(##class(Config).GetWorkspace())
   
   if type = "CLS" {
     set fullPath = ##class(Port.Project.Helper).ClassToFile(defaultPath_"/cls", $piece(itemName, ".", 1, *-1))
@@ -2855,18 +2955,18 @@ Called after the compile of the item is done.</Description>
     do Menu
   }
     
-  if choice = 1 do ..StartWorkspaceConfigAssistant() quit
-  if choice = 2 do ..StartTestConfigAssistant() quit
-  if choice = 3 do ..StartAutoExportXMLConfigAssistant() quit
-  if choice = 4 do ..StartLogLevelConfigAssistant() quit
-  if choice = 5 do ..StartSourceExtensionConfigAssistant() quit
-  if choice = 6 write !, "Bye." quit  
+  if choice = 1 quit ..StartWorkspaceConfigAssistant() quit
+  if choice = 2 quit ..StartTestConfigAssistant() quit
+  if choice = 3 quit ..StartAutoExportXMLConfigAssistant() quit
+  if choice = 4 quit ..StartLogLevelConfigAssistant() quit
+  if choice = 5 quit ..StartSourceExtensionConfigAssistant() quit
+  if choice = 6 write !, "Bye." quit $$$OK
          
 Menu
   set choice = ""
   write !!, "What do you want to do? (type the number)", !!
   
-  write "1. Change workspace pattern.", !
+  write "1. Manage workspaces.", !
   write "2. Change test settings.", !
   write "3. Toggle project XML auto-export.", !
   write "4. Set log level.", !
@@ -2884,11 +2984,51 @@ Menu
 
 <Method name="StartWorkspaceConfigAssistant">
 <ClassMethod>1</ClassMethod>
+<FormalSpec>hideIntroduction:%Boolean=0</FormalSpec>
+<Implementation><![CDATA[
+ 
+  set validChoices = $listbuild(1,2,3)
+  set invalidChoice = 1
+  set choice = ""    
+  
+  if 'hideIntroduction {  
+    write !, "Manages workspaces that will contain the exported source code.", !!
+  }
+  
+  while invalidChoice {
+    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    do Menu
+  }
+  
+  if choice = 1 quit ..StartWorkspaceChoice1ConfigAssistant()
+  if choice = 2 quit ..StartWorkspaceChoice2ConfigAssistant()
+  if choice = 3 quit ..Start(1) 
+  
+  quit $$$OK
+    
+Menu
+  set choice = ""
+  write "What do you want to do? (type the number)", !!
+
+  write "1. Change primary workspace.", !
+  write "2. Manage existing workspaces.", !
+  write "3. Go back.", !!
+  
+  write "Your choice: "
+  
+  read choice
+  write !  
+  set invalidChoice = ($listfind(validChoices, choice) = 0)
+  quit
+]]></Implementation>
+</Method>
+
+<Method name="StartWorkspaceChoice1ConfigAssistant">
+<ClassMethod>1</ClassMethod>
 <Implementation><![CDATA[
   set isPathValid = 0
-    
-  
-  write !, "Configures which directory should be used to export your source code."
+      
+  write !, "Configures the primary workspace that will be used to export your source code."
   
   write !!, "You can use the following specific placeholders: ", !!
   
@@ -2898,16 +3038,62 @@ Menu
   write "{INSTALLDIR} - The Caché installation directory."
   
   write !!, "Please type the ABSOLUTE path to be used when exporting your source files.", !
+  write "Or leave it empty to use restore the default."
   
   write "You can use both: UNIX or Windows schemes.", !!
   write "Default is: ", !, "/CacheProjects/{NAMESPACE}/{PROJECT}", !
   write "Current is: ", !, $get(^Port.SourceControl.Settings("source.path"), "none"), !!
   write "New: ", !
   read path
-   
-  do ##class(Port.SourceControl.Config).SetExportPath(path)
-  write !!, "The workspace is now set to: "_^Port.SourceControl.Settings("source.path")_"."
-  do ..Start(1)
+  
+  if path = "" set path = "/CacheProjects/{NAMESPACE}/{PROJECT}"
+    
+  do ##class(Config).SetPrimaryWorkspace(path)
+  write !!, "The primary workspace is now set to: ", !
+  write path, !!
+  quit ..StartWorkspaceConfigAssistant(1)
+]]></Implementation>
+</Method>
+
+<Method name="StartWorkspaceChoice2ConfigAssistant">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+  write !, "Manages workspaces associated to projects.", ! 
+  write !, "Projects named here will not use the primary workspace definition."
+  
+  write !, "Type the name of the project (or leave it empty to abort): ", !
+  read projectName
+  
+  if projectName = "" write !, "Aborted.", !! quit ..StartWorkspaceConfigAssistant(1)
+  set projectExists = ##class(%Studio.Project).%ExistsId(projectName)
+  
+  if 'projectExists {
+    write !!, "WARNING: The project "_projectName_ " doesn't exist yet.", !!
+  }  
+  
+  set currentWorkspace = ##class(Config).GetCustomWorkspace(projectName)
+  write !!, "Current workspace is: ", !
+  write ##class(Config).GetWorkspace(projectName)
+  write !!, "You will be asked for a new workspace now.", !
+  write "You can use both: UNIX or Windows schemes.", !
+  write "Note that workspace paths must be ABSOLUTE.", !
+  write "You can use the following specific placeholders: ", !!
+  
+  write "{PROJECT} - The active project name.", !
+  write "{NAMESPACE} - The active namespace name.", !
+  write "{USERNAME} - The active user name.", !
+  write "{INSTALLDIR} - The Caché installation directory.", !!
+  
+  write "Type the workspace path (or leave it empty to abort): ", !
+  read workspacePath
+  
+  if workspacePath = "" write !, "Aborted.", !! quit ..StartWorkspaceConfigAssistant(1)
+  
+  do ##class(Config).SetCustomWorkspace(projectName, workspacePath)
+  write !!, "The project "_projectName_" is now configured to be exported to the following path: ", !
+  write ##class(Config).GetWorkspace(projectName), !!
+  
+  quit ..StartWorkspaceConfigAssistant(1)
 ]]></Implementation>
 </Method>
 
@@ -2928,10 +3114,12 @@ Menu
     do Menu
   }
   
-  if choice = 1 do ..StartTestChoice1ConfigAssistant() quit
-  if choice = 2 do ..StartTestChoice2ConfigAssistant() quit
-  if choice = 3 do ..StartTestChoice3ConfigAssistant() quit
-  if choice = 4 do ..Start(1) quit
+  if choice = 1 quit ..StartTestChoice1ConfigAssistant()
+  if choice = 2 quit ..StartTestChoice2ConfigAssistant()
+  if choice = 3 quit ..StartTestChoice3ConfigAssistant()
+  if choice = 4 quit ..Start(1)
+  
+  quit $$$OK
     
 Menu
   set choice = ""
@@ -2979,7 +3167,7 @@ Menu
   }
   
   write !!
-  do ..Start(1) quit
+  quit ..Start(1)
   
 Menu
   set choice = ""
@@ -3016,7 +3204,7 @@ Menu
   
   do ##class(Port.SourceControl.Config).SetLogLevel(choice)
   write "Log verbosity level is now: "_##class(Port.SourceControl.Config).GetLogLevel()
-  do ..Start(1) quit
+  quit ..Start(1)
   
 Menu
   set choice = ""
@@ -3051,7 +3239,7 @@ Menu
   do ##class(Port.SourceControl.Config).SetSourceExtension(extension)
   set savedExtension = $get(^Port.SourceControl.Settings("source.extension"))
   write !!, "The extension is now set to: "_$select(savedExtension = "" : "none.", 1: "."_savedExtension)
-  do ..Start(1)
+  quit ..Start(1)
 ]]></Implementation>
 </Method>
 
@@ -3083,7 +3271,7 @@ Menu
   }
   
   write !!
-  do ..StartTestConfigAssistant(1) quit
+  quit ..StartTestConfigAssistant(1)
   
 Menu
   set choice = ""
@@ -3122,7 +3310,7 @@ Menu
   do ##class(Port.SourceControl.Config).SetTestClassPrefix(prefix)
   write !!, "The prefix is now set to: "_##class(Port.SourceControl.Config).GetTestClassPrefix()_"."
   write !!
-  do ..StartTestConfigAssistant(1)
+  quit ..StartTestConfigAssistant(1)
 ]]></Implementation>
 </Method>
 
@@ -3152,7 +3340,7 @@ Menu
   do ##class(Port.SourceControl.Config).SetTestPath(path)
   write !!, "The test path is now set to: "_^Port.SourceControl.Settings("test.path")_"."
   write !!
-  do ..StartTestConfigAssistant(1)
+  quit ..StartTestConfigAssistant(1)
 ]]></Implementation>
 </Method>
 </Class>
@@ -3325,7 +3513,7 @@ Menu
 <Method name="Root">
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  quit ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetExportPath())
+<Implementation><![CDATA[  quit ##class(%File).NormalizeFilename(##class(Port.SourceControl.Config).GetWorkspace())
 ]]></Implementation>
 </Method>
 </Class>
@@ -3803,9 +3991,10 @@ CreateFile
 </Class>
 
 
-<Project name="port" LastModified="2017-05-25 14:35:10.45749" Target="##class(UnitTest.Port.Manifest).GetAllFiles()" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2017-05-30 17:35:12.470635" Target="##class(UnitTest.Port.Manifest).GetAllFiles()" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
+    <ProjectItem name="Port.MAC" type="MAC"></ProjectItem>
     <ProjectItem name="Port.Project.Backup" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Base" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.Exporter" type="CLS"></ProjectItem>

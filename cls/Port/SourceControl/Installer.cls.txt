@@ -1,23 +1,25 @@
 Class Port.SourceControl.Installer [ Abstract ]
 {
 
-ClassMethod Install() As %Status
+ClassMethod Install(force As %Boolean = 0) As %Status
 {
   set sc = $$$OK
   
-  if $data(^Port.SourceControl("installed")) {
-    write !, "Port is already installed. The installer has been aborted.", !
-    write "If you wish to change current settings then please use the wizard.", !
-    write "do ##class(Port.SourceControl.Wizard).Start()", !
-    quit $$$ERROR($$$GeneralError, "Port is already installed.")
+  if 'force {
+    if $data(^Port.SourceControl("installed")) {
+      write !, "Port is already installed. The installer has been aborted.", !
+      write "If you wish to change current settings then please use the wizard.", !!
+      write "do Wizard^Port", !
+      quit $$$ERROR($$$GeneralError, "Port is already installed.")
+    }
   }
   
   try {
     write !, "Installing Port ... please wait a moment.", !
-    write "> Creating global mappings ...", !
+    write "> Creating global mappings ...", !    
     $$$ThrowOnError(..CreateGlobalMapping())
     write "> Setting up workspace structure ... ", !
-    do ##class(Config).SetExportPath("/CacheProjects/{NAMESPACE}/{PROJECT}")
+    do ##class(Config).SetPrimaryWorkspace("/CacheProjects/{NAMESPACE}/{PROJECT}")
     write "> Setting up test files directory ...", !
     do ##class(Config).SetTestPath("tests")
     write "> Defining default test class prefix ..", !
@@ -30,7 +32,7 @@ ClassMethod Install() As %Status
     do ##class(Config).SetLogLevel(1)
     write "> Setting up source extension ...", !
     do ##class(Config).SetSourceExtension("txt")    
-    write "> Registering LogCleaner task ...", !
+    write "> Registering log cleaner task for "_$namespace_" ...", !
     $$$ThrowOnError(##class(LogCleaner).StartTask())
     write "> Activating source control class ...", !!
     $$$ThrowOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
@@ -52,6 +54,11 @@ ClassMethod CreateGlobalMapping() As %Status
   new $namespace
   
   set $namespace = "%SYS"
+  
+  if ##class(Config.MapGlobals).Exists(thisNamespace, "Port.SourceControl*") {
+    write "> Global is already mapped. Skipping ...", !
+    quit $$$OK
+  }
   
   try {
     $$$ThrowOnError(##class(Config.Namespaces).Get(thisNamespace, .nsProperties))

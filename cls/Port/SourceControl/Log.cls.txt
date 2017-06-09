@@ -47,7 +47,7 @@ ClassMethod Synchronize() As %Status
     if type '= "CLS" && (type '= "PRJ") set itemName = itemName_"."_type
     if type = "CSP" set itemName = $extract(itemName, 2, $length(itemName))
     set itemId = projectName_"||"_itemName_"||"_type
-    if '$$$ProjectExists(itemName) && '$$$ItemExists(itemId) {
+    if '$$$ProjectExists(projectName) || '$$$ItemExists(itemId) {
       kill @q
     }
     set q = $query(@q, 1)

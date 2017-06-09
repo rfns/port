@@ -15,7 +15,7 @@ XData Menu
 <MenuItem Separator="1" />
 <MenuItem Name="%RemoveInvalidItems"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%RunTestSuite"/>
+<MenuItem Name="%RunTestSuite"/> 
 <MenuItem Separator="1" />
 <MenuItem Name="%ImportProject"/>
 <MenuItem Separator="1" />
@@ -33,18 +33,18 @@ XData Menu
 
 Method OnAfterSave(InternalName As %String) As %Status
 {
-  #dim exporter As Port.Project.Exporter
+  #dim exporter As Port.Project.Exporter 
   set projectName = $get(^||%Studio.Project)
   set sc = $$$OK
   if projectName '= "" && (projectName '[ "Default") {
-    set exportPath = ##class(Config).GetExportPath()
-    set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)
+    set exportPath = ##class(Config).GetWorkspace()
+    set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)    
     
     if type '= "PRJ" {
       set sourceExtension = ##class(Config).GetSourceExtension()
       set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
       set itemName = ##class(Util).ResolveInternalName(InternalName)           
-      set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()      
+      set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()            
       
       set exporter.SourceExtension = sourceExtension
       
@@ -64,8 +64,11 @@ Method OnAfterSave(InternalName As %String) As %Status
         $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath))
       }
-    }
+    }  
   }
+  if '##class(Config).HasCustomWorkspace(projectName) { 
+    do ##class(Config).SetCustomWorkspace(projectName)
+  }   
   quit sc
 }
 
@@ -92,7 +95,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     set projectName = ^||%Studio.Project
     set fullPath = ##class(Util).GetFullItemPath(InternalName)
     set itemName = ##class(Util).ResolveInternalName(InternalName)
-    set projectPath = ##class(Config).GetExportPath()
+    set projectPath = ##class(Config).GetWorkspace()
     set testPath = ##class(Config).GetTestPath()
     set logLevel = ##class(Config).GetLogLevel()
     set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
@@ -176,6 +179,9 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
       if shouldOverwrite do ##class(Config).TrackActiveExtension()
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
+      if '##class(Config).HasCustomWorkspace(projectName) { 
+        do ##class(Config).SetCustomWorkspace(projectName)
+      }
     }
     
     if name = "%ForceImportProject" {
@@ -257,10 +263,9 @@ Method OnAfterCompile(InternalName As %String) As %Status
   set sc = $$$OK
   
   if projectName '= "" && (projectName '[ "Default") {
-    set projectPath = ##class(Config).GetExportPath()
+    set projectPath = ##class(Config).GetWorkspace()
     set itemName = ##class(Util).ResolveInternalName(InternalName)
-    set type = $$$ucase($piece(InternalName, ".", $length(InternalName, ".")))    
-    set exporter = ##class(Port.Project.Exporter).%New(projectPath)
+    set type = $$$ucase($piece(InternalName, ".", $length(InternalName, ".")))
     set xmlExporter = ##class(Port.Project.XMLExporter).%New(projectPath)
     
     if type = "CLS" {     
@@ -282,8 +287,19 @@ Method OnAfterCompile(InternalName As %String) As %Status
           $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath, "/nodisplay"))
         }       
         $$$QuitOnError(##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass))   
-      }
+      } 
     }
+  }
+  quit $$$OK
+}
+
+/// Called before an item is deleted. Returning an error code prevents the delete from occuring.
+Method OnBeforeDelete(InternalName As %String) As %Status
+{
+  
+  if (InternalName?1".PRJ") {
+    set projectName = $piece(InternalName, ".", 1, *-1)
+    do ##class(Config).RemoveCustomWorkspace(projectName)
   }
   quit $$$OK
 }
