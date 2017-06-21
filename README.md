@@ -67,6 +67,16 @@ cls/Package/ignoreme <- This ignores the folder called ignoreme and anything ins
 int/ignoreme <- This also ignores the folder called ignoreme but only if it's inside the int folder.
 ```
 
+### Workspaces
+
+Using this feature provides you the capability to export projects to different paths according to their custom exporth path setting. When a project is exported for the first time, Port records the export path used in order to prevent multiple projects from overlapping their exported source base.
+
+Custom project export paths can be also set preemptively using the wizard.
+
+This feature can be accesed using the Wizard and navigating to `1. Manage workspace settings`.
+
+Using project workspaces can become a powerful ally for keeping multiple source codes organized if used correctly. For example, you could group multiple projects within a single repository and take a monorepository approach. It's all up to your creativity.
+
 ## FAQ: Why not Atelier?
 
 Really, I started this project some few months before Atelier 1.0 was released, by that time Atelier hadn't support for static files.
