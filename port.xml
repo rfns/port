@@ -2474,7 +2474,7 @@ Gets the source extension.</Description>
     }
     if name = "%RemoveInvalidItems" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveInvalidItems(projectName))
-      quit ##class(Port.SourceControl.Log).Synchronize()     
+      quit ##class(Log).Synchronize()     
     }
     
     if name = "%ExportActiveItem" {
@@ -2504,7 +2504,9 @@ Gets the source extension.</Description>
     }
     
     if name = "%RunActiveItemTest" {
-      set testable = ##class(Util).AssertTestableClass(itemName, .testableClass)      
+      set testable = 
+        ##class(Util).AssertTestableClass(itemName, .testableClass) &&
+        ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
       if testable {
         $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
         quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass)
@@ -2569,7 +2571,7 @@ Gets the source extension.</Description>
   
   if name = "%RunActiveItemTest" {
     set DisplayName = "Run Tests Associated to this Item"
-    set Enabled = ##class(Util).AssertTestableClass(itemName)
+    set Enabled = ##class(Util).AssertTestableClass(itemName) && ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
   } 
   
   if name = "%ExportActiveItem" {

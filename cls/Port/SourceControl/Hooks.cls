@@ -137,7 +137,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     }
     if name = "%RemoveInvalidItems" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveInvalidItems(projectName))
-      quit ##class(Port.SourceControl.Log).Synchronize()     
+      quit ##class(Log).Synchronize()     
     }
     
     if name = "%ExportActiveItem" {
@@ -167,7 +167,9 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     }
     
     if name = "%RunActiveItemTest" {
-      set testable = ##class(Util).AssertTestableClass(itemName, .testableClass)      
+      set testable = 
+        ##class(Util).AssertTestableClass(itemName, .testableClass) &&
+        ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
       if testable {
         $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
         quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass)
@@ -229,7 +231,7 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
   
   if name = "%RunActiveItemTest" {
     set DisplayName = "Run Tests Associated to this Item"
-    set Enabled = ##class(Util).AssertTestableClass(itemName)
+    set Enabled = ##class(Util).AssertTestableClass(itemName) && ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
   } 
   
   if name = "%ExportActiveItem" {

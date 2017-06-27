@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "dummy-project": "git+ssh://git@github.com/rfns/port.git"
-  },
-  "ignore": [
-    "this/is/a/dummy/path"
-  ]
-}
