@@ -148,6 +148,12 @@ ClassMethod RemoveCustomWorkspace(projectName As %String)
   kill ^Port.SourceControl.Settings("workspace.project", projectName)
 }
 
+ClassMethod Uninstall() As %Status
+{
+  kill ^Port.SourceControl.Settings
+  quit $$$OK
+}
+
 ClassMethod rewritePlaceHolders(basePath As %String, projectName As %String = {$get(^||%Studio.Project)}, params... As %String) As %String [ Internal ]
 {
   if '$data(params) set params = ""  

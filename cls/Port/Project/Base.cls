@@ -1,4 +1,4 @@
-Include portutils
+Include (portutils, portmd)
 
 Class Port.Project.Base Extends %RegisteredObject
 {
@@ -56,7 +56,7 @@ Method %OnNew(target As %String, logLevel As %Integer = 2, sourceExtension = "")
     set ..ProjectName = $piece(fullProjectPath, ..Slash, *)        
     set ..BasePath = ##class(%File).NormalizeFilename(fullProjectPath)
     set ..Project = ##class(%Studio.Project).%OpenId(..ProjectName)
-    set ..Logger = ##class(Port.Logger).%New(logLevel)
+    set ..Logger = ##class(Port.Logger).%New(logLevel) 
     set ..SourceExtension = sourceExtension
     do ..BuildTypePaths(..BasePath)
     quit $$$OK 
@@ -70,9 +70,20 @@ Method WriteExclusive(logLevel As %Integer, message As %String, params... As %St
   do ..Write(message, logLevel, params...)
 }
 
+Method LogExclusive(logLevel As %Integer, message As %String, params... As %String)
+{
+  if ..Logger.LogLevel '= logLevel quit ""
+  quit ..Log(message, logLevel, params...)
+}
+
 Method Write(message As %Boolean, logLevel As %Integer = 1, params... As %String) [ Private ]
 {
-  do ..Logger.Log(message, logLevel, params...)
+  quit ..Logger.Log(message, logLevel, params...)
+}
+
+Method Log(message As %Boolean, logLevel As %Integer = 1, params... As %String) [ Private ]
+{
+  quit ..Logger.Log(message, logLevel, params...)
 }
 
 Method GetProjectName() As %String
@@ -261,7 +272,6 @@ Method IsOutdated(current As %String, external As %String, isImport As %Boolean 
       set fullSourcePath = ##class(%File).NormalizeFilename(current, $System.Util.InstallDirectory())
     } else {
       do ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(current, .fullSourcePath)
-      //set fullSourcePath = ##class(Port.Project.Helper).CSPLogicalToPhysical(current)
     }
     set currentTS = $zdatetime(##class(%File).GetFileDateModified(fullSourcePath), 3,,,,,,,,,0)
     // If the file is missing it's considered outdated as well.
@@ -280,14 +290,6 @@ Method IsOutdated(current As %String, external As %String, isImport As %Boolean 
     (externalTS ] currentTS) && 
     (externalTS ] lastModified)
   )
-}
-
-Method IsProjectMember(name As %String, Output isProjectMember As %Boolean, type As %String = "") As %Status [ Internal ]
-{
-  $$$QuitOnError(..Project.NormalizeName(.name, .type))
-  set id = ..ProjectName_"||"_name_"||"_type
-  set isProjectMember = (..Project.Items.FindObjectId(id) '= "")
-  quit $$$OK
 }
 
 Method GetSourceExtension() As %String [ Private ]

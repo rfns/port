@@ -1,3 +1,5 @@
+Include portmd
+
 Class Port.SourceControl.Hooks Extends %Studio.SourceControl.Base
 {
 
@@ -5,28 +7,28 @@ XData Menu
 {
 <MenuBase>
 <Menu Name="%SourceMenu" Type="0">
-<MenuItem Name="%ExportProject"/>
-<MenuItem Name="%ExportProjectToXML"/>
-<MenuItem Name="%ExportTestSuiteToXML"/>
+<MenuItem Name="%MLExport"/>
+<MenuItem Name="%MLExportToXML"/>
+<MenuItem Name="%MLExportTests"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%RemoveProjectClasses"/>
-<MenuItem Name="%RemoveProjectWebFiles"/>
-<MenuItem Name="%RemoveProjectRoutines"/>
+<MenuItem Name="%MLRemoveClasses"/>
+<MenuItem Name="%MLRemoveFiles"/>
+<MenuItem Name="%MLRemoveRoutines"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%RemoveInvalidItems"/>
+<MenuItem Name="%MLScanAndFix"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%RunTestSuite"/> 
+<MenuItem Name="%MLRunTests"/> 
 <MenuItem Separator="1" />
-<MenuItem Name="%ImportProject"/>
+<MenuItem Name="%MLImport"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%ForceExportProject"/>
-<MenuItem Name="%ForceImportProject"/>
+<MenuItem Name="%MLForceExport"/>
+<MenuItem Name="%MLForceImport"/>
 </Menu>
 <Menu Name="%SourceContext" Type="1">
-<MenuItem Name="%ExportActiveItem" />
-<MenuItem Name="%ImportActiveItem" />
+<MenuItem Name="%CMLExportActive" />
+<MenuItem Name="%CMLImportActive" />
 <MenuItem Separator="1" />
-<MenuItem Name="%RunActiveItemTest"/>
+<MenuItem Name="%CMLRunActiveTest"/>
 </Menu>
 </MenuBase>
 }
@@ -48,8 +50,9 @@ Method OnAfterSave(InternalName As %String) As %Status
       
       set exporter.SourceExtension = sourceExtension
       
-      $$$QuitOnError(exporter.IsProjectMember(InternalName, .isMember))
-      if 'isMember quit $$$OK
+      if '##class(Port.Project.Helper).ExistsInProject(projectName, InternalName) {
+        quit $$$OK
+      }
       
       if type = "CLS" {
         set sc = exporter.ExportClass(itemName)
@@ -88,7 +91,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
 {
   set name = $piece(Name, ",", 2)
   set isContextual = ($piece(Name, ",", 1) = "%SourceContext")
-  // We must know if the user is importing from an XML and prevent the XML from being exported.
+  // We must know if the user is importing from a XML and prevent it from being exported.
   set %importingFromXML = (Name = 6)
   
   if $data(^||%Studio.Project) {
@@ -102,45 +105,45 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     set sourceExtension = ##class(Config).GetSourceExtension()
     set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
     
-    if name = "%ExportProject" {
+    if name = "%MLExport" {
       set shouldOverwrite = '##class(Config).IsSameSourceExtension()
       if shouldOverwrite do ##class(Config).TrackActiveExtension()      
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, shouldOverwrite, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))      
       quit $$$OK
     }
-    if name = "%ExportProjectToXML" {
+    if name = "%MLExportToXML" {
       quit ##class(Port.Project.Manager).ExportToXML(projectPath)
     }
-    if name = "%ExportTestSuiteToXML" {
+    if name = "%MLExportTests" {
       quit ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath)
     }
-    if name = "%RunTestSuite" && (projectPath '= "") {
+    if name = "%MLRunTests" && (projectPath '= "") {
       do ##class(%File).RemoveDirectoryTree(projectPath_"/"_testPath)
       $$$QuitOnError(##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath))
       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/load/run/nodelete"))
     }       
-    if name = "%ImportProject" {
+    if name = "%MLImport" {
       $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0,,sourceExtension))
     }
-    if name = "%RemoveProjectClasses" {
+    if name = "%MLRemoveClasses" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CLS"))
       quit ##class(Log).Synchronize()
     }
-    if name = "%RemoveProjectWebFiles" {
+    if name = "%MLRemoveFiles" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CSP"))
       quit ##class(Log).Synchronize()
     }
-    if name = "%RemoveProjectRoutines" {
+    if name = "%MLRemoveRoutines" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "MAC"))
       quit ##class(Log).Synchronize()
     }
-    if name = "%RemoveInvalidItems" {
+    if name = "%MLScanAndFix" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveInvalidItems(projectName))
       quit ##class(Log).Synchronize()     
     }
     
-    if name = "%ExportActiveItem" {
+    if name = "%CMLExportActive" {
       if $$$ucase(InternalName) '= ($$$ucase(projectName_".PRJ")) {
         set exporter = ##class(Port.Project.Exporter).%New(projectPath)
         set exporter.Overwrite = 1
@@ -158,7 +161,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
       }
     }
     
-    if name = "%ImportActiveItem" {
+    if name = "%CMLImportActive" {
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
         quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
       } else {       
@@ -166,7 +169,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
       }
     }
     
-    if name = "%RunActiveItemTest" {
+    if name = "%CMLRunActiveTest" {
       set testable = 
         ##class(Util).AssertTestableClass(itemName, .testableClass) &&
         ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
@@ -200,55 +203,43 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
   set menu=$piece(MenuName,","),name=$piece(MenuName,",",2)
   If menu'="%SourceMenu",menu'="%SourceContext" Quit $$$OK
   set isContextual = (menu = "%SourceContext")
-  if name = "%ExportProject" {
-    set DisplayName = "Export Current Project"
-  } 
-  if name = "%ExportProjectToXML" {
-    set DisplayName = "Export Current Project to XML"
-  } 
-  if name = "%ExportTestSuiteToXML" {
-    set DisplayName = "Export Project Test Suites to XML"
-  }   
-  if name = "%ImportProject" {
-    set DisplayName = "Import Project"    
-  } 
-  if name = "%RemoveProjectClasses" {
-    set DisplayName = "Remove All Classes from the Current Project"
-  } 
-  if name = "%RemoveProjectWebFiles" {
-    set DisplayName = "Remove All Files from the Current Project"
-  } 
-  if name = "%RemoveProjectRoutines" {
-    set DisplayName = "Remove All Routines from the Current Project"
-  } 
-  if name = "%RemoveInvalidItems" {
-    set DisplayName = "Remove Invalid Items from the Current Project"
+  set domain = "Port Menu Labels"
+  
+  if 'isContextual {
+    set code = $case(name, 
+      "%MLExport": $$$MLExport,
+      "%MLExportToXML": $$$MLExportToXML,
+      "%MLExportTests": $$$MLExportTests,
+      "%MLRemoveClasses": $$$MLRemoveClasses,
+      "%MLRemoveFiles": $$$MLRemoveFiles,
+      "%MLRemoveRoutines": $$$MLRemoveRoutines,
+      "%MLScanAndFix": $$$MLScanAndFix,
+      "%MLRunTests": $$$MLRunTests,
+      "%MLImport": $$$MLImport,
+      "%MLForceExport": $$$MLForceExport, 
+      "%MLForceImport": $$$MLForceImport,
+      : ""
+     )
+  } else {
+    set domain = "Port Context Menu Labels"
+    set code = $case(name, 
+      "%CMLExportActive": $$$CMLExportActive,
+      "%CMLImportActive": $$$CMLImportActive,
+      "%CMLRunActiveTest": $$$CMLRunActiveTest,
+      : ""
+    )          
   }
   
-  if name= "%RunTestSuite" {
-    set DisplayName = "Run Test Suites"
+  if code '= "" {
+    set DisplayName = $$$FormatMsg(domain, code)
   }
   
-  if name = "%RunActiveItemTest" {
-    set DisplayName = "Run Tests Associated to this Item"
-    set Enabled = ##class(Util).AssertTestableClass(itemName) && ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
+  if name = "%CMLRunActiveTest" {
+    set Enabled = 
+      ##class(Port.Project.Helper).ExistsInProject(^||%Studio.Project, InternalName) &&
+      ##class(Util).AssertTestableClass(itemName) &&
+      ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
   } 
-  
-  if name = "%ExportActiveItem" {
-    set DisplayName = "Export This Item"
-  }
-  
-  if name ="%ImportActiveItem" {
-    set DisplayName = "Import This Item"
-  }
-  
-  if name = "%ForceImportProject" {
-    set DisplayName = "Force Current Project to be Imported"
-  }
-  
-  if name = "%ForceExportProject" {
-    set DisplayName = "Force Current Project to be Exported"
-  }
   
   set isProjectOpened = ($get(^||%Studio.Project, "Default") '[ "Default")
   if 'isProjectOpened {
@@ -267,7 +258,7 @@ Method OnAfterCompile(InternalName As %String) As %Status
   if projectName '= "" && (projectName '[ "Default") {
     set projectPath = ##class(Config).GetWorkspace()
     set itemName = ##class(Util).ResolveInternalName(InternalName)
-    set type = $$$ucase($piece(InternalName, ".", $length(InternalName, ".")))
+    set type = $$$ucase($piece(InternalName, ".", *))
     set xmlExporter = ##class(Port.Project.XMLExporter).%New(projectPath)
     
     if type = "CLS" {     

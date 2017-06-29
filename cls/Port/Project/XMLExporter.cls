@@ -1,11 +1,11 @@
 Class Port.Project.XMLExporter Extends Port.Project.Base
 {
 
+Parameter MODULENAME = "PortXMLExportUtility";
+
 Method ExportToXML(justProject As %Boolean = 0, qspec As %String = "/diffexport=1/nodisplay", charset As %String = "UTF8", Output errorlog As %Status = "") As %Status
 {
   set destination = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_".xml")
-  //set directory = ##class(%File).GetDirectory(destination)
-  //$$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(directory))  
   do ..Write("[nl]Exporting project {P1} to XML ...", 0, ..GetProjectName())
   $$$QuitOnError(..Project.Export(destination, qspec, justProject, errorlog, charset))
   do ..Write("[nl]Project exported to {P1}[nl]", 0, destination)
@@ -78,13 +78,13 @@ ClassMethod IsUnitTestClass(className As %String) As %Boolean
   // If the target class have some super class defined, we must consider that it could be
   // extending from multiple super classes. So we need to check each of them.
   for i=1:1:$length(descriptor.Super, ",") {
-  	set extension = $piece(descriptor.Super, ",", i)
-  	if ..IsUnitTestClass(extension) {
-	  	set isUnitTest = 1
-	  	quit
-  	}  	
+    set extension = $piece(descriptor.Super, ",", i)
+    if ..IsUnitTestClass(extension) {
+      set isUnitTest = 1
+      quit
+    }   
   }
-	quit isUnitTest
+  quit isUnitTest
 }
 
 }

@@ -100,5 +100,13 @@ ClassMethod CSPPhysicalToLogicalPath(physicalPath As %String, Output logicalPath
   quit $$$OK
 }
 
+ClassMethod ExistsInProject(projectName As %String, name As %String, type As %String = "") As %Boolean [ Internal ]
+{
+  $$$QuitOnError(##class(%Studio.Project).NormalizeName(.name, .type))
+  set id = projectName_"||"_name_"||"_type
+  &sql(SELECT TOP 1 COUNT(ID) INTO :exists FROM %STUDIO.PROJECTITEM WHERE ID = :id)
+  quit exists
+}
+
 }
 

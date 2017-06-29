@@ -19,6 +19,19 @@ ClassMethod StartTask() As %Status
   quit task.%Save()
 }
 
+ClassMethod RemoveTask() As %Status
+{
+  #dim task as %SYS.Task
+  
+  set name = "Port Log Synchronizer for "_$namespace
+  set taskId = ##class(%SYS.Task).FindId(name)
+  
+  if taskId = "" quit $$$OK
+  $$$QuitOnError(##class(%SYS.Task).Suspend(taskId, 2))
+  $$$QuitOnError(##class(%SYS.Task).%DeleteId(taskId))
+  quit $$$OK
+}
+
 Method OnTask() As %Status
 {
   quit ##class(Port.SourceControl.Log).Synchronize()

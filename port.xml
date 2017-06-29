@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF8"?>
 <Export generator="Cache" version="25">
 <Class name="Port.Logger">
+<IncludeCode>portmd</IncludeCode>
 <Super>%RegisteredObject</Super>
 <TimeCreated>64306,37945.966346</TimeCreated>
 
@@ -18,23 +19,19 @@
 </Method>
 
 <Method name="Log">
-<FormalSpec>message:%String,messageLogLevel=2,params...:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
+<FormalSpec>messageCode:%String,messageLogLevel=2,params...:%String</FormalSpec>
+<ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
-  if ..LogLevel = -1 set ..LogLevel = 0
-  #define CRLF $char(13, 10)
-  
-  if '$data(params) set params = 0  
-  
-  set msg = message
-  
-  if messageLogLevel <= ..LogLevel {
-    for i=1:1:params {
-      set msg = $replace(msg, "{P"_i_"}", params(i))
-    }
-    set msg = $replace(msg, "[nl]", $$$CRLF)
-    write msg
+  if ..LogLevel = -1 set ..LogLevel = 0  
+  if '$data(params) set params = 0    
+  set formattedParams = 0 
+  for i=1:1:params {
+    set formattedParams = $increment(formattedParams)
+    set formattedParams(formattedParams) = $$$FormatMessage($$$SessionLanguage, "Port Log Messages", params(i), params(i))
   }
+  set msg = $$$FormatMsg("Port Log Messages", messageCode, formattedParams...)
+  if messageCode '= $$$Done && (messageCode '= $$$Failed) set msg = "Port: "_msg
+  quit msg
 ]]></Implementation>
 </Method>
 </Class>
@@ -52,6 +49,7 @@ Wizard
 
 
 <Class name="Port.Project.Backup">
+<IncludeCode>portutils</IncludeCode>
 <Super>%RegisteredObject</Super>
 <TimeCreated>64306,37561.640431</TimeCreated>
 
@@ -80,6 +78,7 @@ Wizard
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set ..BackupDirectory = backupDir
+  set ..Logger = ##class(Port.Logger).%New()
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -98,15 +97,15 @@ Wizard
   
   if '..IsRequired quit $$$OK
   
-  do ..Logger.Log("Starting backup ... [nl]DO NOT INTERRUPT THIS PROCESS![nl]", 1)
-  do ..Logger.Log("Mirroring structure to temporary directory ... ", 1)
+  write ..Logger.Log($$$BackupStart), !
+  write ..Logger.Log($$$BackupAlert), !
+  write ..Logger.Log($$$BackupMirror, 1)
   
   do Scan(9,  "CSR", .created)
   do Scan(10, "CSP", .created)
   
-  if $$$ISOK(sc) do ..Logger.Log(" done.", 1)
-  else  do ..Logger.Log(" done with errors!", 1)
-  do ..Logger.Log("[nl][nl]", 1)
+  if $$$ISOK(sc) write ..Logger.Log($$$Done, 1), !
+  else  write ..Logger.Log($$$Failed, 1), !
   quit sc  
 
 
@@ -134,7 +133,7 @@ Scan(group, type, created)
     set isCopied = ##class(%File).CopyFile(backupOrigin, backupDestination, 1)
     set isDeleted = ##class(%File).Delete(backupOrigin)
     if isCopied = 0 || (isDeleted = 0) {
-      set sc = $$$ADDSC(sc, $$$ERROR($$$GeneralError, "Unable to copy "_itemName_" to backup destination. Aborting."))
+      set sc = $$$ADDSC(sc, $$$PERROR($$$UnableToCopySource, itemName, backupDestination))
     }   
   }
   if 'created {
@@ -146,7 +145,7 @@ Scan(group, type, created)
 
 
 <Class name="Port.Project.Base">
-<IncludeCode>portutils</IncludeCode>
+<IncludeCode>portutils,portmd</IncludeCode>
 <Super>%RegisteredObject</Super>
 <TimeCreated>64306,34528.425857</TimeCreated>
 
@@ -265,7 +264,7 @@ Scan(group, type, created)
     set ..ProjectName = $piece(fullProjectPath, ..Slash, *)        
     set ..BasePath = ##class(%File).NormalizeFilename(fullProjectPath)
     set ..Project = ##class(%Studio.Project).%OpenId(..ProjectName)
-    set ..Logger = ##class(Port.Logger).%New(logLevel)
+    set ..Logger = ##class(Port.Logger).%New(logLevel) 
     set ..SourceExtension = sourceExtension
     do ..BuildTypePaths(..BasePath)
     quit $$$OK 
@@ -282,10 +281,25 @@ Scan(group, type, created)
 ]]></Implementation>
 </Method>
 
+<Method name="LogExclusive">
+<FormalSpec>logLevel:%Integer,message:%String,params...:%String</FormalSpec>
+<Implementation><![CDATA[
+  if ..Logger.LogLevel '= logLevel quit ""
+  quit ..Log(message, logLevel, params...)
+]]></Implementation>
+</Method>
+
 <Method name="Write">
 <FormalSpec>message:%Boolean,logLevel:%Integer=1,params...:%String</FormalSpec>
 <Private>1</Private>
-<Implementation><![CDATA[  do ..Logger.Log(message, logLevel, params...)
+<Implementation><![CDATA[  quit ..Logger.Log(message, logLevel, params...)
+]]></Implementation>
+</Method>
+
+<Method name="Log">
+<FormalSpec>message:%Boolean,logLevel:%Integer=1,params...:%String</FormalSpec>
+<Private>1</Private>
+<Implementation><![CDATA[  quit ..Logger.Log(message, logLevel, params...)
 ]]></Implementation>
 </Method>
 
@@ -504,7 +518,6 @@ Scan(group, type, created)
       set fullSourcePath = ##class(%File).NormalizeFilename(current, $System.Util.InstallDirectory())
     } else {
       do ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(current, .fullSourcePath)
-      //set fullSourcePath = ##class(Port.Project.Helper).CSPLogicalToPhysical(current)
     }
     set currentTS = $zdatetime(##class(%File).GetFileDateModified(fullSourcePath), 3,,,,,,,,,0)
     // If the file is missing it's considered outdated as well.
@@ -526,18 +539,6 @@ Scan(group, type, created)
 ]]></Implementation>
 </Method>
 
-<Method name="IsProjectMember">
-<Internal>1</Internal>
-<FormalSpec>name:%String,*isProjectMember:%Boolean,type:%String=""</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  $$$QuitOnError(..Project.NormalizeName(.name, .type))
-  set id = ..ProjectName_"||"_name_"||"_type
-  set isProjectMember = (..Project.Items.FindObjectId(id) '= "")
-  quit $$$OK
-]]></Implementation>
-</Method>
-
 <Method name="GetSourceExtension">
 <Private>1</Private>
 <ReturnType>%String</ReturnType>
@@ -550,6 +551,10 @@ Scan(group, type, created)
 <Class name="Port.Project.Exporter">
 <Super>Port.Project.Base</Super>
 <TimeCreated>64306,34528.610794</TimeCreated>
+
+<Parameter name="MODULENAME">
+<Default>PortExportUtility</Default>
+</Parameter>
 
 <Property name="PathDependencies">
 <Type>%String</Type>
@@ -580,6 +585,7 @@ Scan(group, type, created)
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   if ..Project.Items.Count() = 0 {
+    write ..Log($$$NoItemsToExport, 0), !
     do ..Write("[nl]No items to export. Aborting ... [nl]", 0)
     quit $$$OK
   }  
@@ -587,22 +593,23 @@ Scan(group, type, created)
   set ..IsBatch = 1
   do ..Reset()
   
-  do ..Write("[nl]Exporting project {P1} ...[nl]", 0, ..Project.Name)
+  //write ..Write("[nl]Exporting project {P1} ...[nl]", 0, ..Project.Name)
+  write ..Log($$$ExportingProject, 0, ..Project.Name), !
   set cspDirectory = ##class(%File).NormalizeFilename($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace))
   
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(cspDirectory))
   $$$QuitOnError(..ExportProjectItems(.exportList))
   
   if ..AffectedCount > 0 {
-    do ..Write("[nl]Files were exported to path {P1}.", 0, ..BasePath)
+    write ..Log($$$SourceExportedToPath, 0, ..BasePath), !
   } else {
-    do ..Write("[nl]No files were exported, project {P1} might be empty or repository is up-to-date.", 0, ..Project.Name)
+    write ..Log($$$NoItemsToExport, 0, ..Project.Name), !
   }
   
-  do ..Write("[nl]Synchronizing ...", 0)
+  write ..Log($$$SynchronizingProject, 0, ..Project.Name), !
   $$$QuitOnError(..PurgeExtraneousEntries())
   
-  do ..Write("[nl]All done.[nl]", 0)
+  write ..Log($$$AllDone, 0), !
   quit $$$OK
 ]]></Implementation>
 </Method>
@@ -646,7 +653,7 @@ Scan(group, type, created)
   set lastParent = ""
   set parentDirectory = ""
   
-  do ..Write("[nl]Checking for extraneous files or directories ...")
+  write ..Log($$$CheckingExtraneousItems, 1), !
   
   for ipath = ..MacPath,..IntPath,..IncPath,..ClassPath,..BasPath,..WebPath,..MvbPath,..MviPath,..DfiPath {
     set sc = ..SearchExtraneousEntries(s, ipath, .extraneousFiles)
@@ -655,9 +662,9 @@ Scan(group, type, created)
   
   $$$QuitOnError(sc)
   
-  set length = $listlength(extraneousFiles)
-  if length > 0 do ..Write("[nl]Found {P1} extraneous item{P2}.[nl]", 1, length, $case(length, 1: "", : "s"))
-  else  do ..Write("[nl]No extraneous items were found.[nl]", 1)
+  set length = $listlength(extraneousFiles)  
+  if length > 0 write ..Log($$$TotalExtraneousItems, 1, length), !
+  else  write ..Log($$$NoExtraneousItems, 1), !
   
   for i=1:1:length {
     set possiblyDeleted = 0
@@ -671,7 +678,7 @@ Scan(group, type, created)
       set fileName = $piece(fileName, ".", 1)           
       if fileName = lastNode set possiblyDeleted = 0 
       if possiblyDeleted = 1 continue
-      do ..Write("Removing file {P1}.[nl]", 2, path)
+      write ..Log($$$RemovingFile, 2, path), !
       do ##class(%File).Delete(path)        
     } elseif type = "D" {
       if parentDirectory = "" || (path '[ parentDirectory) {
@@ -680,12 +687,12 @@ Scan(group, type, created)
         if lastParent = "" set lastParent = parentDirectory
       }
       if possiblyDeleted = 1 continue
-      do ..Write("Removing directory {P1}.[nl]", 2, path)
+      write ..Log($$$RemovingDirectory, 2, path)
       do ##class(%File).RemoveDirectoryTree(path)
     }
   } 
   if length > 0 {
-    do ..Write("{P1} extraneous item{P2} removed.[nl]", 1, length, $case(length, 1: " was", : "s were"))
+    write ..Log($$$TotalExtraneousItemsItemsRemoved, 1, length), !
   }
   quit sc
 ]]></Implementation>
@@ -780,16 +787,17 @@ Scan(group, type, created)
   if ..Overwrite = 0 && '..IsOutdated(source, dest) {
     quit $$$OK
   }
-     
-  do ..Write("Exporting {P1} ...", 1, name)
+  
+  write ..Log($$$ExportingType, 1, $$$ClassType, name)
   
   set exported = ##class(%File).CopyFile(source, dest)
+  
   if exported = 0 {
-    do ..Write(" failed![nl]", 1)
-    quit $$$ERROR($$$GeneralError, "Unable to copy source "_source_" to destination "_dest_".")
+    write ..Log($$$Failed, 1), !
+    quit $$$PERROR($$$UnableToCopySource, source, dest)
   }
   
-  do ..Write(" done.[nl]", 1)
+  write ..Log($$$Done, 1), !
   set ..AffectedCount = ..AffectedCount + 1
   
   set $list(exportList, *+1) = dest  
@@ -813,14 +821,14 @@ Scan(group, type, created)
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))
     
   if '##class(%RoutineMgr).Exists(name) { 
-    quit $$$ERROR($$$GeneralError, "Unable to export "_name_": routine does not exist.")
+    quit $$$PERROR($$$UnableToExportInvalidItem, name)
   }
   
   if ..Overwrite = 0 && '..IsOutdated(name, dest) {
     quit $$$OK
   }
   
-  do ..Write("Exporting {P1} ...", 1, itemName)
+  write ..Log($$$ExportingType, 1, $$$RoutineType, itemName)
   
   set file = ##class(%FileCharacterStream).%New()
   set file.Filename = dest
@@ -828,8 +836,8 @@ Scan(group, type, created)
   set routine = ##class(%RoutineMgr).%OpenId(name)  
   set sc = file.CopyFrom(routine.Code)
   
-  if $$$ISOK(sc) do ..Write(" done.[nl]", 1)
-  else  do ..Write(" failed![nl]", 1) quit sc
+  if $$$ISOK(sc) write ..Log($$$Done, 1), !
+  else  write ..Log($$$Failed, 1), !
     
   set $list(exportList, *+1) = dest
   
@@ -879,13 +887,12 @@ Scan(group, type, created)
     quit $$$OK
   }
   
-  do ..Write("Exporting class {P1} ...", 1, itemName)
+  write ..Log($$$ExportingType, 1, $$$ClassType, itemName) 
   if '##class(%ClassDefinition).%ExistsId(itemName) {
-    do ..Write(" failed![nl]", 1)
+    write ..Log($$$Failed, 1), !
   } 
   $$$QuitOnError(##class(%Compiler.UDL.TextServices).GetTextAsFile($namespace, itemName, dest))
-  do ..Write(" done.[nl]", 1)
-  
+  write ..Log($$$Done, 1), !  
   set ..AffectedCount = ..AffectedCount + 1
   set $list(exportList, *+1) = dest
   
@@ -1060,10 +1067,24 @@ Scan(group, type, created)
   quit $$$OK
 ]]></Implementation>
 </Method>
+
+<Method name="ExistsInProject">
+<Internal>1</Internal>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>projectName:%String,name:%String,type:%String=""</FormalSpec>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[
+  $$$QuitOnError(##class(%Studio.Project).NormalizeName(.name, .type))
+  set id = projectName_"||"_name_"||"_type
+  &sql(SELECT TOP 1 COUNT(ID) INTO :exists FROM %STUDIO.PROJECTITEM WHERE ID = :id)
+  quit exists
+]]></Implementation>
+</Method>
 </Class>
 
 
 <Class name="Port.Project.Importer">
+<IncludeCode>portutils</IncludeCode>
 <Super>Port.Project.Base</Super>
 <TimeCreated>64306,34528.722609</TimeCreated>
 
@@ -1306,35 +1327,26 @@ Scan(group, type, created)
 <Implementation><![CDATA[
   set sc = $$$OK
   if '$data(i%ImportList(group)) quit sc  
+  set itemType = $listget($$$ImportTypes, group, "CSP")
   
-  set partialMessage = $listget($$$ImportTypeDescriptions, group)
-  do ..WriteExclusive(1, "Importing {P1} ... ", partialMessage)
+  write ..LogExclusive($$$ImportingType, 1, $$$GetGroupTypeDescription(itemType))
+  
   set itemName = ""
   for {
     quit:'$data(i%ImportList(group))
-    set itemType = $listget($$$ImportTypes, group, "CSP")
     set itemName = $order(i%ImportList(group, itemType, itemName), 1, paths)
     quit:itemName=""
     
     set origin = $listget(paths, 1)
-    set destination = $listget(paths, 2)
-    set fileType = itemType    
+    set destination = $listget(paths, 2, itemName)
     
-    do ..Write("Importing {P1} ", 2, $case(fileType,
-      "CLS": "class "_itemName, 
-      "MAC": "macro routine "_itemName, 
-      "INT": "intermediate routine "_itemName, 
-      "INC": "include routine "_itemName,
-      "BAS": "Basic routine "_itemName,
-      "MVB": "MV Basic routine "_itemName,
-      "MVI": "MV Intermediate routine "_itemName,
-      "DFI": "DFI XML "_itemName, :
-      "file to "_destination)_" ...")
-    set sc = $$$ADDSC(sc, ..ImportFromExternalSource(itemName, origin,  fileType, destination))
-    if $$$ISERR(sc)  do ..Write("failed![nl]", 2) continue
-    else  do ..Write("done.[nl]", 2)
+    write ..Log($$$ImportingType, 2, $$$GetTypeDescription(itemType), destination)
+    
+    set sc = $$$ADDSC(sc, ..ImportFromExternalSource(itemName, origin,  itemType, destination))
+    if $$$ISERR(sc)  write ..Log($$$Failed, 2), ! continue
+    else  write ..Log($$$Done, 2), !
   }
-  do ..WriteExclusive(1, "done.[nl]")
+  write ..LogExclusive($$$Done, 1), !
   quit sc
 ]]></Implementation>
 </Method>
@@ -1350,35 +1362,35 @@ Scan(group, type, created)
   set resolvedTarget = ##class(%File).NormalizeFilename(target, ..BasePath)
   
   if (resolvedTarget = ..BasePath) {
-    quit $$$ERROR($$$GeneralError, "Ambiguous TARGET and BASEPATH if you wish to import the project, use the method Import instead.")
+    quit $$$PERROR($$$AmbiguousPartialToWorkspace, resolvedTarget)
   }
   
   if '(resolvedTarget [ ..ClassPath || (resolvedTarget [ ..IncPath) ||
       (resolvedTarget [ ..IncPath)  || (resolvedTarget [ ..MacPath) ||
       (resolvedTarget [ ..WebPath)) {    
-    quit $$$ERROR($$$GeneralError, "Action supressed: attempted to import files outside the project scope.")
+    quit $$$PERROR($$$SupressedAttemptToExportFromOutside)
   }  
   
   if ##class(%File).DirectoryExists(resolvedTarget) {
-    do ..Write("[nl]Enqueuing directory to be imported ...", 1)   
+    write ..Log($$$EnqueingType, 1, $$$DirectoryType)
     set sc = ..EnqueueDirectory(resolvedTarget)
   } elseif ##class(%File).Exists(resolvedTarget) {
-    do ..Write("[nl]Enqueuing item to be imported ...", 1)
+    write ..Log($$$EnqueingType, 1, "item")
     set sc = ..EnqueueItem(resolvedTarget)
   } else {
-    do ..Write("[nl]Nothing to import.", 1)
+    write ..Log($$$NothingToImport)
     quit sc
   }
   
   if sc {
-    do ..Write(" done.[nl]")
+    write ..Log($$$Done), !
     set sc = ..Import()
     if $$$ISOK(sc) {
       set importedList = i%ImportList
       merge importedList = i%ImportList
     }
   } else {
-    do ..Write(" failed.[nl]")
+    write ..Log($$$Failed), !
   }  
   quit sc
 ]]></Implementation>
@@ -1395,72 +1407,64 @@ Scan(group, type, created)
   
   try {
     if ..IsBatch {
-      do ..Write("[nl][nl]Importing project {P1} ...[nl]", 1, ..Project.Name)            
-      do ..Write("[nl]Enqueuing items to import ... ", 1)
+      write ..Log($$$ImportingProject, 0, ..Project.Name), !
+      write ..Log($$$EnqueueingItems, 0), !
       $$$ThrowOnError(..EnqueueAll())
     }
       
     if i%ImportList > 0 {
-      do ..Write("[nl]Found {P1} item{P2} to be imported.[nl]", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
+      write ..Log($$$TotalItemsToImport, i%ImportList), !
       merge list = i%ImportList
       if '..SkipBackup $$$ThrowOnError(..Backup.Create(.list))
       $$$ThrowOnError(..ImportList())
     } else {
-      do ..Write("[nl]No pending items were found inside the repository.", 1)
-      do ..Write("[nl]Current repository might be empty or up-to-date.[nl]", 1)
+      write ..Log($$$NoPendingItemsToImport, 0), !
     }
          
     if ..IsNewProject {
-      do ..Write("[nl]Project doesn't exists. A new project will be created with the name {P1}.[nl]", 1, ..Project.Name)
+      write ..Log($$$NewProject, 0, ..Project.Name), !
     }
     
     if i%ImportList {
-      do ..Write("[nl]Synchronizing {P1} ...", 1, ..Project.Name)
+      write ..Log($$$SynchronizingProject, 0, ..Project.Name), !
       $$$ThrowOnError(..SynchronizeProject(.added, .removed))
-      do ..Write(" done.[nl]")
-      do ..Write("[nl]Project {P1} has been saved with a total of {P2} items.", 1, ..Project.Name, ..Project.Items.Count())
+      write ..Log($$$Done, 1), !
+      write ..Log($$$ProjectSaved, 0, ..Project.Name, ..Project.Items.Count()), !    
     }
     
     set ..AffectedCount = i%ImportList    
     
     if ..Backup.IsRequired && '..SkipBackup {
       // If anything is ok until here, then delete the backup.
-      do ..Write("[nl]Removing backup directory ...")
+      write ..Log($$$RemovingBackupMirror, 1)
       set isRemoved = ##class(%File).RemoveDirectoryTree(..BackupDirectory)
       if isRemoved { 
-        do ..Write(" done.[nl]")
+        write ..Log($$$Done, 0)
         set ..Backup.IsRequired = 0
       } else  {
-        set backupErrorMessage = "Unable to remove the directory "_..BackupDirectory
-        do ..Write(" failed! Unable to clear directory.", 1)
-        $$$ThrowOnError($$$ERROR(5001, backupErrorMessage))
+        write ..Log($$$Failed, 0)
+        $$$ThrowOnError($$$PERROR(UnableToRemoveDirectory, ..BackupDirectory))
       }
+      write !
     }
     tcommit     
   } catch ex {
     set sc = ex.AsStatus()
-    do ..Write("[nl][nl]FATAL: There were errors preventing the project to be imported:[nl]", 1)
+    write ..Log($$$FatalErrorAlert, 0), !!
     do $System.OBJ.DisplayError(sc)
-    do ..Write("[nl][nl]The importer will now rollback all changes.[nl]", 1)
-    do ..Write("PLEASE DO NOT INTERRUPT THIS PROCESS OR INTEGRITY WILL BE LOST![nl]", 1)
-    do ..Write("Rolling back to the last working snapshot ...", 1)
+    write ..Log($$$FatalRollbackAlert, 0), !
+    write ..Log($$$FatalProjectIntegrityRiskWarning, 0), !
+    write ..Log($$$FatalRollingBackTransaction, 0), !
 
-    // Rolls back the database to recover last working Caché files.
     trollback
-    do ..Write(" done.[nl]")
     
     if ..Backup.IsRequired {
-      do ..Write("Reverting {P1} using backup version ...", 1, $System.CSP.GetDefaultApp($namespace))
+      write ..Log($$$FatalApplyingBackup, 0), !
       set isCopied = ##class(%File).CopyDir(..BackupDirectory, ..CSPPath, 1)
-      if isCopied { do ..Write(" done.[nl]") }
-      else {
-        do ..Write(" failed![nl]")
-        do ..Write("Failed to restore the pending backup due to a file system error, backup will not be removed.")
-      }     
-    
-      if 'isCopied {
-        set sc = $$$ADDSC(sc, $$$ERROR(5001, "Failed to restore the pending backup due to a file system error."))
-      }
+      if 'isCopied { 
+        write ..Log($$$FatalFailedToRestoreBackup, 0), !
+        set sc = $$$ADDSC(sc, $$$PERROR($$$UnableToCopySource, ..BackupDirectory, ..CSPPath))
+      }  
     }
   }
   quit sc
@@ -1574,8 +1578,8 @@ Scan(group, type, created)
   if (sourceFileExtension '= $$$ucase(..GetSourceExtension())) {
     write !, sourceFileExtension, " - ", $$$ucase(..GetSourceExtension())
     set fileName = ##class(%File).GetFilename(origin)
-    set expectedSourceExtension = $select(..SourceExtension = "" : "keep the Caché format", 1: "terminate with "_..SourceExtension)
-    quit $$$ERROR($$$GeneralError, "Unable to describe the file "_fileName_ " as it violates the current source extension. "_$c(10, 10)_"It must "_expectedSourceExtension_".")
+    set expectedSourceExtension = $select(..SourceExtension = "" : $$$KeepCacheExtension, 1: $$$FormatMsg("Port Errors", $$$OvewriteWithExtension, ..SourceExtension))
+    quit $$$PERROR($$$UnableToDescribeItem, fileName, expectedSourceExtension)
   }
   quit $$$OK
 ]]></Implementation>
@@ -1765,13 +1769,15 @@ LoopThroughType(projectName, importedList, group)
 <Super>Port.Project.Base</Super>
 <TimeCreated>64306,34528.900364</TimeCreated>
 
+<Parameter name="MODULENAME">
+<Default>PortXMLExportUtility</Default>
+</Parameter>
+
 <Method name="ExportToXML">
 <FormalSpec>justProject:%Boolean=0,qspec:%String="/diffexport=1/nodisplay",charset:%String="UTF8",*errorlog:%Status=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set destination = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_".xml")
-  //set directory = ##class(%File).GetDirectory(destination)
-  //$$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(directory))  
   do ..Write("[nl]Exporting project {P1} to XML ...", 0, ..GetProjectName())
   $$$QuitOnError(..Project.Export(destination, qspec, justProject, errorlog, charset))
   do ..Write("[nl]Project exported to {P1}[nl]", 0, destination)
@@ -1859,13 +1865,13 @@ LoopThroughType(projectName, importedList, group)
   // If the target class have some super class defined, we must consider that it could be
   // extending from multiple super classes. So we need to check each of them.
   for i=1:1:$length(descriptor.Super, ",") {
-  	set extension = $piece(descriptor.Super, ",", i)
-  	if ..IsUnitTestClass(extension) {
-	  	set isUnitTest = 1
-	  	quit
-  	}  	
+    set extension = $piece(descriptor.Super, ",", i)
+    if ..IsUnitTestClass(extension) {
+      set isUnitTest = 1
+      quit
+    }   
   }
-	quit isUnitTest
+  quit isUnitTest
 ]]></Implementation>
 </Method>
 </Class>
@@ -2297,6 +2303,15 @@ Gets the source extension.</Description>
 ]]></Implementation>
 </Method>
 
+<Method name="Uninstall">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  kill ^Port.SourceControl.Settings
+  quit $$$OK
+]]></Implementation>
+</Method>
+
 <Method name="rewritePlaceHolders">
 <Internal>1</Internal>
 <ClassMethod>1</ClassMethod>
@@ -2327,6 +2342,7 @@ Gets the source extension.</Description>
 
 
 <Class name="Port.SourceControl.Hooks">
+<IncludeCode>portmd</IncludeCode>
 <Super>%Studio.SourceControl.Base</Super>
 <TimeCreated>64306,34529.285329</TimeCreated>
 
@@ -2334,28 +2350,28 @@ Gets the source extension.</Description>
 <Data><![CDATA[
 <MenuBase>
 <Menu Name="%SourceMenu" Type="0">
-<MenuItem Name="%ExportProject"/>
-<MenuItem Name="%ExportProjectToXML"/>
-<MenuItem Name="%ExportTestSuiteToXML"/>
+<MenuItem Name="%MLExport"/>
+<MenuItem Name="%MLExportToXML"/>
+<MenuItem Name="%MLExportTests"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%RemoveProjectClasses"/>
-<MenuItem Name="%RemoveProjectWebFiles"/>
-<MenuItem Name="%RemoveProjectRoutines"/>
+<MenuItem Name="%MLRemoveClasses"/>
+<MenuItem Name="%MLRemoveFiles"/>
+<MenuItem Name="%MLRemoveRoutines"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%RemoveInvalidItems"/>
+<MenuItem Name="%MLScanAndFix"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%RunTestSuite"/> 
+<MenuItem Name="%MLRunTests"/> 
 <MenuItem Separator="1" />
-<MenuItem Name="%ImportProject"/>
+<MenuItem Name="%MLImport"/>
 <MenuItem Separator="1" />
-<MenuItem Name="%ForceExportProject"/>
-<MenuItem Name="%ForceImportProject"/>
+<MenuItem Name="%MLForceExport"/>
+<MenuItem Name="%MLForceImport"/>
 </Menu>
 <Menu Name="%SourceContext" Type="1">
-<MenuItem Name="%ExportActiveItem" />
-<MenuItem Name="%ImportActiveItem" />
+<MenuItem Name="%CMLExportActive" />
+<MenuItem Name="%CMLImportActive" />
 <MenuItem Separator="1" />
-<MenuItem Name="%RunActiveItemTest"/>
+<MenuItem Name="%CMLRunActiveTest"/>
 </Menu>
 </MenuBase>
 ]]></Data>
@@ -2380,8 +2396,9 @@ Gets the source extension.</Description>
       
       set exporter.SourceExtension = sourceExtension
       
-      $$$QuitOnError(exporter.IsProjectMember(InternalName, .isMember))
-      if 'isMember quit $$$OK
+      if '##class(Port.Project.Helper).ExistsInProject(projectName, InternalName) {
+        quit $$$OK
+      }
       
       if type = "CLS" {
         set sc = exporter.ExportClass(itemName)
@@ -2425,7 +2442,7 @@ Gets the source extension.</Description>
 <Implementation><![CDATA[
   set name = $piece(Name, ",", 2)
   set isContextual = ($piece(Name, ",", 1) = "%SourceContext")
-  // We must know if the user is importing from an XML and prevent the XML from being exported.
+  // We must know if the user is importing from a XML and prevent it from being exported.
   set %importingFromXML = (Name = 6)
   
   if $data(^||%Studio.Project) {
@@ -2439,45 +2456,45 @@ Gets the source extension.</Description>
     set sourceExtension = ##class(Config).GetSourceExtension()
     set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
     
-    if name = "%ExportProject" {
+    if name = "%MLExport" {
       set shouldOverwrite = '##class(Config).IsSameSourceExtension()
       if shouldOverwrite do ##class(Config).TrackActiveExtension()      
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, shouldOverwrite, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))      
       quit $$$OK
     }
-    if name = "%ExportProjectToXML" {
+    if name = "%MLExportToXML" {
       quit ##class(Port.Project.Manager).ExportToXML(projectPath)
     }
-    if name = "%ExportTestSuiteToXML" {
+    if name = "%MLExportTests" {
       quit ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath)
     }
-    if name = "%RunTestSuite" && (projectPath '= "") {
+    if name = "%MLRunTests" && (projectPath '= "") {
       do ##class(%File).RemoveDirectoryTree(projectPath_"/"_testPath)
       $$$QuitOnError(##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath))
       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/load/run/nodelete"))
     }       
-    if name = "%ImportProject" {
+    if name = "%MLImport" {
       $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0,,sourceExtension))
     }
-    if name = "%RemoveProjectClasses" {
+    if name = "%MLRemoveClasses" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CLS"))
       quit ##class(Log).Synchronize()
     }
-    if name = "%RemoveProjectWebFiles" {
+    if name = "%MLRemoveFiles" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CSP"))
       quit ##class(Log).Synchronize()
     }
-    if name = "%RemoveProjectRoutines" {
+    if name = "%MLRemoveRoutines" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "MAC"))
       quit ##class(Log).Synchronize()
     }
-    if name = "%RemoveInvalidItems" {
+    if name = "%MLScanAndFix" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveInvalidItems(projectName))
       quit ##class(Log).Synchronize()     
     }
     
-    if name = "%ExportActiveItem" {
+    if name = "%CMLExportActive" {
       if $$$ucase(InternalName) '= ($$$ucase(projectName_".PRJ")) {
         set exporter = ##class(Port.Project.Exporter).%New(projectPath)
         set exporter.Overwrite = 1
@@ -2495,7 +2512,7 @@ Gets the source extension.</Description>
       }
     }
     
-    if name = "%ImportActiveItem" {
+    if name = "%CMLImportActive" {
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
         quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
       } else {       
@@ -2503,7 +2520,7 @@ Gets the source extension.</Description>
       }
     }
     
-    if name = "%RunActiveItemTest" {
+    if name = "%CMLRunActiveTest" {
       set testable = 
         ##class(Util).AssertTestableClass(itemName, .testableClass) &&
         ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
@@ -2540,55 +2557,43 @@ Gets the source extension.</Description>
   set menu=$piece(MenuName,","),name=$piece(MenuName,",",2)
   If menu'="%SourceMenu",menu'="%SourceContext" Quit $$$OK
   set isContextual = (menu = "%SourceContext")
-  if name = "%ExportProject" {
-    set DisplayName = "Export Current Project"
-  } 
-  if name = "%ExportProjectToXML" {
-    set DisplayName = "Export Current Project to XML"
-  } 
-  if name = "%ExportTestSuiteToXML" {
-    set DisplayName = "Export Project Test Suites to XML"
-  }   
-  if name = "%ImportProject" {
-    set DisplayName = "Import Project"    
-  } 
-  if name = "%RemoveProjectClasses" {
-    set DisplayName = "Remove All Classes from the Current Project"
-  } 
-  if name = "%RemoveProjectWebFiles" {
-    set DisplayName = "Remove All Files from the Current Project"
-  } 
-  if name = "%RemoveProjectRoutines" {
-    set DisplayName = "Remove All Routines from the Current Project"
-  } 
-  if name = "%RemoveInvalidItems" {
-    set DisplayName = "Remove Invalid Items from the Current Project"
+  set domain = "Port Menu Labels"
+  
+  if 'isContextual {
+    set code = $case(name, 
+      "%MLExport": $$$MLExport,
+      "%MLExportToXML": $$$MLExportToXML,
+      "%MLExportTests": $$$MLExportTests,
+      "%MLRemoveClasses": $$$MLRemoveClasses,
+      "%MLRemoveFiles": $$$MLRemoveFiles,
+      "%MLRemoveRoutines": $$$MLRemoveRoutines,
+      "%MLScanAndFix": $$$MLScanAndFix,
+      "%MLRunTests": $$$MLRunTests,
+      "%MLImport": $$$MLImport,
+      "%MLForceExport": $$$MLForceExport, 
+      "%MLForceImport": $$$MLForceImport,
+      : ""
+     )
+  } else {
+    set domain = "Port Context Menu Labels"
+    set code = $case(name, 
+      "%CMLExportActive": $$$CMLExportActive,
+      "%CMLImportActive": $$$CMLImportActive,
+      "%CMLRunActiveTest": $$$CMLRunActiveTest,
+      : ""
+    )          
   }
   
-  if name= "%RunTestSuite" {
-    set DisplayName = "Run Test Suites"
+  if code '= "" {
+    set DisplayName = $$$FormatMsg(domain, code)
   }
   
-  if name = "%RunActiveItemTest" {
-    set DisplayName = "Run Tests Associated to this Item"
-    set Enabled = ##class(Util).AssertTestableClass(itemName) && ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
+  if name = "%CMLRunActiveTest" {
+    set Enabled = 
+      ##class(Port.Project.Helper).ExistsInProject(^||%Studio.Project, InternalName) &&
+      ##class(Util).AssertTestableClass(itemName) &&
+      ##class(Port.Project.XMLExporter).IsUnitTestClass(itemName)
   } 
-  
-  if name = "%ExportActiveItem" {
-    set DisplayName = "Export This Item"
-  }
-  
-  if name ="%ImportActiveItem" {
-    set DisplayName = "Import This Item"
-  }
-  
-  if name = "%ForceImportProject" {
-    set DisplayName = "Force Current Project to be Imported"
-  }
-  
-  if name = "%ForceExportProject" {
-    set DisplayName = "Force Current Project to be Exported"
-  }
   
   set isProjectOpened = ($get(^||%Studio.Project, "Default") '[ "Default")
   if 'isProjectOpened {
@@ -2611,7 +2616,7 @@ Called after the compile of the item is done.</Description>
   if projectName '= "" && (projectName '[ "Default") {
     set projectPath = ##class(Config).GetWorkspace()
     set itemName = ##class(Util).ResolveInternalName(InternalName)
-    set type = $$$ucase($piece(InternalName, ".", $length(InternalName, ".")))
+    set type = $$$ucase($piece(InternalName, ".", *))
     set xmlExporter = ##class(Port.Project.XMLExporter).%New(projectPath)
     
     if type = "CLS" {     
@@ -2658,8 +2663,211 @@ Called before an item is deleted. Returning an error code prevents the delete fr
 
 
 <Class name="Port.SourceControl.Installer">
-<Abstract>1</Abstract>
+<IncludeCode>portutils</IncludeCode>
+<Super>%Projection.AbstractProjection</Super>
 <TimeCreated>64306,34529.365286</TimeCreated>
+
+<XData name="LocaleEN">
+<XMLNamespace>https://github.com/rfns/port</XMLNamespace>
+<Data><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<MsgFile Language="en">
+  <MsgDomain Domain="Port Errors">
+    <Message Id="-100" Name="InvalidPhysicalPath">The provided physical path '%1' is not part of the static files directory.</Message>
+    <Message Id="-101" Name="NamespaceAppPathDoesnExists">There is not an existing application for the namespace %1.</Message>
+    <Message Id="-102" Name="CannotCreateDirectory">Could not create the directory %1.</Message>
+    <Message Id="-103" Name="CannotUseRelativePath">Cannot use a relative path, an absolute path must be provided.</Message>
+    <Message Id="-104" Name="UnableToCopySource">Could not copy the file from %1 to %2.</Message> 
+    <Message Id="-105" Name="UnableToExportInvalidItem">Could not export the item %1 because it does not exist.</Message>
+    <Message Id="-106" Name="ErrorsWhileImporting">There were errors while export the project %1.</Message>
+    <Message Id="-107" Name="AmbiguousPartialToWorkspace">The obtained partial path %1 is ambiguous to this project path. If you want to export the project itself, then use the 'Import' method.</Message>
+    <Message Id="-108" Name="SupressedAttemptToExportFromOutside">Cannot import a file that is outside the project workspace.</Message>    
+    <Message Id="-109" Name="UnableToRemoveDirectory">Could not remove the directory %1.</Message>
+    <Message Id="-110" Name="UnableToDescribeItem">Could not describe the item %1 due to a violation regarding the expected extension. The exported should %1</Message>
+    <Message Id="-111" Name="PortIsNotInstalled">Port is not installed on namespace %1.</Message>
+  </MsgDomain>
+  <MsgDomain Domain="Port Log Messages">
+    <Message Id="-200" Name="BackupStart">Starting backup ...</Message>
+    <Message Id="-201" Name="BackupAlert">DO NOT INTERRUPT THIS PROCESS.</Message>
+    <Message Id="-202" Name="BackupMirror">Mirroring the web application to a temporary directory ...</Message>
+    <Message Id="-203" Name="RemovingBackupMirror">Removing the temporary directory.</Message>
+    <Message Id="-300" Name="NoItemsToExport">There are no items to export. The operation has been aborted.</Message>
+    <Message Id="-301" Name="ExportingProject">Exporting the project %1.</Message>
+    <Message Id="-302" Name="SourceExportedToPath">The source code has been exported to the path %1.</Message>
+    <Message Id="-303" Name="ExportingType">Exporting %1 %2 ...</Message>
+    <Message Id="-400" Name="SynchronizingProject">Synchronizing the project %1.</Message>
+    <Message Id="-401" Name="CheckingExtraneousItems">Checking for the presence of orphan items in the project.</Message>
+    <Message Id="-402" Name="TotalExtraneousItems">Total orphan items detected: %1.</Message>
+    <Message Id="-403" Name="NoExtraneousItems">No orphan items were found.</Message>
+    <Message Id="-404" Name="RemovingFile">Removing %1 (file).</Message>
+    <Message Id="-405" Name="RemovingDirectory">Removing item %1 (directory).</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsItemsRemoved">Total of removed orphan items: %1</Message>
+    <Message Id="-500" Name="Done"> done.</Message>
+    <Message Id="-501" Name="DoneWithErrors"> done, but with errors.</Message>
+    <Message Id="-501" Name="Failed"> failed.</Message>
+    <Message Id="-502" Name="AllDone">Finished with success.</Message>
+    <Message Id="-503" Name="KeepCacheExtension"> keep the original Caché format extension.</Message>
+    <Message Id="-504" Name="OvewriteWithExtension"> end with the %1 extension.</Message>
+    <Message Id="-600" Name="ImportingType">Importing %1 2% ... </Message>
+    <Message Id="-601" Name="EnqueingType">Enqueueing the selected %1 to be imported.</Message>
+    <Message Id="-602" Name="NothingToImport">Nothing to import has been found.</Message>
+    <Message Id="-603" Name="ImportingProject">Importing the project %1.</Message>
+    <Message Id="-604" Name="EnqueueingItems">Enqueing items to be imported.</Message>
+    <Message Id="-605" Name="TotalItemsToImport">Total of items to import: %1.</Message>
+    <Message Id="-606" Name="NoPendingItemsToImport">No items to import were found.</Message>
+    <Message Id="-607" Name="NewProject">The project %1 does not exist yet and will be created.</Message>
+    <Message Id="-608" Name="FatalErrorAlert">FATAL: The following errors prevented the project from being imported:</Message>
+    <Message Id="-609" Name="FatalRollbackAlert">All changes will be discarded on the next steps.</Message>
+    <Message Id="-610" Name="FatalProjectIntegrityRiskWarning">WARNING! DO NOT INTERRUPT THE PROCESS TO AVOID COMPROMISING THE PROJECT INTEGRITY!</Message>
+    <Message Id="-611" Name="FatalRollingBackTransaction">Import: Rolling back and discarding the pending transaction.</Message>
+    <Message Id="-612" Name="FatalApplyingBackup">Applying the backup to revert the web application back to its initial state.</Message>
+    <Message Id="-613" Name="FatalFailedToRestoreBackup">ERROR: Could not apply the backup entirely due to a system error. The backup will be kept to be applied manually.</Message>    
+    <Message Id="-700" Name="CannotUseDefault">The usage of 'Default' named projects are restricted to prevent mishandling. If you want use this project, please provide another name by using File->Save As.</Message>
+    <Message Id="-701" Name="CannotUseDefault2">All active hooks are now disabled.</Message>    
+    <Message Id="-800" Name="ClassType">class</Message>
+    <Message Id="-801" Name="ProjecType">project</Message>
+    <Message Id="-802" Name="RoutineType">routine</Message>
+    <Message Id="-803" Name="FileType">file</Message>
+  </MsgDomain>
+  <MsgDomain Domain="Port Menu Labels">
+    <Message Id="-5000" Name="MLExport">Export</Message>    
+    <Message Id="-5001" Name="MLExportToXML">Export to XML</Message>
+    <Message Id="-5002" Name="MLExportTests">Export tests</Message>
+    <Message Id="-5003" Name="MLRemoveClasses">Remove classes</Message>
+    <Message Id="-5004" Name="MLRemoveFiles">Remove files</Message>
+    <Message Id="-5005" Name="MLRemoveRoutines">Remove routines</Message>
+    <Message Id="-5006" Name="MLScanAndFix">Scan and fix</Message>
+    <Message Id="-5007" Name="MLRunTests">Run tests</Message>
+    <Message Id="-5008" Name="MLImport">Import</Message>
+    <Message Id="-5009" Name="MLForceExport">Export (forced)</Message>
+    <Message Id="-5010" Name="MLForceImport">Import (forced)</Message>
+  </MsgDomain>
+  <MsgDomain Domain="Port Context Menu Labels">
+    <Message Id="-6000" Name="CMLExportActive">Export from here</Message>
+    <Message Id="-6001" Name="CMLImportActive">Import from here</Message>
+    <Message Id="-6002" Name="CMLRunActiveTest">Run test</Message>
+  </MsgDomain>  
+</MsgFile>
+]]></Data>
+</XData>
+
+<XData name="LocalePTBR">
+<Data><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<MsgFile Language="pt-br">
+  <MsgDomain Domain="Port Errors">
+    <Message Id="-100" Name="InvalidPhysicalPath">O caminho físico '%1' fornecido não pertence ao diretório de arquivos estáticos.</Message>
+    <Message Id="-101" Name="NamespaceAppPathDoesnExists">Não existe uma aplicação para o namespace %1.</Message>
+    <Message Id="-102" Name="CannotCreateDirectory">Não foi possível criar o diretório %1.</Message>
+    <Message Id="-103" Name="CannotUseRelativePath">Não é possível utilizar um caminho relativo, o caminho precisa estar completo.</Message> 
+    <Message Id="-104" Name="UnableToCopySource">Não foi possível copiar o arquivo de %1 para %2.</Message> 
+    <Message Id="-105" Name="UnableToExportInvalidItem">Não foi possível exportar o item %1 pois ele não existe.</Message>
+    <Message Id="-106" Name="ErrorsWhileImporting">Houveram erros ao importar %1.</Message>
+    <Message Id="-107" Name="AmbiguousPartialToWorkspace">O caminho partial %1 obtido é ambíguo ao caminho deste projeto. Se você deseja exportar o projeto, utilize o método 'Import'.</Message>
+    <Message Id="-108" Name="SupressedAttemptToExportFromOutside">Não é possível importar um arquivo que esteja fora do espaço de trabalho deste projeto.</Message>
+    <Message Id="-109" Name="UnableToRemoveDirectory">Não foi possível remover o diretório %1.</Message>
+    <Message Id="-110" Name="UnableToDescribeItem">Não foi possível descrever o item o %1 devido à uma violação no extensão esperada. O item exportado deve %1.</Message>
+    <Message Id="-111" Name="PortIsNotInstalled">Port não está instalado no namespace %1.</Message>
+  </MsgDomain>
+  <MsgDomain Domain="Port Log Messages">
+    <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>
+    <Message Id="-201" Name="BackupAlert">NÃO INTERROMPA ESTE PROCESSO.</Message>
+    <Message Id="-202" Name="BackupMirror">Espelhando a estrutura da aplicação web para um diretório temporário ... </Message>
+    <Message Id="-203" Name="RemovingBackupMirror">Removendo o diretório temporário.</Message>
+    <Message Id="-300" Name="NoItemsToExport">Não há itens para serem exportados. A operação foi abortada.</Message>
+    <Message Id="-301" Name="ExportingProject">Exportando o projeto %1.</Message>
+    <Message Id="-302" Name="SourceExportedToPath">O código-fonte foi exportado para o caminho %1.</Message>
+    <Message Id="-303" Name="ExportingType">Exportando %1 %2 ...</Message>
+    <Message Id="-400" Name="SynchronizingProject">Sincronizando o projeto %1.</Message>
+    <Message Id="-401" Name="CheckingExtraneousItems">Verificando presença de itens órfãos no projeto.</Message>
+    <Message Id="-402" Name="TotalExtraneousItems">Total de itens órfãos detectados: %1.</Message>
+    <Message Id="-403" Name="NoExtraneousItems">Nenhum item órfão encontrado.</Message>
+    <Message Id="-404" Name="RemovingFile">Removendo item %1 (arquivo).</Message>
+    <Message Id="-405" Name="RemovingDirectory">Removendo item %1 (diretório).</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsItemsRemoved">Total de itens órfãos removidos: %1.</Message>
+    <Message Id="-500" Name="Done"> feito.</Message>
+    <Message Id="-501" Name="DoneWithErrors"> feito, mas com erros.</Message>
+    <Message Id="-501" Name="Failed"> falhou.</Message>
+    <Message Id="-502" Name="AllDone">Terminado com sucesso.</Message>
+    <Message Id="-503" Name="KeepCacheExtension"> manter a extensão do formato Caché original.</Message>
+    <Message Id="-504" Name="OvewriteWithExtension"> terminar com a extensão %1.</Message> 
+    <Message Id="-600" Name="ImportingType">Importando %1 2% ... </Message>
+    <Message Id="-601" Name="EnqueingType">Enfileirando o %1 escolhido para ser importado.</Message>
+    <Message Id="-602" Name="NothingToImport">Nada para importar foi encontrado.</Message>
+    <Message Id="-603" Name="ImportingProject">Importando o projeto %1.</Message>
+    <Message Id="-604" Name="EnqueueingItems">Enfilerando itens para serem importados.</Message>
+    <Message Id="-605" Name="TotalItemsToImport">Total de itens para importar: %1.</Message>
+    <Message Id="-606" Name="NoPendingItemsToImport">Não há itens para serem importados.</Message>
+    <Message Id="-607" Name="NewProject">O projeto %1 ainda não existe e será criado a seguir.</Message>
+    <Message Id="-608" Name="FatalErrorAlert">FATAL: O seguintes erros impediram o projeto %1 de ser importado:</Message>
+    <Message Id="-609" Name="FatalRollbackAlert">As alterações serão desfeitas nas etapas a seguir.</Message>
+    <Message Id="-610" Name="FatalProjectIntegrityRiskWarning">AVISO! NÃO INTERROMPA O PROCESSO PARA NÃO COMPROMETER A INTEGRIDADE DO PROJETO!</Message>
+    <Message Id="-611" Name="FatalRollingBackTransaction">Revertendo e desfazendo transação em aberto.</Message>
+    <Message Id="-612" Name="FatalApplyingBackup">Aplicando o backup para reverter alterações no caminho da aplicação.</Message>
+    <Message Id="-613" Name="FatalFailedToRestoreBackup">ERRO: Não foi possível aplicar o backup inteiramente devido a um erro de sistema. O backup será mantido para uma correção manual.</Message>
+    <Message Id="-700" Name="CannotUseDefault">O uso de projetos cujo o nome contenha 'Default' está restrito para prevenir o uso inadequado desta ferramenta. Se você deseja usar este projeto, por favor forneça um outro nome utilizando Arquivo->Salvar Como.</Message>
+    <Message Id="-701" Name="CannotUseDefault2">Todos os eventos foram desativados.</Message>
+    <Message Id="-800" Name="ClassType">classe</Message>
+    <Message Id="-801" Name="ProjectType">projeto</Message>
+    <Message Id="-802" Name="RoutineType">rotina</Message>
+    <Message Id="-803" Name="FileType">arquivo</Message>
+  </MsgDomain>
+  <MsgDomain Domain="Port Menu Labels">
+    <Message Id="-5000" Name="MLExport">Exportar</Message>    
+    <Message Id="-5001" Name="MLExportToXML">Exportar para XML</Message>
+    <Message Id="-5002" Name="MLExportTests">Exportar testes</Message>
+    <Message Id="-5003" Name="MLRemoveClasses">Remover classes</Message>
+    <Message Id="-5004" Name="MLRemoveFiles">Remover arquivos</Message>
+    <Message Id="-5005" Name="MLRemoveRoutines">Remover rotinas</Message>
+    <Message Id="-5006" Name="MLScanAndFix">Verificar e corrigir</Message>
+    <Message Id="-5007" Name="MLRunTests">Executar testes</Message>
+    <Message Id="-5008" Name="MLImport">Importar</Message>
+    <Message Id="-5009" Name="MLForceExport">Exportar (forçado)</Message>
+    <Message Id="-5010" Name="MLForceExport">Importar (forçado)</Message>
+  </MsgDomain>
+  <MsgDomain Domain="Port Context Menu Labels">
+    <Message Id="-6000" Name="CMLExportActive">Exportar a partir deste item</Message>
+    <Message Id="-6001" Name="CMLImportActive">Importar a partir deste item</Message>
+    <Message Id="-6002" Name="CMLRunActiveTest">Executar teste</Message>
+  </MsgDomain>
+</MsgFile>
+]]></Data>
+</XData>
+
+<Method name="CreateProjection">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  quit ..Install()
+]]></Implementation>
+</Method>
+
+<Method name="RemoveProjection">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  quit ..Uninstall()
+]]></Implementation>
+</Method>
+
+<Method name="Uninstall">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  if '$data(^Port.SourceControl.Settings("installed")) {
+    quit $$$PERROR($$$PortIsNotInstalled, $namespace)
+  }
+  
+  write "Removing Port, please wait ...", !
+  set sc = $$$OK
+  do ##class(Config).Uninstall()
+  do ##class(Log).Flush()
+  set sc = $$$ADDSC(sc, ##class(%Studio.SourceControl.Interface).SourceControlClassSet($get(^Port.SourceControl.Settings("old")), $namespace))
+  set sc = $$$ADDSC(sc, ##class(LogCleaner).RemoveTask())
+  set sc = $$$ADDSC(sc, ..RemoveGlobalMapping())  
+  if $$$ISOK(sc) write $$$FormatText("Port has been removed from %1.", $namespace), !
+  else  write "One or more errors ocurred while removing Port:", !!, $System.Status.GetErrorText(sc)
+  quit $$$OK
+]]></Implementation>
+</Method>
 
 <Method name="Install">
 <ClassMethod>1</ClassMethod>
@@ -2669,8 +2877,8 @@ Called before an item is deleted. Returning an error code prevents the delete fr
   set sc = $$$OK
   
   if 'force {
-    if $data(^Port.SourceControl("installed")) {
-      write !, "Port is already installed. The installer has been aborted.", !
+    if $data(^Port.SourceControl.Settings("installed")) {
+      write "Port is already installed. The installer has been aborted.", !
       write "If you wish to change current settings then please use the wizard.", !!
       write "do Wizard^Port", !
       quit $$$ERROR($$$GeneralError, "Port is already installed.")
@@ -2679,7 +2887,9 @@ Called before an item is deleted. Returning an error code prevents the delete fr
   
   try {
     write !, "Installing Port ... please wait a moment.", !
-    write "> Creating global mappings ...", !    
+    write "> Creating Message Dictionary ...", !
+    $$$ThrowOnError(..CreateMessageDictionary())
+    write "> Creating global mappings ...", !   
     $$$ThrowOnError(..CreateGlobalMapping())
     write "> Setting up workspace structure ... ", !
     do ##class(Config).SetPrimaryWorkspace("/CacheProjects/{NAMESPACE}/{PROJECT}")
@@ -2693,15 +2903,14 @@ Called before an item is deleted. Returning an error code prevents the delete fr
     do ##class(Config).EnableAutoExportXML()
     write "> Setting up log level ...", !
     do ##class(Config).SetLogLevel(1)
-    write "> Setting up source extension ...", !
-    do ##class(Config).SetSourceExtension("txt")    
     write "> Registering log cleaner task for "_$namespace_" ...", !
     $$$ThrowOnError(##class(LogCleaner).StartTask())
     write "> Activating source control class ...", !!
+    set ^Port.SourceControl.Settings("old.sourcecontrol") = ##class(%Studio.SourceControl.Interface).SourceControlClassGet($namespace)
     $$$ThrowOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
     write "ALL DONE.", !
     write "NOTE: Please note that you must restart Studio in order to make the new settings have effect."
-    set ^Port.SourceControl("installed") = 1
+    set ^Port.SourceControl.Settings("installed") = 1
   } catch ex {
     set sc = ex.AsStatus()    
     write !!, "FATAL: Failed to install port due to the following reason: "
@@ -2736,6 +2945,53 @@ Called before an item is deleted. Returning an error code prevents the delete fr
     set sc = ex.AsStatus()
   }
   quit sc
+]]></Implementation>
+</Method>
+
+<Method name="RemoveGlobalMapping">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  set sc = $$$OK
+  set thisNamespace = $namespace     
+  new $namespace
+  
+  set $namespace = "%SYS"  
+  
+  if ##class(Config.MapGlobals).Exists(thisNamespace, "Port.SourceControl*") {
+    quit ##class(Config.MapGlobals).Delete(thisNamespace, "Port.SourceControl*")
+  }
+  quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="CreateMessageDictionary">
+<ClassMethod>1</ClassMethod>
+<CodeMode>objectgenerator</CodeMode>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+    
+  do %code.WriteLine("  k ^CacheMsg(""Port Errors""),^CacheMsgNames(""Port Errors"")")
+  do %code.WriteLine("  k ^CacheMsg(""Port Log Messages""), ^CacheMsgNames(""Port Log Messages"")")
+  do %code.WriteLine("  k ^CacheMsg(""Port Menu Labels""), ^CacheMsgNames(""Port Menu Labels"")")
+  do %code.WriteLine("  k ^CacheMsg(""Port Context Menu Labels""), ^CacheMsgNames(""Port Context Menu Labels"")")
+  
+  set XDatas = %compiledclass.XDatas
+  
+  for i=1:1:XDatas.Count() {
+    set XDataId = $$$quote(%compiledclass.Name_"||"_XDatas.GetAt(i).Name)    
+    do %code.WriteLine("  set localeXData = ##class(%Dictionary.CompiledClass).%OpenId("_XDataId_")")
+    do %code.WriteLine("  set tmpFilename = ##class(%File).TempFilename()")
+    do %code.WriteLine("  set file = ##class(%File).%New(tmpFilename)")
+    do %code.WriteLine("  do file.Open(""WNS"")")
+    do %code.WriteLine("  $$$QuitOnError(file.CopyFrom(localeXData))")
+    do %code.WriteLine("  $$$QuitOnError(file.%Save())")
+    do %code.WriteLine("  $$$QuitOnError(##class(%MessageDictionary).Import(tmpFilename))")
+    do %code.WriteLine("  do ##class(%File).Delete(tmpFilename)")
+    do %code.WriteLine("  set (localXData, tmpFilename, file) = """"")    
+  }
+  do %code.WriteLine("  $$$QuitOnError(##class(%MessageDictionary).GenerateInclude(""portmd"",,,""Port Errors,Port Log Messages,Port Menu Labels,Port Context Menu Labels""))")
+  do %code.WriteLine("  quit $$$OK")
 ]]></Implementation>
 </Method>
 </Class>
@@ -2813,6 +3069,15 @@ Called before an item is deleted. Returning an error code prevents the delete fr
   quit $$$OK
 ]]></Implementation>
 </Method>
+
+<Method name="Flush">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  kill ^Port.SourceControl.Projects
+  quit $$$OK
+]]></Implementation>
+</Method>
 </Class>
 
 
@@ -2838,6 +3103,22 @@ Called before an item is deleted. Returning an error code prevents the delete fr
   set task.NameSpace = $namespace
   set task.TaskClass = $classname($this)
   quit task.%Save()
+]]></Implementation>
+</Method>
+
+<Method name="RemoveTask">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  #dim task as %SYS.Task
+  
+  set name = "Port Log Synchronizer for "_$namespace
+  set taskId = ##class(%SYS.Task).FindId(name)
+  
+  if taskId = "" quit $$$OK
+  $$$QuitOnError(##class(%SYS.Task).Suspend(taskId, 2))
+  $$$QuitOnError(##class(%SYS.Task).%DeleteId(taskId))
+  quit $$$OK
 ]]></Implementation>
 </Method>
 
@@ -3993,7 +4274,7 @@ CreateFile
 </Class>
 
 
-<Project name="port" LastModified="2017-06-20 09:31:51.105879" Target="##class(UnitTest.Port.Manifest).GetAllFiles()" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2017-06-29 10:02:46.363437" Target="##class(Port.Logger).test()" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.Logger" type="CLS"></ProjectItem>
     <ProjectItem name="Port.MAC" type="MAC"></ProjectItem>
@@ -4018,17 +4299,107 @@ CreateFile
     <ProjectItem name="UnitTest.Port.Project.Base" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Exporter" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Project.Helper" type="CLS"></ProjectItem>
+    <ProjectItem name="portmd.INC" type="MAC"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>
   </Items>
-  <BreakPoints>
-    <BreakPoint Routine="UnitTest.Port.Manifest.CLS" Offset="GetAllFiles+4"></BreakPoint>
-  </BreakPoints>
 </Project>
 
 
+<Routine name="portmd" type="INC"><![CDATA[
+#define CMLRunActiveTest                    -6002
+#define CMLImportActive                     -6001
+#define CMLExportActive                     -6000
+#define PortIsNotInstalled                  -111
+#define UnableToDescribeItem                -110
+#define UnableToRemoveDirectory             -109
+#define SupressedAttemptToExportFromOutside -108
+#define AmbiguousPartialToWorkspace         -107
+#define ErrorsWhileImporting                -106
+#define UnableToExportInvalidItem           -105
+#define UnableToCopySource                  -104
+#define CannotUseRelativePath               -103
+#define CannotCreateDirectory               -102
+#define NamespaceAppPathDoesnExists         -101
+#define InvalidPhysicalPath                 -100
+#define FileGroupType                       -813
+#define CLSGroupType                        -812
+#define DFIGroupType                        -811
+#define MVIGroupType                        -810
+#define MVBGroupType                        -809
+#define BASGroupType                        -808
+#define INTGroupType                        -807
+#define INCGroupType                        -806
+#define MACGroupType                        -805
+#define DirectoryType                       -804
+#define FileType                            -803
+#define RoutineType                         -802
+#define ProjectType                         -801
+#define ClassType                           -800
+#define CannotUseDefault2                   -701
+#define CannotUseDefault                    -700
+#define ProjectSaved                        -614
+#define FatalFailedToRestoreBackup          -613
+#define FatalApplyingBackup                 -612
+#define FatalRollingBackTransaction         -611
+#define FatalProjectIntegrityRiskWarning    -610
+#define FatalRollbackAlert                  -609
+#define FatalErrorAlert                     -608
+#define NewProject                          -607
+#define NoPendingItemsToImport              -606
+#define TotalItemsToImport                  -605
+#define EnqueueingItems                     -604
+#define ImportingProject                    -603
+#define NothingToImport                     -602
+#define EnqueingType                        -601
+#define ImportingType                       -600
+#define OvewriteWithExtension               -504
+#define KeepCacheExtension                  -503
+#define AllDone                             -502
+#define Failed                              -501
+#define Done                                -500
+#define TotalExtraneousItemsItemsRemoved    -406
+#define RemovingDirectory                   -405
+#define RemovingFile                        -404
+#define NoExtraneousItems                   -403
+#define TotalExtraneousItems                -402
+#define CheckingExtraneousItems             -401
+#define SynchronizingProject                -400
+#define ExportingType                       -303
+#define SourceExportedToPath                -302
+#define ExportingProject                    -301
+#define NoItemsToExport                     -300
+#define RemovingBackupMirror                -203
+#define BackupMirror                        -202
+#define BackupAlert                         -201
+#define BackupStart                         -200
+#define MLForceExport                       -5010
+#define MLForceExport                       -5009
+#define MLImport                            -5008
+#define MLRunTests                          -5007
+#define MLScanAndFix                        -5006
+#define MLRemoveRoutines                    -5005
+#define MLRemoveFiles                       -5004
+#define MLRemoveClasses                     -5003
+#define MLExportTests                       -5002
+#define MLExportToXML                       -5001
+#define MLExport                            -5000
+]]></Routine>
+
+
 <Routine name="portutils" type="INC"><![CDATA[
-#define ImportTypes           $listbuild("INC", "INT", "CLS", "MAC", "MVI", "MVB", "BAS", "DFI", "CSR", "CSP")
-#define ImportTypeDescriptions $listbuild("include files", "intermediate routines", "classes", "macro routines",  "MV Intermediate routines", "MV Basic routines", "Basic routines", "DFI XML", "CSP Rules", "files")
-#define RoutineExtensions     $listbuild(".MAC", ".INT", ".INC", ".MVB", ".MVI", ".BAS", ".DFI")
+#include %occStatus
+#include %occMessages
+#include %occErrors
+
+#include portmd
+
+#define ImportTypes               $listbuild("INC", "INT", "CLS", "MAC", "MVI", "MVB", "BAS", "DFI", "CSR", "CSP")
+#define ImportTypeDescriptions    $listbuild("include files", "intermediate routines", "classes", "macro routines",  "MV Intermediate routines", "MV Basic routines", "Basic routines", "DFI XML", "CSP Rules", "files")
+#define RoutineExtensions         $listbuild(".MAC", ".INT", ".INC", ".MVB", ".MVI", ".BAS", ".DFI")
+#define RoutinesGroups            "MAC,INT,INC,MVB,MVI,BAS,DFI"
+#define IsRoutine(%type)          ($$$RoutinesGroups[%type)
+#define GetTypeDescription(%type) $select($$$IsRoutine(%type)=1:$$$RoutineType,(%type = "CLS"):$$$ClassType,(%type = "PRJ"):$$$ProjectType,1:$$$FileType)
+#define GetGroupTypeDescription(%type) $case(%type,"MAC":$$$MACGroupType,"INC":$$$INCGroupType,"INT":$$$INTGroupType,"BAS":$$$BASGroupType,"MVB":$$$MVBGroupType,"MVI":$$$MVIGroupType,"DFI":$$$DFIGroupType,"CLS":$$$CLSGroupType,:$$$FileGroupType)
+#def1arg PERROR(%errorArgs)       $$$ERROR($$$CacheError, $$$FormatMsg("Port Errors", %errorArgs))
 ]]></Routine>
 </Export>

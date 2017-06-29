@@ -1,3 +1,5 @@
+Include portutils
+
 Class Port.Project.Backup Extends %RegisteredObject
 {
 
@@ -12,6 +14,7 @@ Property ImportList As %String [ MultiDimensional ];
 Method %OnNew(backupDir As %String) As %Status
 {
   set ..BackupDirectory = backupDir
+  set ..Logger = ##class(Port.Logger).%New()
   quit $$$OK
 }
 
@@ -27,15 +30,15 @@ Method Create(ByRef list As %String = 0) As %Status
   
   if '..IsRequired quit $$$OK
   
-  do ..Logger.Log("Starting backup ... [nl]DO NOT INTERRUPT THIS PROCESS![nl]", 1)
-  do ..Logger.Log("Mirroring structure to temporary directory ... ", 1)
+  write ..Logger.Log($$$BackupStart), !
+  write ..Logger.Log($$$BackupAlert), !
+  write ..Logger.Log($$$BackupMirror, 1)
   
   do Scan(9,  "CSR", .created)
   do Scan(10, "CSP", .created)
   
-  if $$$ISOK(sc) do ..Logger.Log(" done.", 1)
-  else  do ..Logger.Log(" done with errors!", 1)
-  do ..Logger.Log("[nl][nl]", 1)
+  if $$$ISOK(sc) write ..Logger.Log($$$Done, 1), !
+  else  write ..Logger.Log($$$Failed, 1), !
   quit sc  
 
 
@@ -63,7 +66,7 @@ Scan(group, type, created)
     set isCopied = ##class(%File).CopyFile(backupOrigin, backupDestination, 1)
     set isDeleted = ##class(%File).Delete(backupOrigin)
     if isCopied = 0 || (isDeleted = 0) {
-      set sc = $$$ADDSC(sc, $$$ERROR($$$GeneralError, "Unable to copy "_itemName_" to backup destination. Aborting."))
+      set sc = $$$ADDSC(sc, $$$PERROR($$$UnableToCopySource, itemName, backupDestination))
     }   
   }
   if 'created {

@@ -1,3 +1,5 @@
+Include portutils
+
 Class Port.Project.Importer Extends Port.Project.Base
 {
 
@@ -186,35 +188,26 @@ Method ImportType(group As %Integer) As %Status [ Internal, Private ]
 {
   set sc = $$$OK
   if '$data(i%ImportList(group)) quit sc  
+  set itemType = $listget($$$ImportTypes, group, "CSP")
   
-  set partialMessage = $listget($$$ImportTypeDescriptions, group)
-  do ..WriteExclusive(1, "Importing {P1} ... ", partialMessage)
+  write ..LogExclusive($$$ImportingType, 1, $$$GetGroupTypeDescription(itemType))
+  
   set itemName = ""
   for {
     quit:'$data(i%ImportList(group))
-    set itemType = $listget($$$ImportTypes, group, "CSP")
     set itemName = $order(i%ImportList(group, itemType, itemName), 1, paths)
     quit:itemName=""
     
     set origin = $listget(paths, 1)
-    set destination = $listget(paths, 2)
-    set fileType = itemType    
+    set destination = $listget(paths, 2, itemName)
     
-    do ..Write("Importing {P1} ", 2, $case(fileType,
-      "CLS": "class "_itemName, 
-      "MAC": "macro routine "_itemName, 
-      "INT": "intermediate routine "_itemName, 
-      "INC": "include routine "_itemName,
-      "BAS": "Basic routine "_itemName,
-      "MVB": "MV Basic routine "_itemName,
-      "MVI": "MV Intermediate routine "_itemName,
-      "DFI": "DFI XML "_itemName, :
-      "file to "_destination)_" ...")
-    set sc = $$$ADDSC(sc, ..ImportFromExternalSource(itemName, origin,  fileType, destination))
-    if $$$ISERR(sc)  do ..Write("failed![nl]", 2) continue
-    else  do ..Write("done.[nl]", 2)
+    write ..Log($$$ImportingType, 2, $$$GetTypeDescription(itemType), destination)
+    
+    set sc = $$$ADDSC(sc, ..ImportFromExternalSource(itemName, origin,  itemType, destination))
+    if $$$ISERR(sc)  write ..Log($$$Failed, 2), ! continue
+    else  write ..Log($$$Done, 2), !
   }
-  do ..WriteExclusive(1, "done.[nl]")
+  write ..LogExclusive($$$Done, 1), !
   quit sc
 }
 
@@ -227,35 +220,35 @@ Method ImportPartial(target As %String, importedList As %String = 0) As %Status
   set resolvedTarget = ##class(%File).NormalizeFilename(target, ..BasePath)
   
   if (resolvedTarget = ..BasePath) {
-    quit $$$ERROR($$$GeneralError, "Ambiguous TARGET and BASEPATH if you wish to import the project, use the method Import instead.")
+    quit $$$PERROR($$$AmbiguousPartialToWorkspace, resolvedTarget)
   }
   
   if '(resolvedTarget [ ..ClassPath || (resolvedTarget [ ..IncPath) ||
       (resolvedTarget [ ..IncPath)  || (resolvedTarget [ ..MacPath) ||
       (resolvedTarget [ ..WebPath)) {    
-    quit $$$ERROR($$$GeneralError, "Action supressed: attempted to import files outside the project scope.")
+    quit $$$PERROR($$$SupressedAttemptToExportFromOutside)
   }  
   
   if ##class(%File).DirectoryExists(resolvedTarget) {
-    do ..Write("[nl]Enqueuing directory to be imported ...", 1)   
+    write ..Log($$$EnqueingType, 1, $$$DirectoryType)
     set sc = ..EnqueueDirectory(resolvedTarget)
   } elseif ##class(%File).Exists(resolvedTarget) {
-    do ..Write("[nl]Enqueuing item to be imported ...", 1)
+    write ..Log($$$EnqueingType, 1, "item")
     set sc = ..EnqueueItem(resolvedTarget)
   } else {
-    do ..Write("[nl]Nothing to import.", 1)
+    write ..Log($$$NothingToImport)
     quit sc
   }
   
   if sc {
-    do ..Write(" done.[nl]")
+    write ..Log($$$Done), !
     set sc = ..Import()
     if $$$ISOK(sc) {
       set importedList = i%ImportList
       merge importedList = i%ImportList
     }
   } else {
-    do ..Write(" failed.[nl]")
+    write ..Log($$$Failed), !
   }  
   quit sc
 }
@@ -270,72 +263,64 @@ Method Import() As %Status
   
   try {
     if ..IsBatch {
-      do ..Write("[nl][nl]Importing project {P1} ...[nl]", 1, ..Project.Name)            
-      do ..Write("[nl]Enqueuing items to import ... ", 1)
+      write ..Log($$$ImportingProject, 0, ..Project.Name), !
+      write ..Log($$$EnqueueingItems, 0), !
       $$$ThrowOnError(..EnqueueAll())
     }
       
     if i%ImportList > 0 {
-      do ..Write("[nl]Found {P1} item{P2} to be imported.[nl]", 1, i%ImportList, $select(i%ImportList > 1 : "s", 1: ""))
+      write ..Log($$$TotalItemsToImport, i%ImportList), !
       merge list = i%ImportList
       if '..SkipBackup $$$ThrowOnError(..Backup.Create(.list))
       $$$ThrowOnError(..ImportList())
     } else {
-      do ..Write("[nl]No pending items were found inside the repository.", 1)
-      do ..Write("[nl]Current repository might be empty or up-to-date.[nl]", 1)
+      write ..Log($$$NoPendingItemsToImport, 0), !
     }
          
     if ..IsNewProject {
-      do ..Write("[nl]Project doesn't exists. A new project will be created with the name {P1}.[nl]", 1, ..Project.Name)
+      write ..Log($$$NewProject, 0, ..Project.Name), !
     }
     
     if i%ImportList {
-      do ..Write("[nl]Synchronizing {P1} ...", 1, ..Project.Name)
+      write ..Log($$$SynchronizingProject, 0, ..Project.Name), !
       $$$ThrowOnError(..SynchronizeProject(.added, .removed))
-      do ..Write(" done.[nl]")
-      do ..Write("[nl]Project {P1} has been saved with a total of {P2} items.", 1, ..Project.Name, ..Project.Items.Count())
+      write ..Log($$$Done, 1), !
+      write ..Log($$$ProjectSaved, 0, ..Project.Name, ..Project.Items.Count()), !    
     }
     
     set ..AffectedCount = i%ImportList    
     
     if ..Backup.IsRequired && '..SkipBackup {
       // If anything is ok until here, then delete the backup.
-      do ..Write("[nl]Removing backup directory ...")
+      write ..Log($$$RemovingBackupMirror, 1)
       set isRemoved = ##class(%File).RemoveDirectoryTree(..BackupDirectory)
       if isRemoved { 
-        do ..Write(" done.[nl]")
+        write ..Log($$$Done, 0)
         set ..Backup.IsRequired = 0
       } else  {
-        set backupErrorMessage = "Unable to remove the directory "_..BackupDirectory
-        do ..Write(" failed! Unable to clear directory.", 1)
-        $$$ThrowOnError($$$ERROR(5001, backupErrorMessage))
+        write ..Log($$$Failed, 0)
+        $$$ThrowOnError($$$PERROR(UnableToRemoveDirectory, ..BackupDirectory))
       }
+      write !
     }
     tcommit     
   } catch ex {
     set sc = ex.AsStatus()
-    do ..Write("[nl][nl]FATAL: There were errors preventing the project to be imported:[nl]", 1)
+    write ..Log($$$FatalErrorAlert, 0), !!
     do $System.OBJ.DisplayError(sc)
-    do ..Write("[nl][nl]The importer will now rollback all changes.[nl]", 1)
-    do ..Write("PLEASE DO NOT INTERRUPT THIS PROCESS OR INTEGRITY WILL BE LOST![nl]", 1)
-    do ..Write("Rolling back to the last working snapshot ...", 1)
+    write ..Log($$$FatalRollbackAlert, 0), !
+    write ..Log($$$FatalProjectIntegrityRiskWarning, 0), !
+    write ..Log($$$FatalRollingBackTransaction, 0), !
 
-    // Rolls back the database to recover last working Caché files.
     trollback
-    do ..Write(" done.[nl]")
     
     if ..Backup.IsRequired {
-      do ..Write("Reverting {P1} using backup version ...", 1, $System.CSP.GetDefaultApp($namespace))
+      write ..Log($$$FatalApplyingBackup, 0), !
       set isCopied = ##class(%File).CopyDir(..BackupDirectory, ..CSPPath, 1)
-      if isCopied { do ..Write(" done.[nl]") }
-      else {
-        do ..Write(" failed![nl]")
-        do ..Write("Failed to restore the pending backup due to a file system error, backup will not be removed.")
-      }     
-    
-      if 'isCopied {
-        set sc = $$$ADDSC(sc, $$$ERROR(5001, "Failed to restore the pending backup due to a file system error."))
-      }
+      if 'isCopied { 
+        write ..Log($$$FatalFailedToRestoreBackup, 0), !
+        set sc = $$$ADDSC(sc, $$$PERROR($$$UnableToCopySource, ..BackupDirectory, ..CSPPath))
+      }  
     }
   }
   quit sc
@@ -427,8 +412,8 @@ Method AssertValidExtension(origin As %String) As %Status [ Final, Internal, Pri
   if (sourceFileExtension '= $$$ucase(..GetSourceExtension())) {
     write !, sourceFileExtension, " - ", $$$ucase(..GetSourceExtension())
     set fileName = ##class(%File).GetFilename(origin)
-    set expectedSourceExtension = $select(..SourceExtension = "" : "keep the Caché format", 1: "terminate with "_..SourceExtension)
-    quit $$$ERROR($$$GeneralError, "Unable to describe the file "_fileName_ " as it violates the current source extension. "_$c(10, 10)_"It must "_expectedSourceExtension_".")
+    set expectedSourceExtension = $select(..SourceExtension = "" : $$$KeepCacheExtension, 1: $$$FormatMsg("Port Errors", $$$OvewriteWithExtension, ..SourceExtension))
+    quit $$$PERROR($$$UnableToDescribeItem, fileName, expectedSourceExtension)
   }
   quit $$$OK
 }

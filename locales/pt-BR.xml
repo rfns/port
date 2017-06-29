@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MsgFile Language="pt-br">
+  <MsgDomain Domain="Port Errors">
+    <Message Id="-100" Name="InvalidPhysicalPath">O caminho físico '%1' fornecido não pertence ao diretório de arquivos estáticos.</Message>
+    <Message Id="-101" Name="NamespaceAppPathDoesnExists">Não existe uma aplicação para o namespace %1.</Message>
+    <Message Id="-102" Name="CannotCreateDirectory">Não foi possível criar o diretório %1.</Message>
+    <Message Id="-103" Name="CannotUseRelativePath">Não é possível utilizar um caminho relativo, o caminho precisa estar completo.</Message> 
+    <Message Id="-104" Name="UnableToCopySource">Não foi possível copiar o arquivo de %1 para %2.</Message> 
+    <Message Id="-105" Name="UnableToExportInvalidItem">Não foi possível exportar o item %1 pois ele não existe.</Message>
+    <Message Id="-106" Name="ErrorsWhileImporting">Houveram erros ao importar %1.</Message>
+    <Message Id="-107" Name="AmbiguousPartialToWorkspace">O caminho partial %1 obtido é ambíguo ao caminho deste projeto. Se você deseja exportar o projeto, utilize o método 'Import'.</Message>
+    <Message Id="-108" Name="SupressedAttemptToExportFromOutside">Não é possível importar um arquivo que esteja fora do espaço de trabalho deste projeto.</Message>
+    <Message Id="-109" Name="UnableToRemoveDirectory">Não foi possível remover o diretório %1.</Message>
+    <Message Id="-110" Name="UnableToDescribeItem">Não foi possível descrever o item o %1 devido à uma violação no extensão esperada. O item exportado deve %1.</Message>
+    <Message Id="-111" Name="PortIsNotInstalled">Port não está instalado no namespace %1.</Message>
+  </MsgDomain>
+  <MsgDomain Domain="Port Log Messages">
+    <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>
+    <Message Id="-201" Name="BackupAlert">NÃO INTERROMPA ESTE PROCESSO.</Message>
+    <Message Id="-202" Name="BackupMirror">Espelhando a estrutura da aplicação web para um diretório temporário ... </Message>
+    <Message Id="-203" Name="RemovingBackupMirror">Removendo o diretório temporário.</Message>
+    <Message Id="-300" Name="NoItemsToExport">Não há itens para serem exportados. A operação foi abortada.</Message>
+    <Message Id="-301" Name="ExportingProject">Exportando o projeto %1.</Message>
+    <Message Id="-302" Name="SourceExportedToPath">O código-fonte foi exportado para o caminho %1.</Message>
+    <Message Id="-303" Name="ExportingType">Exportando %1 %2 ...</Message>
+    <Message Id="-400" Name="SynchronizingProject">Sincronizando o projeto %1.</Message>
+    <Message Id="-401" Name="CheckingExtraneousItems">Verificando presença de itens órfãos no projeto.</Message>
+    <Message Id="-402" Name="TotalExtraneousItems">Total de itens órfãos detectados: %1.</Message>
+    <Message Id="-403" Name="NoExtraneousItems">Nenhum item órfão encontrado.</Message>
+    <Message Id="-404" Name="RemovingFile">Removendo item %1 (arquivo).</Message>
+    <Message Id="-405" Name="RemovingDirectory">Removendo item %1 (diretório).</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsItemsRemoved">Total de itens órfãos removidos: %1.</Message>
+    <Message Id="-500" Name="Done"> feito.</Message>
+    <Message Id="-501" Name="DoneWithErrors"> feito, mas com erros.</Message>
+    <Message Id="-501" Name="Failed"> falhou.</Message>
+    <Message Id="-502" Name="AllDone">Terminado com sucesso.</Message>
+    <Message Id="-503" Name="KeepCacheExtension"> manter a extensão do formato Caché original.</Message>
+    <Message Id="-504" Name="OvewriteWithExtension"> terminar com a extensão %1.</Message> 
+    <Message Id="-600" Name="ImportingType">Importando %1 %2 ... </Message>
+    <Message Id="-601" Name="EnqueingType">Enfileirando o %1 escolhido para ser importado ...</Message>
+    <Message Id="-602" Name="NothingToImport">Nada para importar foi encontrado.</Message>
+    <Message Id="-603" Name="ImportingProject">Importando o projeto %1.</Message>
+    <Message Id="-604" Name="EnqueueingItems">Enfilerando itens para serem importados.</Message>
+    <Message Id="-605" Name="TotalItemsToImport">Total de itens para importar: %1.</Message>
+    <Message Id="-606" Name="NoPendingItemsToImport">Não há itens para serem importados.</Message>
+    <Message Id="-607" Name="NewProject">O projeto %1 ainda não existe e será criado a seguir.</Message>
+    <Message Id="-608" Name="FatalErrorAlert">FATAL: O seguintes erros impediram o projeto %1 de ser importado:</Message>
+    <Message Id="-609" Name="FatalRollbackAlert">As alterações serão desfeitas nas etapas a seguir.</Message>
+    <Message Id="-610" Name="FatalProjectIntegrityRiskWarning">AVISO! NÃO INTERROMPA O PROCESSO PARA NÃO COMPROMETER A INTEGRIDADE DO PROJETO!</Message>
+    <Message Id="-611" Name="FatalRollingBackTransaction">Revertendo e desfazendo transação em aberto.</Message>
+    <Message Id="-612" Name="FatalApplyingBackup">Aplicando o backup para reverter alterações no caminho da aplicação.</Message>
+    <Message Id="-613" Name="FatalFailedToRestoreBackup">ERRO: Não foi possível aplicar o backup inteiramente devido a um erro de sistema. O backup será mantido para uma correção manual.</Message>
+    <Message Id="-614" Name="ProjectSaved">O projeto %1 foi salvo com %2 itens.</Message>
+    <Message Id="-700" Name="CannotUseDefault">O uso de projetos cujo o nome contenha 'Default' está restrito para prevenir o uso inadequado desta ferramenta. Se você deseja usar este projeto, por favor forneça um outro nome utilizando Arquivo->Salvar Como.</Message>
+    <Message Id="-701" Name="CannotUseDefault2">Todos os eventos foram desativados.</Message>
+    <Message Id="-800" Name="ClassType">classe</Message>
+    <Message Id="-801" Name="ProjectType">projeto</Message>
+    <Message Id="-802" Name="RoutineType">rotina</Message>
+    <Message Id="-803" Name="FileType">arquivo</Message>
+    <Message Id="-804" Name="DirectoryType">diretório</Message>
+    <Message Id="-805" Name="MACGroupType">rotinas macro</Message>
+    <Message Id="-806" Name="INCGroupType">arquivos de inclusão</Message>
+    <Message Id="-807" Name="INTGroupType">rotinas intermediárias</Message>
+    <Message Id="-808" Name="BASGroupType">rotinas Basic</Message>
+    <Message Id="-809" Name="MVBGroupType">rotinas MV Basic</Message>
+    <Message Id="-810" Name="MVIGroupType">rotinas MVI</Message>
+    <Message Id="-811" Name="DFIGroupType">arquivos DFI</Message>
+    <Message Id="-812" Name="CLSGroupType">classes</Message>
+    <Message Id="-813" Name="FileGroupType">arquivos</Message>
+  </MsgDomain>
+  <MsgDomain Domain="Port Menu Labels">
+    <Message Id="-5000" Name="MLExport">Exportar</Message>    
+    <Message Id="-5001" Name="MLExportToXML">Exportar para XML</Message>
+    <Message Id="-5002" Name="MLExportTests">Exportar testes</Message>
+    <Message Id="-5003" Name="MLRemoveClasses">Remover classes</Message>
+    <Message Id="-5004" Name="MLRemoveFiles">Remover arquivos</Message>
+    <Message Id="-5005" Name="MLRemoveRoutines">Remover rotinas</Message>
+    <Message Id="-5006" Name="MLScanAndFix">Verificar e corrigir</Message>
+    <Message Id="-5007" Name="MLRunTests">Executar testes</Message>
+    <Message Id="-5008" Name="MLImport">Importar</Message>
+    <Message Id="-5009" Name="MLForceExport">Exportar (forçado)</Message>
+    <Message Id="-5010" Name="MLForceExport">Importar (forçado)</Message>
+  </MsgDomain>
+  <MsgDomain Domain="Port Context Menu Labels">
+    <Message Id="-6000" Name="CMLExportActive">Exportar a partir deste item</Message>
+    <Message Id="-6001" Name="CMLImportActive">Importar a partir deste item</Message>
+    <Message Id="-6002" Name="CMLRunActiveTest">Executar teste</Message>
+  </MsgDomain>
+</MsgFile>

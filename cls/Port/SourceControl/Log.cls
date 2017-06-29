@@ -55,5 +55,11 @@ ClassMethod Synchronize() As %Status
   quit $$$OK
 }
 
+ClassMethod Flush() As %Status
+{
+  kill ^Port.SourceControl.Projects
+  quit $$$OK
+}
+
 }
 
