@@ -1,8 +1,6 @@
 Class Port.Project.Exporter Extends Port.Project.Base
 {
 
-Parameter MODULENAME = "PortExportUtility";
-
 Property PathDependencies As array Of %String [ Private ];
 
 Property ExportedPackages As %List [ Private ];
@@ -13,39 +11,33 @@ Method %OnNew(path As %String, logLevel As %Integer = 2, sourceExtension As %Str
        
   if '$isobject(..Project) {    
     set ..ProjectName = "null"
-    throw ##class(%Exception.StatusException).CreateFromStatus($$$ERROR(5001, "Invalid project name ("_..ProjectName_")."))
+    throw ##class(%Exception.StatusException).CreateFromStatus($$$PERROR($$$ExportingProjectNotFound, ..ProjectName))
   }
   quit $$$OK
 }
 
 Method Export() As %Status
 {
-  if ..Project.Items.Count() = 0 {
-    write ..Log($$$NoItemsToExport, 0), !
-    do ..Write("[nl]No items to export. Aborting ... [nl]", 0)
-    quit $$$OK
-  }  
   
   set ..IsBatch = 1
-  do ..Reset()
+  do ..Reset() 
   
-  //write ..Write("[nl]Exporting project {P1} ...[nl]", 0, ..Project.Name)
-  write ..Log($$$ExportingProject, 0, ..Project.Name), !
+  write ..LogLine($$$ExportingProject, 0, ..Project.Name)
   set cspDirectory = ##class(%File).NormalizeFilename($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace))
   
   $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(cspDirectory))
   $$$QuitOnError(..ExportProjectItems(.exportList))
   
   if ..AffectedCount > 0 {
-    write ..Log($$$SourceExportedToPath, 0, ..BasePath), !
+    write ..LogLine($$$SourceExportedToPath, 0, ..BasePath)
   } else {
-    write ..Log($$$NoItemsToExport, 0, ..Project.Name), !
+    write ..LogLine($$$NoItemsToExport, 0, ..Project.Name)
   }
   
-  write ..Log($$$SynchronizingProject, 0, ..Project.Name), !
+  write ..LogLine($$$SynchronizingProject, 0, ..Project.Name)
   $$$QuitOnError(..PurgeExtraneousEntries())
   
-  write ..Log($$$AllDone, 0), !
+  write ..LogLine($$$AllDone, 0)
   quit $$$OK
 }
 
@@ -85,7 +77,7 @@ Method PurgeExtraneousEntries() As %Status
   set lastParent = ""
   set parentDirectory = ""
   
-  write ..Log($$$CheckingExtraneousItems, 1), !
+  write ..LogLine($$$CheckingExtraneousItems, 1)
   
   for ipath = ..MacPath,..IntPath,..IncPath,..ClassPath,..BasPath,..WebPath,..MvbPath,..MviPath,..DfiPath {
     set sc = ..SearchExtraneousEntries(s, ipath, .extraneousFiles)
@@ -96,7 +88,7 @@ Method PurgeExtraneousEntries() As %Status
   
   set length = $listlength(extraneousFiles)  
   if length > 0 write ..Log($$$TotalExtraneousItems, 1, length), !
-  else  write ..Log($$$NoExtraneousItems, 1), !
+  else  write ..LogLine($$$NoExtraneousItems, 1)
   
   for i=1:1:length {
     set possiblyDeleted = 0
@@ -110,7 +102,7 @@ Method PurgeExtraneousEntries() As %Status
       set fileName = $piece(fileName, ".", 1)           
       if fileName = lastNode set possiblyDeleted = 0 
       if possiblyDeleted = 1 continue
-      write ..Log($$$RemovingFile, 2, path), !
+      write ..LogLine($$$RemovingFile, 2, path)
       do ##class(%File).Delete(path)        
     } elseif type = "D" {
       if parentDirectory = "" || (path '[ parentDirectory) {
@@ -119,12 +111,12 @@ Method PurgeExtraneousEntries() As %Status
         if lastParent = "" set lastParent = parentDirectory
       }
       if possiblyDeleted = 1 continue
-      write ..Log($$$RemovingDirectory, 2, path)
+      write ..LogLine($$$RemovingDirectory, 2, path)
       do ##class(%File).RemoveDirectoryTree(path)
     }
   } 
   if length > 0 {
-    write ..Log($$$TotalExtraneousItemsItemsRemoved, 1, length), !
+    write ..LogLine($$$TotalExtraneousItemsItemsRemoved, 1, length)
   }
   quit sc
 }
@@ -211,11 +203,11 @@ Method ExportWebFile(itemName As %String, ByRef exportList As %List = "") As %St
   set exported = ##class(%File).CopyFile(source, dest)
   
   if exported = 0 {
-    write ..Log($$$Failed, 1), !
+    write ..LogLine($$$Failed)
     quit $$$PERROR($$$UnableToCopySource, source, dest)
   }
   
-  write ..Log($$$Done, 1), !
+  write ..LogLine($$$Done)
   set ..AffectedCount = ..AffectedCount + 1
   
   set $list(exportList, *+1) = dest  
@@ -251,8 +243,8 @@ Method ExportRoutine(name As %String, exportList As %List = "") As %Status
   set routine = ##class(%RoutineMgr).%OpenId(name)  
   set sc = file.CopyFrom(routine.Code)
   
-  if $$$ISOK(sc) write ..Log($$$Done, 1), !
-  else  write ..Log($$$Failed, 1), !
+  if $$$ISOK(sc) write ..LogLine($$$Done)
+  else  write ..LogLine($$$Failed)
     
   set $list(exportList, *+1) = dest
   
@@ -283,9 +275,7 @@ Method ExportClass(itemName As %String, ByRef exportList As %String = "") As %St
   
   if $listfind(..ExportedPackages, package) quit $$$OK
   
-  if 'isProjectItem {
-    quit $$$OK
-  }
+  if 'isProjectItem quit $$$OK
   
   set dest = ..NormalizeOutput(itemName_".CLS", .path)
   
@@ -296,12 +286,12 @@ Method ExportClass(itemName As %String, ByRef exportList As %String = "") As %St
     quit $$$OK
   }
   
-  write ..Log($$$ExportingType, 1, $$$ClassType, itemName) 
-  if '##class(%ClassDefinition).%ExistsId(itemName) {
-    write ..Log($$$Failed, 1), !
-  } 
+  write ..Log($$$ExportingType, 1, $$$ClassType, itemName)   
+  if '##class(%ClassDefinition).%ExistsId(itemName) write ..LogLine($$$Failed, 1)
+  
   $$$QuitOnError(##class(%Compiler.UDL.TextServices).GetTextAsFile($namespace, itemName, dest))
-  write ..Log($$$Done, 1), !  
+  write ..LogLine($$$Done, 1)
+  
   set ..AffectedCount = ..AffectedCount + 1
   set $list(exportList, *+1) = dest
   
@@ -310,7 +300,7 @@ Method ExportClass(itemName As %String, ByRef exportList As %String = "") As %St
 
 Method ExtractPathDependency(itemName As %String, destPath As %String) [ Final, Internal, Private ]
 {
-  set type = $$$ucase($piece(destPath, ".", $length(destPath, ".") - 1, $length(destPath, ".") - 1)) 
+  set type = $$$ucase($piece(destPath, ".", *-1)) 
   set basePath = ..ResolvePathType(type)
   if $find($listbuild("", "/"), $extract(basePath)) {
     set basePath = $extract(basePath, 2, *)

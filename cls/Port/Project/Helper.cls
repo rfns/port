@@ -1,3 +1,5 @@
+Include portutils
+
 Class Port.Project.Helper [ Abstract ]
 {
 
@@ -28,17 +30,19 @@ ClassMethod IsRoutine(itemName As %String, onlyCompilables As %Boolean = 0) As %
 
 ClassMethod GetItemExtension(itemName As %String) As %String
 {
-  set ext = $piece(itemName, ".", *)
-  quit $$$ucase(ext)
+  
+  set ext = $$$ucase($piece(itemName, ".", *))
+  if $lf($$$RoutineExtensions, $$$ucase("."_ext)) || itemName [ "/" quit ext
+  quit "PKG"
 }
 
-ClassMethod CSPLogicalToPhysicalPath(cspItem As %String, Output absolutePath As %String = "", namespace As %String = {$namespace}) As %Status
+ClassMethod CSPLogicalToPhysicalPath(cspItem As %String, Output absolutePath As %String = "") As %Status
 {
   set installDirectory = $System.Util.InstallDirectory()
-  set cspAppDirectory = $System.CSP.GetDefaultApp(namespace)
-  if cspAppDirectory = "" quit $$$ERROR($$$GeneralError, "Unable to retrieve the physical path for the namespace '"_$namespace_"': web application or namespace doesn't exists.")
-  set cspAppDirectory = $extract(cspAppDirectory, 2, *)
-  set absolutePath = ##class(%File).NormalizeFilename($replace(cspItem, cspAppDirectory, installDirectory_"csp/"_$$$lcase($namespace)))
+  set cspAppDirectory = $System.CSP.GetAppName(cspItem)
+  if cspAppDirectory = "" quit $$$PERROR($$$NamespaceAppPathDoesnExists, $namespace)
+  set cspAppDirectory = $extract(cspAppDirectory, 1, *-1)
+  set absolutePath = ##class(%File).NormalizeFilename($replace(cspItem, cspAppDirectory, ##class(Port.SourceControl.Config).GetWebAppPath()))
   quit $$$OK
 }
 
@@ -52,12 +56,12 @@ ClassMethod FileToClass(path As %String, extension As %String = {##class(Port.So
   quit $replace(contextPath, slash, ".")
 }
 
-ClassMethod ClassToFile(basePath As %String, className As %String, extension As %String = {##class(Port.SourceControl.Config).GetSourceExtension()})
+ClassMethod ClassToFile(basePath As %String, className As %String, extension As %String = {##class(Port.SourceControl.Config).GetSourceExtension()}, appendCLS As %Boolean = 1)
 {
- 
   set divider = $select($$$isWINDOWS : "\", 1: "/")
   if extension '= "" set extension = "."_extension
-  quit ##class(%File).NormalizeFilename(basePath_"/"_$replace(className, ".", divider)_".cls"_extension)
+  set cls = $case(appendCLS, 1: ".cls", : "")
+  quit ##class(%File).NormalizeFilename(basePath_"/"_$replace(className, ".", divider)_cls_extension)
 }
 
 ClassMethod Describe(name As %String, Output extension As %String, Output itemType As %String, Output itemName As %String)
@@ -87,14 +91,15 @@ ClassMethod Describe(name As %String, Output extension As %String, Output itemTy
 
 ClassMethod CSPPhysicalToLogicalPath(physicalPath As %String, Output logicalPath As %String, namespace As %String = {$namespace}) As %Status
 {
-  set slash = $select($$$isWINDOWS : "\", 1: "/")  
-  set installDir = $System.Util.InstallDirectory()
+  set slash = $select($$$isWINDOWS : "\", 1: "/")
   set webFilePath = $extract(physicalPath, $find(physicalPath, slash_"web"_slash), *)
   if '$find(##class(%File).NormalizeFilename(physicalPath), slash_"web"_slash) {
-    quit $$$ERROR($$$GeneralError, "Invalid physical path: parameter doesn't correspond to the /web/ path.")
+    quit $$$PERROR($$$InvalidPhysicalPath)
   }
+  // TODO: Implement a strategy to support web apps that aren't default.
+  // It seems to require implementing a manifest file to describe this project's web app.
   set cspAppPath = $System.CSP.GetDefaultApp(namespace)  
-  if cspAppPath = "" quit $$$ERROR($$$GeneralError, "Unable to retrieve to logical path for the namespace '"_$namespace_"': web application or namespace doesn't exists.")
+  if cspAppPath = "" quit $$$PERROR($$$NamespaceAppPathDoesnExists, $namespace)
   if $extract(cspAppPath, *) '[ "/" set cspAppPath = cspAppPath_"/"
   set logicalPath = $extract(cspAppPath, 2, *)_$replace(webFilePath, "\", "/")
   quit $$$OK
@@ -106,6 +111,27 @@ ClassMethod ExistsInProject(projectName As %String, name As %String, type As %St
   set id = projectName_"||"_name_"||"_type
   &sql(SELECT TOP 1 COUNT(ID) INTO :exists FROM %STUDIO.PROJECTITEM WHERE ID = :id)
   quit exists
+}
+
+ClassMethod UbiquitousInProject(projectName As %String, name As %String, type As %String = "") As %List [ Internal ]
+{
+  do ##class(%Studio.Project).NormalizeName(.name, .type)
+  &sql(
+    SELECT 
+      LIST(P.NAME) INTO :ubiquitousEntries
+    FROM
+      %STUDIO.PROJECTITEM PI
+    LEFT OUTER JOIN 
+      %STUDIO.PROJECT P ON P.ID = PI.Project
+    WHERE 
+      P.NAME <> :projectName AND PI.NAME = :name     
+  )
+  quit $lfs(ubiquitousEntries)
+}
+
+ClassMethod HasPackage(projectName As %String, maybePackage As %String = "") As %Status
+{
+  quit ..ExistsInProject(projectName, maybePackage, "PKG")
 }
 
 }

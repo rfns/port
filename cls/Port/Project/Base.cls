@@ -61,29 +61,30 @@ Method %OnNew(target As %String, logLevel As %Integer = 2, sourceExtension = "")
     do ..BuildTypePaths(..BasePath)
     quit $$$OK 
   }
-  quit $$$ERROR(5001, "Cannot use invalid or relative paths: an absolute path is required.")
+  quit $$$PERROR($$$CannotUseRelativePath)
 }
 
-Method WriteExclusive(logLevel As %Integer, message As %String, params... As %String)
-{
-  if ..Logger.LogLevel '= logLevel quit
-  do ..Write(message, logLevel, params...)
-}
-
-Method LogExclusive(logLevel As %Integer, message As %String, params... As %String)
+Method LogExclusive(message As %String, logLevel As %Integer, params... As %String) As %String
 {
   if ..Logger.LogLevel '= logLevel quit ""
   quit ..Log(message, logLevel, params...)
 }
 
-Method Write(message As %Boolean, logLevel As %Integer = 1, params... As %String) [ Private ]
+Method Log(message As %Boolean, logLevel As %Integer = 1, params... As %String) [ Private ]
 {
   quit ..Logger.Log(message, logLevel, params...)
 }
 
-Method Log(message As %Boolean, logLevel As %Integer = 1, params... As %String) [ Private ]
+Method LogLine(message As %Boolean, logLevel As %Integer = 1, params... As %String) [ Private ]
 {
-  quit ..Logger.Log(message, logLevel, params...)
+  
+  quit ..Logger.LogLine(message, logLevel, params...)
+}
+
+Method LogExclusiveLine(message As %Boolean, logLevel As %Integer = 1, params... As %String) [ Private ]
+{
+  if ..Logger.LogLevel '= logLevel quit ""
+  quit ..Logger.LogLine(message, logLevel, params...)
 }
 
 Method GetProjectName() As %String
@@ -295,6 +296,11 @@ Method IsOutdated(current As %String, external As %String, isImport As %Boolean 
 Method GetSourceExtension() As %String [ Private ]
 {
   quit $select(..SourceExtension '= "" : "."_..SourceExtension, 1: "")
+}
+
+Method GetPathType(absolutePath As %String) As %String
+{
+  quit $$$ucase($piece($replace(##class(%File).NormalizeFilename(absolutePath), ..BasePath_..Slash, ""), ..Slash, 1))
 }
 
 }

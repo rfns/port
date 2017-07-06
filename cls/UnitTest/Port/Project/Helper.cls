@@ -31,7 +31,7 @@ Method TestIsRoutine()
 
 Method TestCSPLogicalToPhysicalPath()
 {
-  #define CSPLogicalToPhysicalPath(%CSPItem, %path, %ns) set sc = ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(%CSPItem, %path, %ns)
+  #define CSPLogicalToPhysicalPath(%CSPItem, %path) set sc = ##class(Port.Project.Helper).CSPLogicalToPhysicalPath(%CSPItem, %path)
   #define Normalize(%path) ##class(%File).NormalizeFilename(%path)
   
   set sc = $$$OK
@@ -50,14 +50,14 @@ Method TestCSPLogicalToPhysicalPath()
     do $$$LogMessage("Mock application created with success.")
   }
   
-  $$$CSPLogicalToPhysicalPath("unittest/mockapp/dummyfile.js", .resolvedPath, $namespace)
+  $$$CSPLogicalToPhysicalPath("unittest/mockapp/dummyfile.js", .resolvedPath)
   do $$$LogMessage("Resulting physical path is: "_resolvedPath)
   
   do $$$AssertEquals(resolvedPath, expectedPath, "resolves dummyfile.js's physical path.")
   
   set expectedPath = $$$Normalize($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace)_"/subpath/dummyfile.js")
   
-  $$$CSPLogicalToPhysicalPath("unittest/mockapp/subpath/dummyfile.js", .resolvedPath, $namespace)
+  $$$CSPLogicalToPhysicalPath("unittest/mockapp/subpath/dummyfile.js", .resolvedPath)
   do $$$LogMessage("Resulting physical path is: "_resolvedPath)
   
   do $$$AssertEquals(resolvedPath, expectedPath, "resolves subpath/dummyfile.js's physical path.")
@@ -72,7 +72,7 @@ Method TestCSPLogicalToPhysicalPath()
     do $$$LogMessage("Mock application destroyed with success.")
   }
   
-  $$$CSPLogicalToPhysicalPath("unittest/mockapp/dummyfile.js", .absolutePath, "dummyns")
+  $$$CSPLogicalToPhysicalPath("unittest/mockapp/dummyfile.js", .absolutePath)
   do $$$AssertStatusNotOK(sc, "returns a status code indicating that the current namespace doesn't have an application.")
 }
 
@@ -151,9 +151,6 @@ Method TestCSPPhysicalToLogicalPath()
   do $$$AssertEquals(logicalPath, expectedResult, "resolves the path to logical.")
   
   set sc = ##class(Port.Project.Helper).CSPPhysicalToLogicalPath(input, .logicalPath, "dummyns")  
-  do $$$AssertStatusNotOK(sc, "returns an error when called with an invalid namespace.")
-  
-  set sc = ##class(Port.Project.Helper).CSPPhysicalToLogicalPath("/foo/bar/dummy.txt", .logicalPath)
   do $$$AssertStatusNotOK(sc, "returns an error when called with an invalid namespace.")
 }
 

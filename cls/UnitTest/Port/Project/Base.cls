@@ -39,30 +39,6 @@ Method TestGetProjectName()
   do $$$AssertEquals(..BaseInstance.GetProjectName(), ..#MOCKNAME, "Should return the project name")
 }
 
-Method TestCheckUbiquity()
-{
-   
-  set port = ##class(%Studio.Project).%OpenId("port")
-  set baseInstance = ##class(Port.Project.Base).%New("/CacheProjects/"_$namespace_"/port")      
-  $$$ThrowOnError(port.CreateClone("faux"))
-  set faux = ##class(%Studio.Project).%OpenId("faux")
-  do faux.Unlock()  
-  do baseInstance.CheckUbiquity(.uList)
-  set id = ""
-  for {
-    set id = $order(uList(id), 1, itemData)
-    quit:id=""
-    
-    set itemName = $listget(itemData, 1)    
-    set portIdExists = (port.Items.FindObjectId($replace(id, "faux", "port")) '= "")
-    set fauxIdExists = (faux.Items.FindObjectId(id) '= "")    
-    
-    do $$$AssertEquals(portIdExists && fauxIdExists, 1, itemName_" should be ubiquous.")
-  }
-  
-  do ##class(%Studio.Project).%DeleteId("faux")
-}
-
 Method TestIsOutdated()
 {
   

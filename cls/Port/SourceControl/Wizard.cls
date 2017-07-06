@@ -1,3 +1,5 @@
+Include portutils
+
 Class Port.SourceControl.Wizard [ Abstract ]
 {
 
@@ -8,11 +10,11 @@ ClassMethod Start(hideIntroduction As %Boolean = 0)
   set choice = ""  
   
   if 'hideIntroduction {
-    write !, "Welcome to the Port configuration wizard."
+    write !, $$$FormatWizardMsg($$$PCWWelcome)
   }
   
   while invalidChoice {
-    if invalidChoice && (choice '= "") write "Invalid choice."
+    if invalidChoice && (choice '= "") write $$$FormatWizardMsg($$$PCWInvalidChoice)
     do Menu
   }
     
@@ -21,20 +23,20 @@ ClassMethod Start(hideIntroduction As %Boolean = 0)
   if choice = 3 quit ..StartAutoExportXMLConfigAssistant() quit
   if choice = 4 quit ..StartLogLevelConfigAssistant() quit
   if choice = 5 quit ..StartSourceExtensionConfigAssistant() quit
-  if choice = 6 write !, "Bye." quit $$$OK
+  if choice = 6 write !, $$$FormatWizardMsg($$$PCWBye) quit $$$OK
          
 Menu
   set choice = ""
-  write !!, "What do you want to do? (type the number)", !!
+  write !!, $$$FormatWizardMsg($$$PCWChoiceQuestion), !!
   
-  write "1. Manage workspaces.", !
-  write "2. Change test settings.", !
-  write "3. Toggle project XML auto-export.", !
-  write "4. Set log level.", !
-  write "5. Set source extension.", !
-  write "6. Exit.", !!
+  write $$$FormatWizardMsg($$$PCWManageWorkspaceChoice), !
+  write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice), !
+  write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice), !
+  write $$$FormatWizardMsg($$$PCWSetLogLevelChoice), !
+  write $$$FormatWizardMsg($$$PCWSetSourceExtensionChoice), !
+  write $$$FormatWizardMsg($$$PCWExit), !!
   
-  write "Your choice: "
+  write $$$FormatWizardMsg($$$PCWChoicePrompt)
   
   read choice
   write !  
@@ -50,11 +52,11 @@ ClassMethod StartWorkspaceConfigAssistant(hideIntroduction As %Boolean = 0)
   set choice = ""    
   
   if 'hideIntroduction {  
-    write !, "Manages workspaces that will contain the exported source code.", !!
+    write !, $$$FormatWizardMsg($$$PCWManageWorkspaceDescription), !!
   }
   
   while invalidChoice {
-    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    if invalidChoice && (choice '= "") write $$$FormatWizardMsg($$$PCWInvalidChoice), !!
     do Menu
   }
   
@@ -66,13 +68,13 @@ ClassMethod StartWorkspaceConfigAssistant(hideIntroduction As %Boolean = 0)
     
 Menu
   set choice = ""
-  write "What do you want to do? (type the number)", !!
+  write !, $$$FormatWizardMsg($$$PCWChoiceQuestion), !!
 
-  write "1. Change primary workspace.", !
-  write "2. Manage existing workspaces.", !
-  write "3. Go back.", !!
+  write $$$FormatWizardMsg($$$PCWManageWorkspaceChoice1), !
+  write $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2), !
+  write $$$FormatWizardMsg($$$PCWGoBackChoice, "3"), !!
   
-  write "Your choice: "
+  write $$$FormatWizardMsg($$$PCWChoicePrompt)
   
   read choice
   write !  
@@ -84,68 +86,65 @@ ClassMethod StartWorkspaceChoice1ConfigAssistant()
 {
   set isPathValid = 0
       
-  write !, "Configures the primary workspace that will be used to export your source code."
+  write !, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice1Description)
   
-  write !!, "You can use the following specific placeholders: ", !!
+  write !!, $$$FormatWizardMsg($$$PCWPlaceholdersAnnounce), !!
   
-  write "{PROJECT} - The active project name.", !
-  write "{NAMESPACE} - The active namespace name.", !
-  write "{USERNAME} - The active user name.", !
-  write "{INSTALLDIR} - The Caché installation directory."
+  write $$$FormatWizardMsg($$$PCWPlaceholdersProject), !
+  write $$$FormatWizardMsg($$$PCWPlaceholdersNamespace), !
+  write $$$FormatWizardMsg($$$PCWPlaceholdersUsername), !
+  write $$$FormatWizardMsg($$$PCWPlaceholdersInstallDir)
   
-  write !!, "Please type the ABSOLUTE path to be used when exporting your source files.", !
-  write "Or leave it empty to use restore the default."
-  
-  write "You can use both: UNIX or Windows schemes.", !!
-  write "Default is: ", !, "/CacheProjects/{NAMESPACE}/{PROJECT}", !
-  write "Current is: ", !, $get(^Port.SourceControl.Settings("source.path"), "none"), !!
-  write "New: ", !
+  write !!, $$$FormatWizardMsg($$$PCWPathAbsolute), !!
+ 
+  write $$$FormatWizardMsg($$$PCWPathOSSchemes), !!
+  write $$$FormatWizardMsg($$$PCWPathDefault), !, "/CacheProjects/{NAMESPACE}/{PROJECT}", !
+  write $$$FormatWizardMsg($$$PCWPathCurrent), !, $get(^Port.SourceControl.Settings("source.path"), "none"), !!
+  write $$$FormatWizardMsg($$$PCWPathNew), !
   read path
   
   if path = "" set path = "/CacheProjects/{NAMESPACE}/{PROJECT}"
     
   do ##class(Config).SetPrimaryWorkspace(path)
-  write !!, "The primary workspace is now set to: ", !
-  write path, !!
+  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice1StatusNow, path), !
   quit ..StartWorkspaceConfigAssistant(1)
 }
 
 ClassMethod StartWorkspaceChoice2ConfigAssistant()
 {
-  write !, "Manages workspaces associated to projects.", ! 
-  write !, "Projects named here will not use the primary workspace definition."
+  write !, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2Description), ! 
+  write !, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2Description2), !
   
-  write !, "Type the name of the project (or leave it empty to abort): ", !
+  write !, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2Prompt), !
   read projectName
   
-  if projectName = "" write !, "Aborted.", !! quit ..StartWorkspaceConfigAssistant(1)
+  if projectName = "" write !, $$$FormatWizardMsg($$$PCWAborted), !! quit ..StartWorkspaceConfigAssistant(1)
   set projectExists = ##class(%Studio.Project).%ExistsId(projectName)
   
   if 'projectExists {
-    write !!, "WARNING: The project "_projectName_ " doesn't exist yet.", !!
+    write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2Warning), !!
   }  
   
   set currentWorkspace = ##class(Config).GetCustomWorkspace(projectName)
-  write !!, "Current workspace is: ", !
-  write ##class(Config).GetWorkspace(projectName)
-  write !!, "You will be asked for a new workspace now.", !
-  write "You can use both: UNIX or Windows schemes.", !
-  write "Note that workspace paths must be ABSOLUTE.", !
-  write "You can use the following specific placeholders: ", !!
+  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice1StatusCurrent, ##class(Config).GetWorkspace(projectName)), !
+  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2CurrentWorskpaceWarn), !
   
-  write "{PROJECT} - The active project name.", !
-  write "{NAMESPACE} - The active namespace name.", !
-  write "{USERNAME} - The active user name.", !
-  write "{INSTALLDIR} - The Caché installation directory.", !!
+  write $$$FormatWizardMsg($$$PCWPlaceholdersProject), !
+  write $$$FormatWizardMsg($$$PCWPlaceholdersNamespace), !
+  write $$$FormatWizardMsg($$$PCWPlaceholdersUsername), !
+  write $$$FormatWizardMsg($$$PCWPlaceholdersInstallDir)
   
-  write "Type the workspace path (or leave it empty to abort): ", !
+  write !!, $$$FormatWizardMsg($$$PCWPathAbsolute), !!
+ 
+  write $$$FormatWizardMsg($$$PCWPathOSSchemes), !!  
+  
+  write $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2Prompt2), !
   read workspacePath
   
-  if workspacePath = "" write !, "Aborted.", !! quit ..StartWorkspaceConfigAssistant(1)
+  if workspacePath = "" write !, $$$FormatWizardMsg($$$PCWAborted), !! quit ..StartWorkspaceConfigAssistant(1)
   
   do ##class(Config).SetCustomWorkspace(projectName, workspacePath)
-  write !!, "The project "_projectName_" is now configured to be exported to the following path: ", !
-  write ##class(Config).GetWorkspace(projectName), !!
+  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2StatusNow, ##class(Config).GetWorkspace(projectName)), !!
   
   quit ..StartWorkspaceConfigAssistant(1)
 }
@@ -157,11 +156,11 @@ ClassMethod StartTestConfigAssistant(hideIntroduction As %Boolean = 0)
   set choice = ""    
   
   if 'hideIntroduction {  
-    write !, "Configures settings related to the Studio test integration.", !!
+    write !, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsDescription), !
   }
   
   while invalidChoice {
-    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    if invalidChoice && (choice '= "") write $$$FormatWizardMsg($$$PCWInvalidChoice), !!
     do Menu
   }
   
@@ -174,14 +173,14 @@ ClassMethod StartTestConfigAssistant(hideIntroduction As %Boolean = 0)
     
 Menu
   set choice = ""
-  write "What do you want to do? (type the number)", !!
+  write !, $$$FormatWizardMsg($$$PCWChoiceQuestion), !!
   
-  write "1. Enable or disable test on demand.", !
-  write "2. Define a new test class prefix.", !
-  write "3. Define the path where unit test classes should exported (XML).", !
-  write "4. Go back.", !!
+  write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1), !
+  write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice2), !
+  write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice3), !
+  write $$$FormatWizardMsg($$$PCWGoBackChoice, 4), !!
   
-  write "Your choice: "
+  write $$$FormatWizardMsg($$$PCWChoicePrompt)
   
   read choice
   write !  
@@ -195,40 +194,35 @@ ClassMethod StartAutoExportXMLConfigAssistant()
   set choice = ""
   set invalidChoice = 1
   
-  set labels(1) = "ENABLED"
-  set labels(0) = "DISABLED"  
+  set labels(0) = $$$FormatWizardMsg($$$PCWToggleEnabled)
+  set labels(1) = $$$FormatWizardMsg($$$PCWToggleDisabled)
   
-  write !, "Exports an XML file from project when a document is saved on Studio.", !!
+  write !, $$$FormatWizardMsg($$$PCWToggleAutoExportDescription), !
 
   while invalidChoice {
-    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    if invalidChoice && (choice '= "") write $$$FormatWizardMsg($$$PCWInvalidChoice), !!
     do Menu
   }
   
-  if choice = 1 {
-    do ##class(Port.SourceControl.Config).EnableAutoExportXML()
-    write "Auto-export XML is now ENABLED."
-  }
-  
-  if choice = 2 {
-    do ##class(Port.SourceControl.Config).DisableAutoExportXML()
-    write "Auto-export XML is now DISABLED."
-  }
+  if choice = 1 do ##class(Port.SourceControl.Config).EnableAutoExportXML()  
+  if choice = 2 do ##class(Port.SourceControl.Config).DisableAutoExportXML()
+    
+  write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice1StatusCurrent, labels(choice - 1))
   
   write !!
   quit ..Start(1)
   
 Menu
   set choice = ""
-  write "What do you want to do? (type the number)", !!
+  write !, $$$FormatWizardMsg($$$PCWChoiceQuestion), !!
     
-  write "1. Enable project XML auto-export.", ! 
-  write "2. Disable project XML auto-export.", !!  
+  write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice1), ! 
+  write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice2), !!  
      
   set status = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()
   
-  write "Auto-export XML is currently: "_labels(status), !!
-  write "Your choice: "
+  write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice1StatusCurrent, labels(status)), !!
+  write $$$FormatWizardMsg($$$PCWChoicePrompt)
   
   read choice
   set invalidChoice = ($listfind(validChoices, choice) = 0)
@@ -242,28 +236,27 @@ ClassMethod StartLogLevelConfigAssistant()
   set invalidChoice = 1
   set choice = ""
   
-  write !, "Specifies the log verbosity level when displaying operations.", !!
+  write !, $$$FormatWizardMsg($$$PCWSetLogLevelDescription), !
   
   while invalidChoice {
-    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    if invalidChoice && (choice '= "") write $$$FormatWizardMsg($$$PCWInvalidChoice), !!
     do Menu
   }
   
   do ##class(Port.SourceControl.Config).SetLogLevel(choice)
-  write "Log verbosity level is now: "_##class(Port.SourceControl.Config).GetLogLevel()
+  write $$$FormatWizardMsg($$$PCWSetLogLevelStatusNow, ##class(Port.SourceControl.Config).GetLogLevel())
   quit ..Start(1)
   
 Menu
   set choice = ""
-  write "Please set the log verbosity level (type the number):", !!
+  write !, $$$FormatWizardMsg($$$PCWSetLogLevelStatusPrompt), !!
     
-  write "1. Level 1: Displays item equeieing, import categories, backup notifications, repository status and error messages.", ! 
-  write "2. Level 2: Same as Level 1, but includes atomical operations.", !!  
-     
-  set status = ##class(Port.SourceControl.Config).IsTestOnDemandEnabled()
+  write $$$FormatWizardMsg($$$PCWSetLogLevelStatusChoice1), !!
   
-  write "Log verbosity level is currently: "_##class(Port.SourceControl.Config).GetLogLevel(), !!
-  write "Your choice: "
+  write $$$FormatWizardMsg($$$PCWSetLogLevelStatusChoice2), !!
+  
+  write $$$FormatWizardMsg($$$PCWSetLogLevelStatusCurrent, ##class(Port.SourceControl.Config).GetLogLevel()), !!
+  write $$$FormatWizardMsg($$$PCWChoicePrompt)
   
   read choice
   set invalidChoice = ($listfind(validChoices, choice) = 0)
@@ -274,16 +267,17 @@ Menu
 ClassMethod StartSourceExtensionConfigAssistant()
 {
   set currentExtension = $get(^Port.SourceControl.Settings("source.extension"))
-  write !, "Defines an extension to be appended globaly to every exported routine.", !!
+  write !, $$$FormatWizardMsg($$$PCWSetSourceExtensionDescription), !
   
-  write "Please type the extension below: ", !!
-  write "Current is: "_$select(currentExtension = "" : "none.", 1: "."_currentExtension), !
-  write "New: "
+  write $$$FormatWizardMsg($$$PWCSetSourceExtensionPrompt), !!
+  write $$$FormatWizardMsg($$$PCWPathDefault), !
+  write $select(currentExtension = "" : "none.", 1: "."_currentExtension), !
+  write $$$FormatWizardMsg($$$PCWPathNew)
   read extension   
   
   do ##class(Port.SourceControl.Config).SetSourceExtension(extension)
   set savedExtension = $get(^Port.SourceControl.Settings("source.extension"))
-  write !!, "The extension is now set to: "_$select(savedExtension = "" : "none.", 1: "."_savedExtension)
+  write !!, $$$FormatWizardMsg($$$PWCSetSourceExtensionStatusNow, $select(savedExtension = "" : "none.", 1: "."_savedExtension))
   quit ..Start(1)
 }
 
@@ -293,40 +287,35 @@ ClassMethod StartTestChoice1ConfigAssistant()
   set invalidChoice = 1
   set choice = ""
   
-  set labels(1) = "ENABLED"
-  set labels(0) = "DISABLED"
+  set labels(0) = $$$FormatWizardMsg($$$PCWToggleEnabled)
+  set labels(1) = $$$FormatWizardMsg($$$PCWToggleDisabled)
   
-  write !, "When this settings is enabled, Port will try to match the test class prefix and run the related test.", !!  
+  write !, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1Description), !  
   
   while invalidChoice {
-    if invalidChoice && (choice '= "") write "Invalid choice.", !!
+    if invalidChoice && (choice '= "") write $$$FormatWizardMsg($$$PCWInvalidChoice), !!
     do Menu
   }
   
-  if choice = 1 {
-    do ##class(Port.SourceControl.Config).EnableTestOnDemand()
-    write "Test on demand is now ENABLED."
-  }
+  if choice = 1 do ##class(Port.SourceControl.Config).EnableTestOnDemand()      
+  if choice = 2 do ##class(Port.SourceControl.Config).DisableTestOnDemand()
   
-  if choice = 2 {
-    do ##class(Port.SourceControl.Config).DisableTestOnDemand()
-    write "Test on demand is now DISABLED."
-  }
+  write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1StatusCurrent, labels(choice - 1))
   
-  write !!
+  write !
   quit ..StartTestConfigAssistant(1)
   
 Menu
   set choice = ""
-  write "What do you want to do? (type the number)", !!
+  write !, $$$FormatWizardMsg($$$PCWChoiceQuestion), !!
     
-  write "1. Enable test on demand.", ! 
-  write "2. Disable test on demand.", !!  
+  write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1Choice1), ! 
+  write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1Choice2), !! 
      
   set status = ##class(Port.SourceControl.Config).IsTestOnDemandEnabled()
   
-  write "Test on demand is currently: "_labels(status), !!
-  write "Your choice: "
+  write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1StatusCurrent, labels(status)), !
+  write $$$FormatWizardMsg($$$PCWChoicePrompt)
   
   read choice
   set invalidChoice = ($listfind(validChoices, choice) = 0)
@@ -337,47 +326,42 @@ Menu
 ClassMethod StartTestChoice2ConfigAssistant()
 {
   
-  write !, "A test class prefix is required to inform Port which package should be considered as a test package."
-  write " Port uses this prefix when trying to find an equivalent implementation class."
-  write !, "Ex: UnitTest.MyPackage.MyClass -> MyPackage.MyClass.", !!
+  write !, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1Description), !
+  write !, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice2Description), !
+  write !, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice3Description), !!
   
-  write "Please type the prefix below. Note that prefixes can also be composed.", !
-  write "Ex: Package.UnitTest.", !!
-  write "Default is: UnitTest", !
-  write "Current is: "_##class(Port.SourceControl.Config).GetTestClassPrefix(), !
-  write "New: "
+  write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice2Prompt), !  
+  write $$$FormatWizardMsg($$$PCWPathDefault), " UnitTest", !
+  write $$$FormatWizardMsg($$$PCWPathCurrent), " ", ##class(Port.SourceControl.Config).GetTestClassPrefix(), !!
+  write $$$FormatWizardMsg($$$PCWPathNew)
   read prefix   
   
   do ##class(Port.SourceControl.Config).SetTestClassPrefix(prefix)
-  write !!, "The prefix is now set to: "_##class(Port.SourceControl.Config).GetTestClassPrefix()_"."
+  write !!, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice2StatusNow, ##class(Port.SourceControl.Config).GetTestClassPrefix())
   write !!
   quit ..StartTestConfigAssistant(1)
 }
 
 ClassMethod StartTestChoice3ConfigAssistant()
 {
-  write !, "Defines the path where the each test classes should be exported."
+  write !, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice3Description)
   
-  write !!, "You can use the following specific placeholders: ", !!
+  write !!, $$$FormatWizardMsg($$$PCWPlaceholdersAnnounce), !!
   
-  write "{PROJECT} - The active project name.", !
-  write "{NAMESPACE} - The active namespace name.", !
-  write "{USERNAME} - The active user name.", !
-  write "{INSTALLDIR} - The Caché installation directory.", !!
+  write $$$FormatWizardMsg($$$PCWPlaceholdersProject), !
+  write $$$FormatWizardMsg($$$PCWPlaceholdersNamespace), !
+  write $$$FormatWizardMsg($$$PCWPlaceholdersUsername), !
+  write $$$FormatWizardMsg($$$PCWPlaceholdersInstallDir)
+  
+  write !!, $$$FormatWizardMsg($$$PCWPathRelative), !
     
-  write "Please type the RELATIVE path to be used when exporting your test files.", !
-  write "You can use both: UNIX or Windows schemes.", !
-  write "Test paths are relative to each project root.", !
-  write "This is equivalent to: "_^Port.SourceControl.Settings("source.path"), !!
-  
-  write "You can use both: UNIX or Windows schemes.", !!
-  write "Default is: ", !, "tests/cls", !
-  write "Current is: ", !, $get(^Port.SourceControl.Settings("test.path")), !!
-  write "New: ", !
+  write $$$FormatWizardMsg($$$PCWPathDefault), !, "tests", !
+  write $$$FormatWizardMsg($$$PCWPathCurrent), !, $get(^Port.SourceControl.Settings("test.path")), !!
+  write $$$FormatWizardMsg($$$PCWPathNew), !
   read path
    
   do ##class(Port.SourceControl.Config).SetTestPath(path)
-  write !!, "The test path is now set to: "_^Port.SourceControl.Settings("test.path")_"."
+  write !!, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice3StatusNow, ^Port.SourceControl.Settings("test.path"))
   write !!
   quit ..StartTestConfigAssistant(1)
 }

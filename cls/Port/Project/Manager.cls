@@ -3,14 +3,13 @@ Include portutils
 Class Port.Project.Manager
 {
 
-ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As %String, sourceExtension As %String, sc As %Status) As Port.Project.Base [ Private ]
+ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As %String, sourceExtension As %String, Output sc As %Status) As Port.Project.Base [ Private ]
 {
   set sc = $$$OK
   set utility = ""  
   set utilityTypes("E") = "Port.Project.Exporter"
   set utilityTypes("I") = "Port.Project.Importer"
   set utilityTypes("X") = "Port.Project.XMLExporter"  
-  
   try {
     set utility = $classmethod(utilityTypes(type), "%New", path, logLevel, sourceExtension)
     quit
@@ -20,7 +19,7 @@ ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As 
   quit utility
 }
 
-ClassMethod Export(outputPath As %String, logLevel As %Boolean = 2, force As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "", sourceExtension As %String = "") As %Status
+ClassMethod Export(outputPath As %String, logLevel As %Integer = 2, force As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "", sourceExtension As %String = "") As %Status
 {
   set exporter = ..AssertUtilityCreation("E", outputPath, logLevel, sourceExtension, .sc)
   $$$QuitOnError(sc)
@@ -34,9 +33,9 @@ ClassMethod Export(outputPath As %String, logLevel As %Boolean = 2, force As %Bo
   quit $$$OK
 }
 
-ClassMethod ExportToXML(outputPath As %String, justProject As %Boolean = 0) As %Status
+ClassMethod ExportToXML(outputPath As %String, logLevel As %Integer = 2, justProject As %Boolean = 0) As %Status
 {
-  set exporter = ..AssertUtilityCreation("X", outputPath, 0, "", .sc)
+  set exporter = ..AssertUtilityCreation("X", outputPath, logLevel, "", .sc)
   $$$QuitOnError(sc)  
   quit exporter.ExportToXML(justProject)
 }
@@ -110,7 +109,7 @@ ClassMethod RemoveItemsByType(projectName As %String, type As %String, Output it
 ClassMethod ExportTestSuiteToXML(outputPath As %String) As %Status
 {
   set testPath = ##class(Port.SourceControl.Config).GetTestPath()
-  set exporter = ..AssertUtilityCreation("X", .outputPath, 0, "", .sc)
+  set exporter = ..AssertUtilityCreation("X", .outputPath, 2, "", .sc)
   $$$QuitOnError(sc)
   quit exporter.ExportTests(outputPath_"/"_testPath)
 }

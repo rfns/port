@@ -1,17 +1,16 @@
+Include portutils
+
 Class Port.SourceControl.Config Extends %SYSTEM.Help
 {
 
-/// Sets the log level used to display the info. Ranging from 1 to 3, greater is more detailed.
+/// Sets the log level verbosity used to display the info. Ranging from 1 to 2, greater provides more detailed info.
 ClassMethod SetLogLevel(logLevel As %Integer) As %Status
 {
-  if '$isvalidnum(logLevel) { 
-    quit $$$ERROR($$$GeneralError, "Log level must be a number between 0 and 2.")
-  }
   if logLevel > 0 && (logLevel < 3) {
     set ^Port.SourceControl.Settings("general.logLevel") = logLevel
     quit $$$OK
   }
-  quit $$$ERROR($$$GeneralError, "Log level out of range.")
+  quit $$$PERROR($$$LogLevelIsOutOfRange, "1, 2")
 }
 
 /// Gets the current configured log level.
@@ -20,83 +19,83 @@ ClassMethod GetLogLevel() As %Status
   quit $get(^Port.SourceControl.Settings("general.logLevel"), 0)
 }
 
-/// Sets the path where the files are to be exported..
+/// Sets the primary path where the project should be exported. This can be overwritten by SetCustomWorkspace.
 ClassMethod SetPrimaryWorkspace(newWorkspace As %String = "") As %String
 {
   set ^Port.SourceControl.Settings("source.path") = $select(newWorkspace = "" : "/CacheProjects/{NAMESPACE}/{PROJECT}", 1: newWorkspace)
 }
 
-/// Gets the resolved export path. Pass 1 to excludeProject to return the project's parent directory.
+/// Resolves any placeholders and gets the precise path for the specified project. This priorizes the custom workspace and falls back to the primary.
 ClassMethod GetWorkspace(projectName As %String = {$get(^||%Studio.Project)}) As %String
 {
   set customWorkspace = ..GetCustomWorkspace(projectName)
-  if customWorkspace '= "" quit ..rewritePlaceHolders(customWorkspace, projectName)
-  quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("source.path")), projectName)
+  if customWorkspace '= "" quit ..RewritePlaceHolders(customWorkspace, projectName,$lb("{NAMESPACE}","{PROJECT}","{USERNAME}"))
+  quit ..RewritePlaceHolders($get(^Port.SourceControl.Settings("source.path")), projectName, $lb("{NAMESPACE}","{INSTALLDIR}","{PROJECT}","{USERNAME}"))
 }
 
-/// Enables the feature: exports the project as XML when it is saved or plainly exported.
+/// Generates and export a XML project whenever a item is saved. This is useful for keeping the project XML always up-to-date.
 ClassMethod EnableAutoExportXML() As %Boolean
 {
   set ^Port.SourceControl.Settings("xml.autoexport") = 1
 }
 
-/// Disables the feature: exports the project as XML when it is saved or plainly exported.
+/// Disables the generation of the project XML file.
 ClassMethod DisableAutoExportXML() As %Boolean
 {
   set ^Port.SourceControl.Settings("xml.autoexport") = 0
 }
 
-/// Returns if the auto-export feature is enabled. 
+/// Returns if project XML generation is enabled.
 ClassMethod IsAutoExportXMLEnabled() As %Status
 {
   quit ($get(^Port.SourceControl.Settings("xml.autoexport")) = 1)
 }
 
-/// Sets the path which the source control should export and look up for tests on XML format.
+/// Relative to it's project. Sets the path where test cases should be exported.
 ClassMethod SetTestPath(newPath As %String = "")
 {
   
   set ^Port.SourceControl.Settings("test.path") = $select(newPath = "" : "tests/cls", 1: newPath)
 }
 
-/// Gets the resolved test path.
+/// Retrives the resolved path where tests are being exported.
 ClassMethod GetTestPath() As %String
 {
-  quit ..rewritePlaceHolders($get(^Port.SourceControl.Settings("test.path")))
+  quit ..RewritePlaceHolders($get(^Port.SourceControl.Settings("test.path")),,$lb("{NAMESPACE}","{PROJECT}","{USERNAME}"))
 }
 
-/// Informs the source control to run associated test class when the source is compiled.
+/// Allows Port to run matching test cases whenever the match is compiled.
 ClassMethod EnableTestOnDemand()
 {
   set ^Port.SourceControl.Settings("test.ondemand") = 1
 }
 
-/// Disables the test class association.
+/// Prevents Port from running test cases automatically.
 ClassMethod DisableTestOnDemand()
 {
   set ^Port.SourceControl.Settings("test.ondemand") = 0
 }
 
-/// Returns 1 if association is enabled, 0 if not.
+/// Retrieves if Port is configured to run test cases automatically.
 ClassMethod IsTestOnDemandEnabled() As %String
 {
   quit ($get(^Port.SourceControl.Settings("test.ondemand")) = 1)
 }
 
-/// Sets the prefix used to associate the source with it's test class.
+/// Sets the prefix used to match against the implementation classe.
 ClassMethod SetTestClassPrefix(newPrefix As %String = "")
 {
   set ^Port.SourceControl.Settings("test.prefix") = $select(newPrefix = "" : "UnitTest", 1: newPrefix)
 }
 
-/// Gets the association prefix.
+/// Gets the associated test prefix.
 ClassMethod GetTestClassPrefix() As %String
 {
   
   quit $get(^Port.SourceControl.Settings("test.prefix"))
 }
 
-/// Defines the extension to be used for exported source files overwriting their own.
+/// Defines the extension to be appended when exporting Caché files. If extension starts with a dot, it will be removed.
 ClassMethod SetSourceExtension(value As %String = "") As %Status
 {
   do ..TrackActiveExtension()
@@ -105,7 +104,7 @@ ClassMethod SetSourceExtension(value As %String = "") As %Status
   quit $$$OK
 }
 
-/// Gets the source extension.
+/// Gets the appending source extension.
 ClassMethod GetSourceExtension() As %String
 {
   
@@ -116,49 +115,64 @@ ClassMethod GetSourceExtension() As %String
 
 ClassMethod IsSameSourceExtension() As %Boolean [ Final, Internal ]
 {
+  // For internal use only: Checks if the configured extension is the same than the last one
+  // used to export a project. If it isn't, an exception will be fired.
   set extension = ..GetSourceExtension()
   quit (extension = $get(^Port.SourceControl.Settings("internals.trackers.extension")))
 }
 
 ClassMethod TrackActiveExtension() [ Final, Internal ]
 {
+  // For internal use only: Updates the last used extension to match the current configuration.
   set ^Port.SourceControl.Settings("internals.trackers.extension") = ..GetSourceExtension()
 }
 
+ClassMethod GetWebAppPath() As %String
+{
+  // For internal use only: Performs a quick search of the web app path that is registered when Port is installed.
+  quit $get(^Port.SourceControl.Settings("internals.webapp.path"))
+}
+
+/// Defines a custom workspace, a path where a single project should be exported. This configuration ovewrites the primary workspace.
 ClassMethod SetCustomWorkspace(projectName As %String, path As %String = {..GetWorkspace()}) As %Status [ Internal ]
 {
-  set ^Port.SourceControl.Settings("workspace.project", projectName) = path
+    set ^Port.SourceControl.Settings("workspace.project", projectName) = path
   quit $$$OK
 }
 
+/// Retrieves the resolved workspace path for the provided project. Returns empty if there's none.
 ClassMethod GetCustomWorkspace(projectName As %String) As %String [ Internal ]
 {
   set customWorkspace = $get(^Port.SourceControl.Settings("workspace.project", projectName))
-  quit ..rewritePlaceHolders(customWorkspace, projectName)
+  quit ..RewritePlaceHolders(customWorkspace, projectName, $lb("{NAMESPACE}","{INSTALLDIR}","{PROJECT}","{USERNAME}"))
 }
 
+/// Returns if the project has a custom workspace.
 ClassMethod HasCustomWorkspace(projectName As %String) As %Boolean [ Internal ]
 {
  
   quit (..GetCustomWorkspace(projectName) '= "")
 }
 
+/// Removes the custom workspace from the project provided, which also resets it back to using the primary.
 ClassMethod RemoveCustomWorkspace(projectName As %String)
 {
   kill ^Port.SourceControl.Settings("workspace.project", projectName)
 }
 
+/// Remove all Port configurations. This will not erase project logs.
 ClassMethod Uninstall() As %Status
 {
   kill ^Port.SourceControl.Settings
   quit $$$OK
 }
 
-ClassMethod rewritePlaceHolders(basePath As %String, projectName As %String = {$get(^||%Studio.Project)}, params... As %String) As %String [ Internal ]
+ClassMethod RewritePlaceHolders(basePath As %String, projectName As %String = {$get(^||%Studio.Project)}, allowedPlaceholders = "*", params... As %String) As %String [ Internal ]
 {
-  if '$data(params) set params = ""  
+ 
+  if '$data(params) set params = ""
   set translatedPath = basePath  
-  #define RewriteIfPathContains(%expression, %replacement) set translatedPath = $select(translatedPath [ %expression : $replace(translatedPath, %expression, %replacement), 1: translatedPath) 
+  #define RewriteIfPathContains(%expression, %replacement) if ($lv(allowedPlaceholders) && $lf(allowedPlaceholders, %expression)) || (allowedPlaceholders = "*") set translatedPath = $select(translatedPath [ %expression : $replace(translatedPath, %expression, %replacement), 1: translatedPath) 
   
   set installDirectory = $System.Util.InstallDirectory()
   set installDirectory = $extract(installDirectory, 1, $length(installDirectory) - 1)

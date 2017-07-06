@@ -1,14 +1,14 @@
+Include portutils
+
 Class Port.SourceControl.Util [ Abstract ]
 {
 
-Parameter DEFAULTPATH = "/CacheProjects/{NAMESPACE}/{PROJECT}";
-
-ClassMethod GetFullItemPath(itemName As %String) As %String
+ClassMethod GetFullItemPath(itemName As %String, projectName As %String = {$get(^||%Studio.Project)}, sourceExtension = {##class(Port.SourceControl.Config).GetSourceExtension()}) As %String
 {
   
   set fullPath = ""
   set type = ##class(Port.Project.Helper).GetItemExtension(itemName)
-  set defaultPath = ##class(%File).NormalizeFilename(##class(Config).GetWorkspace())
+  set defaultPath = ##class(%File).NormalizeFilename(##class(Config).GetWorkspace(projectName))  
   
   if type = "CLS" {
     set fullPath = ##class(Port.Project.Helper).ClassToFile(defaultPath_"/cls", $piece(itemName, ".", 1, *-1))
@@ -17,7 +17,9 @@ ClassMethod GetFullItemPath(itemName As %String) As %String
     set fileName = $$$lcase(itemName)_"."_##class(Config).GetSourceExtension()
     set fullPath = ##class(%File).NormalizeFilename(defaultPath_"/"_ext_"/"_fileName) 
   } elseif type = "PKG" {
-    set fullPath = ##class(%File).GetDirectory(##class(Port.Project.Helper).ClassToFile(defaultPath_"/cls", itemName))
+    // Deep package?
+    set name = $replace(itemName, ".PKG", "")
+    set fullPath = ##class(Port.Project.Helper).ClassToFile(defaultPath_"/cls", name, sourceExtension,0)   
   } else {
     set sourceFilePath = $replace(itemName, $System.CSP.GetDefaultApp($namespace), "/web")    
     set fullPath = ##class(%File).NormalizeFilename(defaultPath_sourceFilePath) 
@@ -35,19 +37,6 @@ ClassMethod ResolveInternalName(internalName As %String) As %String
   quit name
 }
 
-ClassMethod AssertTestableClass(className, Output testableClass As %String = "") As %Boolean
-{
-  set prefix = ##class(Config).GetTestClassPrefix()
-  set rootPackage = $piece(className, ".")  
-  
-  if rootPackage = prefix {
-    set testableClass = className
-  } elseif ##class(%Dictionary.ClassDefinition).%ExistsId(prefix_"."_className) {
-    set testableClass = prefix_"."_className 
-  }
-  quit (testableClass '= "")
-}
-
 ClassMethod GetIgnoredPaths(basePath As %String) As %ListOfDataTypes
 {
  
@@ -62,6 +51,13 @@ ClassMethod GetIgnoredPaths(basePath As %String) As %ListOfDataTypes
     }
   }
   quit ignoredPaths
+}
+
+ClassMethod IsPackage(maybePackage As %String) As %Boolean
+{
+  set package = maybePackage_"."
+  &sql(SELECT COUNT(ID) INTO :packageExists FROM %DICTIONARY.COMPILEDCLASS WHERE NAME %STARTSWITH :package)
+  quit (packageExists > 0)
 }
 
 }
