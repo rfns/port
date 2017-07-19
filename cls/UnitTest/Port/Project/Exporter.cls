@@ -105,16 +105,5 @@ Method TestExport()
   quit
 }
 
-ClassMethod test()
-{
-  set ^||Port.Project = "port"
-  set t = ..%New(##class(Port.UnitTest.Manager).%New())
-  do t.OnBeforeAllTests()
-  do t.OnBeforeOneTest()
-  do t.TestExportItem()
-  do t.OnAfterAllTests()
-  do t.OnAfterOneTest()
-}
-
 }
 

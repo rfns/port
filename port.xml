@@ -4550,19 +4550,6 @@ Menu
   quit
 ]]></Implementation>
 </Method>
-
-<Method name="test">
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[
-  set ^||Port.Project = "port"
-  set t = ..%New(##class(Port.UnitTest.Manager).%New())
-  do t.OnBeforeAllTests()
-  do t.OnBeforeOneTest()
-  do t.TestExportItem()
-  do t.OnAfterAllTests()
-  do t.OnAfterOneTest()
-]]></Implementation>
-</Method>
 </Class>
 
 
