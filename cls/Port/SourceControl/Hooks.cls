@@ -36,24 +36,22 @@ XData Menu
 Method OnAfterSave(InternalName As %String) As %Status
 {
   #dim exporter As Port.Project.Exporter 
-  set projectName = $get(^||%Studio.Project)
+  set projectName = $get(^||Port.Project)
   set sc = $$$OK
   if projectName '= "" && (projectName '[ "Default") {
-    set exportPath = ##class(Config).GetWorkspace()
-    set type = ##class(Port.Project.Helper).GetItemExtension(InternalName)    
+    set exportPath = ##class(Port.Configuration).GetWorkspace()
+    set type = ##class(Port.Util).ResolveItemExtension(InternalName)
     
     if type '= "PRJ" {      
-      set sourceExtension = ##class(Config).GetSourceExtension()
+      set sourceExtension = ##class(Port.Configuration).GetSourceExtension()
       set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
-      set itemName = ##class(Util).ResolveInternalName(InternalName)           
-      set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
-      set ubiquitousList = ##class(Port.Project.Helper).UbiquitousInProject(projectName, InternalName)
+      set shouldExportAsXML = ##class(Port.Configuration).IsAutoExportXMLEnabled()
+      set ubiquitousList = ##class(Port.Util).UbiquitousInProject(projectName, InternalName)
       
       set exporter.SourceExtension = sourceExtension
-      set exporter.LogLevel = 2
       
-      if '##class(Port.Project.Helper).ExistsInProject(projectName, InternalName) {
-        quit $$$OK
+      if '##class(Port.Util).ExistsInProject(projectName, InternalName) {
+        return $$$OK
       }
       
       if ubiquitousList '= "" {
@@ -61,38 +59,42 @@ Method OnAfterSave(InternalName As %String) As %Status
         write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2)
       }
       
-      if type = "CLS" {
-        set sc = exporter.ExportClass(itemName)
-      } elseif ##class(Port.Project.Helper).IsRoutine(InternalName) {
+      if type = "CLS" {        
+        set sc = exporter.ExportClass(InternalName, .exported)
+        if exported '= "" && ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass) {
+          set testPath = ##class(Port.Configuration).GetTestPath()
+          set xmlExporter = ##class(Port.Project.XMLExporter).%New(exportPath, 2)
+          do xmlExporter.ExportTest($$$NFN(exportPath_"/"_testPath), testableClass, .ssc)          
+          set sc = $$$ADDSC(sc, ssc)
+        }
+      } elseif ##class(Port.Util).IsRoutine(InternalName) {
         set sc = exporter.ExportRoutine(InternalName)
       } elseif type = "PKG" {     
-        set sc = exporter.ExportPackage(itemName)     
+        set sc = exporter.ExportPackage(InternalName)     
       } elseif type '= "" {
-        set sc = exporter.ExportWebFile(itemName)     
+        set sc = exporter.ExportWebFile(InternalName)     
       }
       if '%importingFromXML {        
         $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath, 2))
       }
     }  
-  } else {
-    
   }
-  if '##class(Config).HasCustomWorkspace(projectName) { 
-    do ##class(Config).SetCustomWorkspace(projectName)
+  if '##class(Port.Configuration).HasCustomWorkspace(projectName) { 
+    do ##class(Port.Configuration).SetCustomWorkspace(projectName)
   }   
-  quit sc
+  return sc
 }
 
 Method OnBeforeSave() As %Status
 {
-  set projectName = $get(^||%Studio.Project)
+  set projectName = $get(^||Port.Project)
   
   if projectName '= "" && (projectName [ "Default") {
     write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
     write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
   }
-  quit $$$OK
+  return $$$OK
 }
 
 Method UserAction(Type As %Integer, Name As %String, InternalName As %String, SelectedText As %String, ByRef Action As %String, ByRef Target As %String, ByRef Msg As %String, ByRef Reload As %Boolean) As %Status
@@ -102,53 +104,50 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
   // We must know if the user is importing from a XML and prevent it from being exported.
   set %importingFromXML = (Name = 6)
   
-  if $data(^||%Studio.Project) {
-    set projectName = ^||%Studio.Project
-    set fullPath = ##class(Util).GetFullItemPath(InternalName)
-    set itemName = ##class(Util).ResolveInternalName(InternalName)
-    set projectPath = ##class(Config).GetWorkspace()
-    set testPath = ##class(Config).GetTestPath()
-    set logLevel = ##class(Config).GetLogLevel()
-    set shouldExportAsXML = ##class(Config).IsAutoExportXMLEnabled()
-    set sourceExtension = ##class(Config).GetSourceExtension()
-    set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
+  if $data(^||Port.Project) {
+    set projectName = ^||Port.Project
+    set fullPath = ##class(Port.Util).GetItemSourcePathFromWorkspace(InternalName)
+    set projectPath = ##class(Port.Configuration).GetWorkspace()
+    set testPath = ##class(Port.Configuration).GetTestPath()
+    set logLevel = ##class(Port.Configuration).GetLogLevel()
+    set shouldExportAsXML = ##class(Port.Configuration).IsAutoExportXMLEnabled()
+    set sourceExtension = ##class(Port.Configuration).GetSourceExtension()
+    set ignoredPaths = ##class(Port.Util).GetIgnoredPaths(projectPath)
     
     if name = "%MLExport" {
-      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
-      if shouldOverwrite do ##class(Config).TrackActiveExtension()      
+      set shouldOverwrite = '##class(Port.Configuration).IsSameSourceExtension()
+      if shouldOverwrite do ##class(Port.Configuration).TrackActiveExtension()      
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, shouldOverwrite, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))      
-      quit $$$OK
+      return $$$OK
     }
     if name = "%MLExportToXML" {
-      quit ##class(Port.Project.Manager).ExportToXML(projectPath)
+      return ##class(Port.Project.Manager).ExportToXML(projectPath)
     }
     if name = "%MLExportTests" {
-      quit ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath)
+      return ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath)
     }
-    if name = "%MLRunTests" && (projectPath '= "") {
-      do ##class(%File).RemoveDirectoryTree(projectPath_"/"_testPath)
-      $$$QuitOnError(##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath))
-      $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/load/run/nodelete"))
+    if name = "%MLRunTests" && (projectPath '= "") {      
+      $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/run/noload/nodelete"))
     }       
     if name = "%MLImport" {
       $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0,,sourceExtension))
     }
     if name = "%MLRemoveClasses" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CLS"))
-      quit ##class(Log).Synchronize()
+      return ##class(Log).Synchronize()
     }
     if name = "%MLRemoveFiles" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CSP"))
-      quit ##class(Log).Synchronize()
+      return ##class(Log).Synchronize()
     }
     if name = "%MLRemoveRoutines" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "MAC"))
-      quit ##class(Log).Synchronize()
+      return ##class(Log).Synchronize()
     }
     if name = "%MLScanAndFix" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveInvalidItems(projectName))
-      quit ##class(Log).Synchronize()     
+      return ##class(Log).Synchronize()     
     }
     
     if name = "%CMLExportActive" {
@@ -164,48 +163,46 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
         $$$QuitOnError(##class(Log).LogChange(projectName, internalName))
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
       } else {
-        set ignoredPaths = ##class(Util).GetIgnoredPaths(projectPath)
-        quit ##class(Port.Project.Manager).Export(projectPath, logLevel, 1)
+        set ignoredPaths = ##class(Port.Util).GetIgnoredPaths(projectPath)
+        return ##class(Port.Project.Manager).Export(projectPath, logLevel, 1)
       }
     }
     
     if name = "%CMLImportActive" {
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
-        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
+        return ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
       } else {
-        quit ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
+        return ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
       }
     }
     
     if name = "%CMLRunActiveTest" {
-      set testable = ##class(Port.UnitTest.Util).AssertTestableClass(itemName, .testableClass)
+      set testable = ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass)
       if testable {
-        $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath))
-        quit ##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass)
+        $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetTestPathForClass(testableClass), "/norecursive/run/noload/nodelete"))
       }
     }
     
     if name = "%MLForceExport" {
-      set shouldOverwrite = '##class(Config).IsSameSourceExtension()
-      if shouldOverwrite do ##class(Config).TrackActiveExtension()
+      set shouldOverwrite = '##class(Port.Configuration).IsSameSourceExtension()
+      if shouldOverwrite do ##class(Port.Configuration).TrackActiveExtension()
       $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths, sourceExtension))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
-      if '##class(Config).HasCustomWorkspace(projectName) { 
-        do ##class(Config).SetCustomWorkspace(projectName)
+      if '##class(Port.Configuration).HasCustomWorkspace(projectName) { 
+        do ##class(Port.Configuration).SetCustomWorkspace(projectName)
       }
     }
     
     if name = "%MLForceImport" {
-      quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
+      return ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
     }    
   }
-  quit $$$OK
+  return $$$OK
 }
 
 Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As %String, ByRef Enabled As %Boolean, ByRef DisplayName As %String) As %Status
 {
   
-  set itemName = ##class(Port.SourceControl.Util).ResolveInternalName(InternalName)
   set menu=$piece(MenuName,","),name=$piece(MenuName,",",2)
   If menu'="%SourceMenu",menu'="%SourceContext" Quit $$$OK
   set isContextual = (menu = "%SourceContext")
@@ -243,11 +240,11 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
   
   if name = "%CMLRunActiveTest" {
     set Enabled = 
-      ##class(Port.Project.Helper).ExistsInProject(^||%Studio.Project, InternalName) &&
-      ##class(Port.UnitTest.Util).AssertTestableClass(itemName)
+      ##class(Port.Util).ExistsInProject(^||Port.Project, InternalName) &&
+      ##class(Port.UnitTest.Util).AssertTestableClass(InternalName)
   } 
   
-  set isProjectOpened = ($get(^||%Studio.Project, "Default") '[ "Default")
+  set isProjectOpened = ($get(^||Port.Project, "Default") '[ "Default")
   if 'isProjectOpened {
     set Enabled = 0
   }
@@ -257,39 +254,29 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
 /// Called after the compile of the item is done.
 Method OnAfterCompile(InternalName As %String) As %Status
 {
-  if $get(%importingFromXML, 0) quit $$$OK
-  set projectName = $get(^||%Studio.Project)
+  if $get(%importingFromXML, 0) return $$$OK
+  set projectName = $get(^||Port.Project)
   set sc = $$$OK
   
   if projectName '= "" && (projectName '[ "Default") {
-    set projectPath = ##class(Config).GetWorkspace()
-    set itemName = ##class(Util).ResolveInternalName(InternalName)
-    set type = $$$ucase($piece(InternalName, ".", *))
+    set projectPath = ##class(Port.Configuration).GetWorkspace()
+    set type = ##class(Port.Util).ResolveItemExtension(InternalName)
     set xmlExporter = ##class(Port.Project.XMLExporter).%New(projectPath)
     
     if type = "CLS" {     
-      set testPath = ##class(Config).GetTestPath()      
+      set testPath = ##class(Port.Configuration).GetTestPath()      
       set shouldRunTest = (
-        ##class(Config).IsTestOnDemandEnabled() &&
-        ##class(Port.UniTest.Util).AssertTestableClass(itemName, .testableClass) &&
+        ##class(Port.Configuration).IsTestOnDemandEnabled() &&
+        ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass) &&
         ##class(%File).DirectoryExists(projectPath_"/"_testPath)        
       )
       if shouldRunTest {
-        set activeTestableClass = InternalName
-        
-        do ##class(%RoutineMgr).TS(activeTestableClass, .act, .isActiveUpToDate)        
-        do ##class(%RoutineMgr).TS(testableClass_".CLS", .tct, .isTestUpToDate)
-                
-        if 'isTestUpToDate {
-          set filePath = ##class(Port.Project.Helper).ClassToFile(projectPath_"/"_testPath, testableClass)
-          $$$QuitOnError(xmlExporter.ExportTest(projectPath, testableClass))
-          $$$QuitOnError(##class(Port.UnitTest.Manager).DebugLoadTestSuite(testPath, "/nodisplay"))
-        }       
-        $$$QuitOnError(##class(Port.UnitTest.Manager).DebugRunTestCase(testPath, testableClass))   
+       $$$QuitOnError(xmlExporter.ExportTest(projectPath, testableClass))
+       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetTestPathForClass(testableClass), "/norecursive/run/noload/nodelete"))
       } 
     }
   }
-  quit $$$OK
+  return $$$OK
 }
 
 Method OnBeforeDelete(InternalName As %String) As %Status
@@ -297,22 +284,27 @@ Method OnBeforeDelete(InternalName As %String) As %Status
   // This is used to prevent orphan workspaces entries.
   if (InternalName?1".PRJ") {
     set projectName = $piece(InternalName, ".", 1, *-1)
-    do ##class(Config).RemoveCustomWorkspace(projectName)
+    do ##class(Port.Configuration).RemoveCustomWorkspace(projectName)
   }
-  quit $$$OK
+  return $$$OK
 }
 
 /// This is called before the actual load of data to give the chance
 /// to load the item from an external format.
 Method OnBeforeLoad(InternalName As %String) As %Status
 {
-  set projectName = $get(^||%Studio.Project)
-  set ubiquitousList = ##class(Port.Project.Helper).UbiquitousInProject(projectName, InternalName)
+  // We need to use our own project global to prevent %Studio.Project from disrupting the current source control hooks.
+  // This also allows us to modify the project only if certain conditions are met.
+  set studioProject = $get(^||%Studio.Project)
+  if studioProject '= "" set ^||Port.Project = studioProject
+  set projectName = ^||Port.Project
+  
+  set ubiquitousList = ##class(Port.Util).UbiquitousInProject(projectName, InternalName)
   if ubiquitousList '= "" {
     write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected, InternalName, $lts(ubiquitousList, ", "))
     write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2)
   }
-  quit ..OnBeforeSave()
+  return ..OnBeforeSave()
 }
 
 }

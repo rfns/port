@@ -14,3 +14,5 @@
 #def1arg PERROR(%errorArgs)              $$$ERROR($$$GeneralError, $$$FormatMsg("Port Errors", %errorArgs))
 #def1arg FormatWizardMsg(%args)          $$$FormatMsg("Port Configuration Wizard", %args)
 #define RemoveClassExtension(%iname)     $select($piece(%iname, ".", $$$ucase(%iname), *) [ "CLS" :  $piece(%iname, ".", 1, *-1), 1: %iname)
+#define Slash                            $select($$$isWINDOWS : "\", 1: "/")
+#define NFN(%path)                       ##class(%File).NormalizeFilename(%path)

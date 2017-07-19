@@ -1,32 +1,33 @@
+Include portutils
+
 Class Port.Project.Exporter Extends Port.Project.Base
 {
 
-Property PathDependencies As array Of %String [ Private ];
-
 Property ExportedPackages As %List [ Private ];
+
+Property Synchronizer As Synchronizer [ Private ];
 
 Method %OnNew(path As %String, logLevel As %Integer = 2, sourceExtension As %String = "") As %Status
 {
   $$$QuitOnError(##super(path, logLevel, sourceExtension))  
        
-  if '$isobject(..Project) {    
+  if '$isobject(..Project) {
     set ..ProjectName = "null"
     throw ##class(%Exception.StatusException).CreateFromStatus($$$PERROR($$$ExportingProjectNotFound, ..ProjectName))
   }
-  quit $$$OK
+  set ..Synchronizer = ##class(Synchronizer).%New($this)
+  return $$$OK
 }
 
 Method Export() As %Status
 {
   
   set ..IsBatch = 1
-  do ..Reset() 
+  do ..Reset()
   
   write ..LogLine($$$ExportingProject, 0, ..Project.Name)
-  set cspDirectory = ##class(%File).NormalizeFilename($System.Util.InstallDirectory()_"csp/"_$$$lcase($namespace))
   
-  $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(cspDirectory))
-  $$$QuitOnError(..ExportProjectItems(.exportList))
+  $$$QuitOnError(..ExportProjectItems())
   
   if ..AffectedCount > 0 {
     write ..LogLine($$$SourceExportedToPath, 0, ..BasePath)
@@ -35,93 +36,14 @@ Method Export() As %Status
   }
   
   write ..LogLine($$$SynchronizingProject, 0, ..Project.Name)
-  $$$QuitOnError(..PurgeExtraneousEntries())
+  
+  $$$QuitOnError(..Synchronizer.Purge())
   
   write ..LogLine($$$AllDone, 0)
-  quit $$$OK
+  return $$$OK
 }
 
-Method SearchExtraneousEntries(statement As %SQL.Statement, path As %String, ByRef files As %List = "")
-{
-   
-  set dir = ##class(%File).NormalizeDirectory(path)
-  set row = statement.%Execute(dir)
-  set sc = $$$OK
-  
-  while row.%Next(.sc) {
-    if $$$ISERR(sc) quit
-    set type = row.%Get("Type")    
-    set fullPath = row.%Get("Name")     
-    
-    if ..IsIgnored(fullPath) continue
-            
-    if type = "D" {      
-      set sc = ..SearchExtraneousEntries(statement, fullPath, .files)
-      if $$$ISERR(sc) quit
-    } 
-    
-    if '..PathDependencies.IsDefined(fullPath) {
-      set length = $case(files, "": 1, : $listlength(files)+1)
-      set $list(files, length) = $listbuild(fullPath, type)            
-    }
-  }
-  quit sc
-}
-
-Method PurgeExtraneousEntries() As %Status
-{
-  set sc = $$$OK
-  set s = ##class(%SQL.Statement).%New()
-  $$$QuitOnError(s.%PrepareClassQuery("%File", "FileSet"))
-  set removedDirectories = ""
-  set lastParent = ""
-  set parentDirectory = ""
-  
-  write ..LogLine($$$CheckingExtraneousItems, 1)
-  
-  for ipath = ..MacPath,..IntPath,..IncPath,..ClassPath,..BasPath,..WebPath,..MvbPath,..MviPath,..DfiPath {
-    set sc = ..SearchExtraneousEntries(s, ipath, .extraneousFiles)
-    if $$$ISERR(sc) quit
-  }
-  
-  $$$QuitOnError(sc)
-  
-  set length = $listlength(extraneousFiles)  
-  if length > 0 write ..Log($$$TotalExtraneousItems, 1, length), !
-  else  write ..LogLine($$$NoExtraneousItems, 1)
-  
-  for i=1:1:length {
-    set possiblyDeleted = 0
-    set extraneousItem = $listget(extraneousFiles, i)
-    set path = $listget(extraneousItem, 1)
-    set type = $listget(extraneousItem, 2)
-    if parentDirectory '= "" && (path [ parentDirectory) set possiblyDeleted = 1
-    if type = "F" && ##class(%File).Exists(path) {
-      set fileName = ##class(%File).GetFilename(path)
-      set lastNode = ##class(%File).GetDirectoryPiece(parentDirectory, $length(parentDirectory, ..Slash))
-      set fileName = $piece(fileName, ".", 1)           
-      if fileName = lastNode set possiblyDeleted = 0 
-      if possiblyDeleted = 1 continue
-      write ..LogLine($$$RemovingFile, 2, path)
-      do ##class(%File).Delete(path)        
-    } elseif type = "D" {
-      if parentDirectory = "" || (path '[ parentDirectory) {
-        set lastParent = parentDirectory
-        set parentDirectory = $replace(path, ##class(%File).GetDirectoryPiece(path, $length(path, ..Slash))_..Slash, "")
-        if lastParent = "" set lastParent = parentDirectory
-      }
-      if possiblyDeleted = 1 continue
-      write ..LogLine($$$RemovingDirectory, 2, path)
-      do ##class(%File).RemoveDirectoryTree(path)
-    }
-  } 
-  if length > 0 {
-    write ..LogLine($$$TotalExtraneousItemsItemsRemoved, 1, length)
-  }
-  quit sc
-}
-
-Method ExportProjectItems(ByRef exportList As %List = "") As %Status [ Internal, Private ]
+Method ExportProjectItems() As %Status [ Private ]
 {
   set sc = $$$OK
   set s = ##class(%SQL.Statement).%New()
@@ -131,33 +53,30 @@ Method ExportProjectItems(ByRef exportList As %List = "") As %Status [ Internal,
     if $$$ISERR(sc) quit
     set itemName = r.%Get("Name")
     set itemType = r.%Get("Type")
-    set sc = $$$ADDSC(sc, ..ExportItem(itemName, itemType, .exportList))
+    set sc = $$$ADDSC(sc, ..ExportItem(itemName, itemType))
   }
-  quit sc
+  return sc
 }
 
-Method ExportItem(itemName As %String, type As %String = "", ByRef exportList As %List = "") As %Status
+Method ExportItem(itemName As %String, type As %String = "") As %Status
 {
-  if ##class(Port.Project.Helper).IsRoutine(itemName) quit ..ExportRoutine(itemName)
+  if ##class(Port.Util).IsRoutine(itemName) return ..ExportRoutine(itemName)
   
-  set itemType = $case(type, "": ##class(Port.Project.Helper).GetItemExtension(itemName), : type)
+  set itemType = $case(type, "": ##class(Port.Util).ResolveItemExtension(itemName), : type)
+  if itemType = "PKG" return ..ExportPackage(itemName)
+  if itemType = "CLS" return ..ExportClass(itemName)
   
-  if itemType = "CSP" quit ..ExportWebFile(itemName, .exportList)
-  if itemType = "PKG" quit ..ExportPackage(itemName, .exportList)
-  if itemType = "CLS" {
-    set className = itemName
-    set classLength = $length(itemName, ".")
-    if $piece(itemName, ".", classLength) = "CLS" {
-      set className = $extract(itemName, 1, $length(itemName) - 4)
-    } 
-    quit ..ExportClass(className, .exportList)
-  }
-  quit $$$OK
+  return ..ExportWebFile(itemName)
 }
 
-Method ExportPackage(packageName As %String, exportList As %String) As %Status
+Method ExportPackage(packageName As %String) As %Status
 {
-  if $listfind(i%ExportedPackages, packageName) quit $$$OK  
+  set id = ##class(Port.Util).MountIdFromName(packageName_".PKG", ..Project.Name)
+  // Cannot assume that the package is always present in the project, 
+  // even if the project has some classes from it.
+  if '##class(%Studio.ProjectItem).%ExistsId(id) return $$$OK
+  
+  if $listfind(i%ExportedPackages, packageName) return $$$OK  
   
   set classList = $System.OBJ.GetPackageList(.classList, packageName)
   set className = ""
@@ -165,77 +84,65 @@ Method ExportPackage(packageName As %String, exportList As %String) As %Status
   for {
     set className = $order(classList(className))
     quit:className=""
-    set err = ..ExportClass(className)
+    set err = ..ExportClass(className, 1)
     if $$$ISERR(err) {
       if $$$ISOK(sc) set sc = err
       else  set sc = $$$ADDSC(sc, err)
     }
   }
-  set $list(exportList, *+1) = "cls/"_packageName
   set $list(i%ExportedPackages, *+1) = packageName
-  quit sc
+  return sc
 }
 
-Method ExportWebFile(itemName As %String, ByRef exportList As %List = "") As %Status
+Method ExportWebFile(itemName As %String) As %Status
 {
-  set name = itemName
-  
-  if $extract(itemName, 1) = "/" {
-    set name = $extract(itemName, 2, *)
-  }
-  
-  if '##class(%Studio.ProjectItem).%ExistsId(..Project.Name_"||"_name_"||CSP") {
-    quit $$$OK
-  } 
+  set id = ##class(Port.Util).MountIdFromName(itemName, ..Project.Name)  
+  if '##class(%Studio.ProjectItem).%ExistsId(id) {
+    return $$$PERROR($$$UnableToExportInvalidItem, itemName)
+  }  
       
-  $$$QuitOnError(##class(Port.Project.Helper).CSPLogicalToPhysicalPath(name, .source))
-  set dest = ..NormalizeOutput(name, .path, .ext)  
+  $$$QuitOnError(##class(Port.Util).CSPLogicalToPhysicalPath(itemName, .source))
+  set dest = ##class(Port.Util).GetItemSourcePathFromWorkspace(itemName, ..Project.Name)
+  set path = ##class(%File).GetDirectory(dest) 
   
-  $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))  
-  do ..ExtractPathDependency(source, dest)
+  $$$QuitOnError(##class(Port.Util).CreateMissingPath(path))
+  $$$QuitOnError(..Synchronizer.AddToWhitelist(itemName))
   
-  if ..Overwrite = 0 && '..IsOutdated(source, dest) {
-    quit $$$OK
-  }
+  if ..Overwrite = 0 && '..IsOutdated(itemName, dest) return $$$OK
   
-  write ..Log($$$ExportingType, 1, $$$ClassType, name)
-  
-  set exported = ##class(%File).CopyFile(source, dest)
+  write ..Log($$$ExportingType, 1, $$$FileType, dest)
+  set exported = ##class(%File).CopyFile(source, dest, 1)  
   
   if exported = 0 {
     write ..LogLine($$$Failed)
-    quit $$$PERROR($$$UnableToCopySource, source, dest)
+    return $$$PERROR($$$UnableToCopySource, source, dest)
   }
   
   write ..LogLine($$$Done)
   set ..AffectedCount = ..AffectedCount + 1
   
-  set $list(exportList, *+1) = dest  
-  quit $$$OK
+  return $$$OK
 }
 
-Method ExportRoutine(name As %String, exportList As %List = "") As %Status
+Method ExportRoutine(name As %String) As %Status
 {
-  do ##class(Port.Project.Helper).Describe(name, .extension, .type, .itemName) 
+  set id = ##class(Port.Util).MountIdFromName(name, ..Project.Name)
   
-  if '##class(%Studio.ProjectItem).%ExistsId(..Project.Name_"||"_itemName_"||"_type) {
-    quit $$$OK
+  if '##class(%Studio.ProjectItem).%ExistsId(id) {
+    return $$$PERROR($$$UnableToExportInvalidItem, name)
   }
 
-  set dest = ..NormalizeOutput(name, .path)  
-  do ..ExtractPathDependency(name, dest)
+  set dest = ##class(Port.Util).GetItemSourcePathFromWorkspace(name, ..Project.Name, ..SourceExtension)  
+  set path = ##class(%File).GetDirectory(dest)
   
-  $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))
-    
-  if '##class(%RoutineMgr).Exists(name) { 
-    quit $$$PERROR($$$UnableToExportInvalidItem, name)
-  }
+  $$$QuitOnError(..Synchronizer.AddToWhitelist(name))
   
-  if ..Overwrite = 0 && '..IsOutdated(name, dest) {
-    quit $$$OK
-  }
+  if '##class(%RoutineMgr).Exists(name) return $$$PERROR($$$UnableToExportInvalidItem, name)
+  $$$QuitOnError(##class(Port.Util).CreateMissingPath(path))
+      
+  if ..Overwrite = 0 && '..IsOutdated(name, dest) return $$$OK
   
-  write ..Log($$$ExportingType, 1, $$$RoutineType, itemName)
+  write ..Log($$$ExportingType, 1, $$$RoutineType, name)
   
   set file = ##class(%FileCharacterStream).%New()
   set file.Filename = dest
@@ -243,85 +150,64 @@ Method ExportRoutine(name As %String, exportList As %List = "") As %Status
   set routine = ##class(%RoutineMgr).%OpenId(name)  
   set sc = file.CopyFrom(routine.Code)
   
-  if $$$ISOK(sc) write ..LogLine($$$Done)
-  else  write ..LogLine($$$Failed)
-    
-  set $list(exportList, *+1) = dest
+  if $$$ISERR(sc) write ..LogLine($$$Failed) return sc 
+  
+  write ..LogLine($$$Done)
   
   $$$QuitOnError(file.%Save())
   
   set ..AffectedCount = ..AffectedCount + 1
-  quit $$$OK
+  return $$$OK
 }
 
-Method IsClassProjectItem(itemName As %String) As %Boolean
+Method ExportClass(className As %String, fromPackage As %Boolean = 0) As %Status
 {
   
-  set exists = ##class(%Studio.ProjectItem).%ExistsId(..ProjectName_"||"_itemName_"||CLS")
-  if 'exists {
-    set classPartsLength = $length(itemName, ".")
-    for i=1:1:classPartsLength - 1 {
-      set exists = ##class(%Studio.ProjectItem).%ExistsId(..ProjectName_"||"_$piece(itemName, ".", 1, i)_"||PKG")
-      if exists quit      
-    }
+  // Checks if this entry is coming from %SourceControl and fixes it removing the CLS type.
+  if ##class(Port.Util).ResolveItemExtension(className) = "CLS" {
+    set className = $piece(className, ".", 1, *-1)
+  } 
+  
+  set itemName = className_".CLS"
+  
+  // Cannot export classes that don't belong to the project.
+  set id = ##class(Port.Util).MountIdFromName(itemName, ..Project.Name)
+  // Cannot check for the class item id if the call was delegated by ExportPackage.
+  if 'fromPackage && '##class(%Studio.ProjectItem).%ExistsId(id) {
+    return $$$PERROR($$$UnableToExportInvalidItem, itemName)
   }
-  quit exists
-}
-
-Method ExportClass(itemName As %String, ByRef exportList As %String = "") As %Status
-{
+  
   set package = $piece(itemName, ".", 1, *-1)
-  set isProjectItem = ..IsClassProjectItem(itemName)
+  set dest = ##class(Port.Util).GetItemSourcePathFromWorkspace(itemName, ..Project.Name, ..SourceExtension)
+  set path = ##class(%File).GetDirectory(dest)  
   
-  if $listfind(..ExportedPackages, package) quit $$$OK
+  $$$QuitOnError(..Synchronizer.AddToWhitelist(itemName))
+  if $listfind(..ExportedPackages, package) return $$$OK  
   
-  if 'isProjectItem quit $$$OK
+  $$$QuitOnError(##class(Port.Util).CreateMissingPath(path))
   
-  set dest = ..NormalizeOutput(itemName_".CLS", .path)
+  if ..Overwrite = 0 && '..IsOutdated(itemName, dest) return $$$OK
+  else  do ##class(%File).Delete(dest)
   
-  $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(path))  
-  do ..ExtractPathDependency(itemName, dest)
+  write ..Log($$$ExportingType, 1, $$$ClassType, className)
   
-  if ..Overwrite = 0 && '..IsOutdated(itemName_".CLS", dest) {
-    quit $$$OK
+  if '##class(%ClassDefinition).%ExistsId(className) {
+    write ..LogLine($$$Failed)
+    return $$$ERROR($$$UnableToExportInvalidItem, className)
   }
-  
-  write ..Log($$$ExportingType, 1, $$$ClassType, itemName)   
-  if '##class(%ClassDefinition).%ExistsId(itemName) write ..LogLine($$$Failed, 1)
   
   $$$QuitOnError(##class(%Compiler.UDL.TextServices).GetTextAsFile($namespace, itemName, dest))
-  write ..LogLine($$$Done, 1)
+  write ..LogLine($$$Done)
   
   set ..AffectedCount = ..AffectedCount + 1
-  set $list(exportList, *+1) = dest
   
-  quit $$$OK
-}
-
-Method ExtractPathDependency(itemName As %String, destPath As %String) [ Final, Internal, Private ]
-{
-  set type = $$$ucase($piece(destPath, ".", *-1)) 
-  set basePath = ..ResolvePathType(type)
-  if $find($listbuild("", "/"), $extract(basePath)) {
-    set basePath = $extract(basePath, 2, *)
-  }
-    
-  set absoluteBasePath = ##class(%File).NormalizeFilename(basePath, ..Slash)
-  set dirLength = $length(destPath, ..Slash)
-  set dirLengthLimit = dirLength - (dirLength - $length(absoluteBasePath, ..Slash))
-  
-  // Slices the path for every iteration. Ex: /a/b/c -> /a/b -> /a
-  for i=dirLength:-1:dirLengthLimit+1 {
-    set dir = $piece(destPath, ..Slash, 1, i)    
-    if ..PathDependencies.IsDefined(dir) quit
-    do ..PathDependencies.SetAt(itemName, dir)
-  }
+  return $$$OK
 }
 
 Method Reset() As %Status
 {
   set i%ExportedPackages = ""
-  do ..PathDependencies.Clear()
+  do ..Synchronizer.Reset()
 }
 
 }

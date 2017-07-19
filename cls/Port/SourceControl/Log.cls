@@ -3,11 +3,11 @@ Include portutils
 Class Port.SourceControl.Log [ Abstract ]
 {
 
-ClassMethod LogChange(projectName = {^||%Studio.Project}, itemName As %String = "") As %Status
+ClassMethod LogChange(projectName = {^||Port.Project}, itemName As %String = "") As %Status
 {
   do ..ExtractItemDescription(itemName, .name, .type)
   set ^Port.SourceControl.Projects(projectName, type, name) = $zdatetime($horolog, 3,,,,,,,,,0) 
-  quit $$$OK
+  return $$$OK
 }
 
 ClassMethod ExtractItemDescription(itemName, Output name = "", Output type = "") As %String [ Private ]
@@ -24,7 +24,7 @@ ClassMethod ExtractItemDescription(itemName, Output name = "", Output type = "")
 ClassMethod GetLastChange(projectName As %String, itemName As %String) As %String
 {
   do ..ExtractItemDescription(itemName, .name, .type)
-  quit $get(^Port.SourceControl.Projects(projectName, type, name), 0)
+  return $get(^Port.SourceControl.Projects(projectName, type, name), 0)
 }
 
 ClassMethod Synchronize() As %Status
@@ -33,7 +33,7 @@ ClassMethod Synchronize() As %Status
   #define ItemExists(%id) ##class(%Studio.ProjectItem).%ExistsId(%id)
   
   set sc = $$$OK
-  if '$data(^Port.SourceControl.Projects) quit sc
+  if '$data(^Port.SourceControl.Projects) return sc
   
   set global = "^Port.SourceControl.Projects"
   set q = $query(@global@(""))
@@ -52,13 +52,13 @@ ClassMethod Synchronize() As %Status
     }
     set q = $query(@q, 1)
   }
-  quit $$$OK
+  return $$$OK
 }
 
 ClassMethod Flush() As %Status
 {
   kill ^Port.SourceControl.Projects
-  quit $$$OK
+  return $$$OK
 }
 
 }

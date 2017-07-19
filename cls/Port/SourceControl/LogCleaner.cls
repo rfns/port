@@ -4,7 +4,7 @@ Class Port.SourceControl.LogCleaner Extends %SYS.Task.Definition
 ClassMethod StartTask() As %Status
 {
   set taskName = "Port Log Synchronizer for "_$namespace
-  if ##class(%SYS.Task).FindId(taskName) quit $$$OK    
+  if ##class(%SYS.Task).FindId(taskName) return $$$OK    
   set task = ##class(%SYS.Task).%New()
   set task.TimePeriod = 0
   set task.Description = "Keeps the log synchronized with existing projects and files."
@@ -16,7 +16,7 @@ ClassMethod StartTask() As %Status
   set task.DailyIncrement = 180
   set task.NameSpace = $namespace
   set task.TaskClass = $classname($this)
-  quit task.%Save()
+  return task.%Save()
 }
 
 ClassMethod RemoveTask() As %Status
@@ -26,15 +26,15 @@ ClassMethod RemoveTask() As %Status
   set name = "Port Log Synchronizer for "_$namespace
   set taskId = ##class(%SYS.Task).FindId(name)
   
-  if taskId = "" quit $$$OK
+  if taskId = "" return $$$OK
   $$$QuitOnError(##class(%SYS.Task).Suspend(taskId, 2))
   $$$QuitOnError(##class(%SYS.Task).%DeleteId(taskId))
-  quit $$$OK
+  return $$$OK
 }
 
 Method OnTask() As %Status
 {
-  quit ##class(Port.SourceControl.Log).Synchronize()
+  return ##class(Port.SourceControl.Log).Synchronize()
 }
 
 }

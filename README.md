@@ -2,6 +2,8 @@
     <img src="https://img.shields.io/badge/Port-enabled-green.svg" height="18">
 </p>
 
+> STOP! UNKNOWN DANGERS LIES AHEAD: You are on the `nightly` branch, the most recent additions can be found here. However keep in mind that they might be experimental and compatibility with the `master` branch is not guaranteed, you're advised to use this branch only for further developments!
+
 # Port
 
 Port is a VCS-agnostic Caché Studio source control utility to export or import Caché files based on projects instead of namespaces.
@@ -11,25 +13,18 @@ Port is a VCS-agnostic Caché Studio source control utility to export or import 
 Since it uses a project based approach to handle the source code, the following advantages could be observed:
 
 * **Development and organization**: Development and versioning is kept within the project scope.
-* **Tests**: Allows the code to be tested atomically within the same project (which means no ^UnitTestRoot).
+* **Tests**: Allows the code to be tested atomically within the same project (which means no ^UnitTestRoot usage).
 * **SourceControl integration**: Seamlessly exports the active item when saved. No need to check-in items manually.
-* **Synchronization**: Keeps your repository in-sync with the project. Removes extraneous items when exported avoiding check-out usage.
+* **Synchronization**: Keeps your repository in-sync with the project. Removes extraneous items when exported, thus avoiding check-out usage.
 * **Smart backup**: Mirrors the application directory and backups only what is changed inside the project.
 
 ## How to install
 
-In order to install Port, you just need to follow the steps below:
-
-1. Import the file [port.xml](https://github.com/rfns/port/blob/master/port.xml).
-2. Run the class method ``##class(Port.SourceControl.Installer).Install()``.
-3. Restart the Studio.
+In order to install Port, you just need to import the file [port.xml](https://github.com/rfns/port/blob/master/port.xml) with the compile flag enabled and restart your Studio.
 
 ## Configuration
 
-You might also want to check out the class ``Port.SourceControl.Config`` and configure
-the source control integration according to your taste.
-
-Or you could simply call `do ##class(Port.SourceControl.Wizard).Start()` and let the wizard help you.
+You can configure advanced settings using the class `Port.Configuration`. You can also check what you can configure by running `##class(Port.Configuration).Help()` or using the wizard: `Wizard^Port`.
 
 ## How to use
 
@@ -37,22 +32,22 @@ Or you could simply call `do ##class(Port.SourceControl.Wizard).Start()` and let
 
 When installed, Port adds a Source Control menu, composed with the following options:
 
-* __Export Current Project__: Exports only the modified items from the current project.
-* __Export Current Project to XML__: Forces the project to export a new XML version.
-* __Export Project Test Suites to XML__: Exports all Tests matching the Test package prefix to the test path.
-* __Remove All Classes from the Current Project__: Shortcut for removing all classes from the current project.
-* __Remove All Routines from the Current Project__: Shortcut for removing all routines from the current project.
-* __Remove All Files from the Current Project__: Shortcut for removing all static (web) files from the current project.
-* __Remove Invalid Items from the Current Project__: Scans the project removing invalid item entries.
-* __Run Test Suites__: Runs all test suites associated to the current project.
-* __Force Current Project to be Exported__: Bypasses the timestamp checks and exports the project overwriting the repository's source.
-* __Force Current Project to be Exported__: Bypasses the timestamp checks and imports the source code overwriting the project item version.
+* __Export__: Exports only the modified items from the current project using the UDL format.
+* __Export to XML__: Exports the current project to XML.
+* __Export tests__: Exports all unit test classes related to the current project.
+* __Remove classes__: Shortcut for removing all classes from the current project.
+* __Remove routines__: Shortcut for removing all routines from the current project.
+* __Remove files__: Shortcut for removing all static (web) files from the current project.
+* __Scan and fix__: Scans the project and remove all entries that are invalid (nonexistent or with an invalid name).
+* __Run tests__: Runs all test suites associated to the current project.
+* __Export (forced)__: Bypass timestamp checks and exports all the current project items.
+* __Import (forced)__: Bypass timestamp checks and imports all tracked files from the project repository.
 
 ### Source Control Context Menu
 
-* __Export This Item__: Forces the current item to be exported to the repository overwriting it's current matching source code.
-* __Import This Item__: Forces the current item to be imported to the project overwriting it's current matching project item.
-* __Run Tests Associated to this Item__: Only available if there's an associated test. If it does, runs the test atomically.
+* __Export from here__: Forces the current item to be exported to the repository overwriting it's current matching source code.
+* __Import from here__: Forces the current item to be imported to the project overwriting it's current matching project item. If the target is a package, then it will all classes inside the package directory will be imported recursively.
+* __Run test__: Only available if there's an associated test. If it does, runs the test atomically.
 
 ### Ignoring paths
 

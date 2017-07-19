@@ -1,6 +1,6 @@
 Include portutils
 
-Class Port.SourceControl.Installer [ Abstract ]
+Class Port.Installer [ Abstract ]
 {
 
 XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
@@ -24,6 +24,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-113" Name="ExportingProjectNotFound">The selected %1 project does not exist.</Message>
     <Message Id="-114" Name="ErrorsWhileImportingType">There were errors while importing items type of %1.</Message>
     <Message Id="-115" Name="LogLevelIsOutOfRange">The provided log level %1 is out of range. Parameter must be one of: %2.</Message>
+    <Message Id="-116" Name="CouldNotDetermineWorkspace">Could not determine the correct workspace from the provided path.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Starting backup ...</Message>
@@ -40,14 +41,14 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-403" Name="NoExtraneousItems">No orphan items were found.</Message>
     <Message Id="-404" Name="RemovingFile">Removing %1 (file).</Message>
     <Message Id="-405" Name="RemovingDirectory">Removing item %1 (directory).</Message>
-    <Message Id="-406" Name="TotalExtraneousItemsItemsRemoved">Total of removed orphan items: %1</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total of removed orphan items: %1</Message>
     <Message Id="-500" Name="Done"> done.</Message>
     <Message Id="-501" Name="DoneWithErrors"> done, but with errors.</Message>
     <Message Id="-501" Name="Failed"> failed.</Message>
     <Message Id="-502" Name="AllDone">Finished with success.</Message>
     <Message Id="-503" Name="KeepCacheExtension"> keep your original format.</Message>
     <Message Id="-504" Name="OvewriteWithExtension"> end with the %1 extension.</Message>
-    <Message Id="-600" Name="ImportingType">Importing %1 %2 ... </Message>
+    <Message Id="-600" Name="ImportingType">Importing %1 %2 ...</Message>
     <Message Id="-601" Name="EnqueingType">Enqueueing the selected %1 to be imported.</Message>
     <Message Id="-602" Name="NothingToImport">Nothing to import has been found.</Message>
     <Message Id="-603" Name="ImportingProject">Importing the project %1.</Message>
@@ -79,9 +80,9 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-812" Name="CLSGroupType">classes</Message>
     <Message Id="-813" Name="FileGroupType">files</Message>
     <Message Id="-900" Name="ExportingXML">Exporting the project %1 to XML ...</Message>
-    <Message Id="-901" Name="XMLExportedTo">Project XML exported to %1.</Message>
+    <Message Id="-901" Name="XMLExportedTo">%1 project XML exported to %1.</Message>
     <Message Id="-902" Name="ExportingTestClassToXML">Exporting test class %1 ...</Message>
-    <Message Id="-1000" Name="UbiquitousItemDetected">CAUTION! Detected the usage of the item %1 on the following projects: %1.</Message>
+    <Message Id="-1000" Name="UbiquitousItemDetected">CAUTION! Detected the usage of the item %1 on the following projects: %2.</Message>
     <Message Id="-1001" Name="UbiquitousItemDetected2">It's extremely recommended to keep the item exclusive to a single project!</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Menu Labels">
@@ -197,6 +198,7 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-113" Name="ExportingProjectNotFound">O projeto %1 selecionado para ser exportado não existe.</Message>
     <Message Id="-114" Name="ErrorsWhileImportingType">Houveram errors ao importar itens do tipo %1.</Message>
     <Message Id="-115" Name="LogLevelIsOutOfRange">O nível de log fornecido está fora da faixa permitida. O parâmetro deve ser um destes: %2.</Message>
+    <Message Id="-116" Name="CouldNotDetermineWorkspace">Não foi possível determinar o espaço de trabalho correto a patir do caminho fornecido.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>
@@ -213,7 +215,7 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-403" Name="NoExtraneousItems">Nenhum item órfão encontrado.</Message>
     <Message Id="-404" Name="RemovingFile">Removendo item %1 (arquivo).</Message>
     <Message Id="-405" Name="RemovingDirectory">Removendo item %1 (diretório).</Message>
-    <Message Id="-406" Name="TotalExtraneousItemsItemsRemoved">Total de itens órfãos removidos: %1.</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total de itens órfãos removidos: %1.</Message>
     <Message Id="-500" Name="Done"> feito.</Message>
     <Message Id="-501" Name="DoneWithErrors"> feito, mas com erros.</Message>
     <Message Id="-501" Name="Failed"> falhou.</Message>
@@ -252,7 +254,7 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-812" Name="CLSGroupType">classes</Message>
     <Message Id="-813" Name="FileGroupType">arquivos</Message>
     <Message Id="-900" Name="ExportingXML">Exportando o projeto %1 para XML ...</Message>
-    <Message Id="-901" Name="XMLExportedTo">XML do projeto exportado para %2.</Message>
+    <Message Id="-901" Name="XMLExportedTo">XML do projeto %1 exportado para %2.</Message>
     <Message Id="-902" Name="ExportingTestClassToXML">Exportando a classe de teste %1 ...</Message>
     <Message Id="-1000" Name="UbiquitousItemDetected">CUIDADO! Foi detectada a presença do item %1 nos seguintes projetos: %2.</Message>
     <Message Id="-1001" Name="UbiquitousItemDetected2">É extremamente recomendado manter o item exclusivo a um projeto!</Message>
@@ -351,20 +353,20 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
 
 ClassMethod Uninstall() As %Status
 {
-  if '$data(^Port.SourceControl.Settings("installed")) {
-    quit $$$PERROR($$$PortIsNotInstalled, $namespace)
+  if '$data(^Port.Configuration("installed")) {
+    return $$$PERROR($$$PortIsNotInstalled, $namespace)
   }
   
   write "Removing Port, please wait ...", !
   set sc = $$$OK
-  do ##class(Config).Uninstall()
-  do ##class(Log).Flush()
-  set sc = $$$ADDSC(sc, ##class(%Studio.SourceControl.Interface).SourceControlClassSet($get(^Port.SourceControl.Settings("old")), $namespace))
-  set sc = $$$ADDSC(sc, ##class(LogCleaner).RemoveTask())
+  do ##class(Port.Configuration).Uninstall()
+  do ##class(Port.SourceControl.Log).Flush()
+  set sc = $$$ADDSC(sc, ##class(%Studio.SourceControl.Interface).SourceControlClassSet($get(^Port.Configuration("old")), $namespace))
+  set sc = $$$ADDSC(sc, ##class(Port.SourceControl.LogCleaner).RemoveTask())
   set sc = $$$ADDSC(sc, ..RemoveGlobalMapping())  
   if $$$ISOK(sc) write $$$FormatText("Port has been removed from %1.", $namespace), !
   else  write "One or more errors ocurred while removing Port:", !!, $System.Status.GetErrorText(sc)
-  quit $$$OK
+  return $$$OK
 }
 
 ClassMethod Install(force As %Boolean = 0) As %Status
@@ -372,11 +374,10 @@ ClassMethod Install(force As %Boolean = 0) As %Status
   set sc = $$$OK
   
   if 'force {
-    if $data(^Port.SourceControl.Settings("installed")) {
+    if $data(^Port.Configuration("installed")) {
       write "Port is already installed. The installer has been aborted.", !
-      write "If you wish to change current settings then please use the wizard or call this method with force=1.", !!
-      write "do Wizard^Port", !
-      quit $$$ERROR($$$GeneralError, "Port is already installed.")
+      write "If you wish to change current settings then please use the wizard (Wizard^Port) or call this method with force=1.", !!
+      return $$$ERROR($$$GeneralError, "Port is already installed.")
     }
   }
   
@@ -384,37 +385,37 @@ ClassMethod Install(force As %Boolean = 0) As %Status
     write !, "Installing Port ... please wait a moment.", !
     write $$$FormatText("> Retrieving physical path for %1's default web application ...", $namespace), !
     $$$ThrowOnError(..GetWebAppPhysicalPath(.path))
-    set ^Port.SourceControl.Settings("internals.webapp.path") = path
+    set ^Port.Configuration("internals.webapp.path") = path
     write "> Creating Message Dictionary ... ", !, ">"
     $$$ThrowOnError(..CreateMessageDictionary())
     write "> Creating global mappings ...", !   
     $$$ThrowOnError(..CreateGlobalMapping())
     write "> Setting up workspace structure ... ", !
-    do ##class(Config).SetPrimaryWorkspace("/CacheProjects/{NAMESPACE}/{PROJECT}")
+    do ##class(Port.Configuration).SetPrimaryWorkspace("/CacheProjects/{NAMESPACE}/{PROJECT}")
     write "> Setting up test files directory ...", !
-    do ##class(Config).SetTestPath("tests")
+    do ##class(Port.Configuration).SetTestPath("tests/cls")
     write "> Defining default test class prefix ..", !
-    do ##class(Config).SetTestClassPrefix("UnitTest")
-    write "> Enabling auto-testing ...", !
-    do ##class(Config).EnableTestOnDemand()
-    write "> Enabling auto-export for project XML ...", !
-    do ##class(Config).EnableAutoExportXML()
-    write "> Setting up log level ...", !
-    do ##class(Config).SetLogLevel(1)
-    write "> Registering log cleaner task for "_$namespace_" ...", !
-    $$$ThrowOnError(##class(LogCleaner).StartTask())
-    write "> Activating source control class ...", !!
-    set ^Port.SourceControl.Settings("old.sourcecontrol") = ##class(%Studio.SourceControl.Interface).SourceControlClassGet($namespace)
+    do ##class(Port.Configuration).SetTestClassPrefix("UnitTest")
+    write "> Configuring to run tests automatically ...", !
+    do ##class(Port.Configuration).EnableTestOnDemand()
+    write "> Configuring to export the project to XML automatically ...", !
+    do ##class(Port.Configuration).EnableAutoExportXML()
+    write "> Configuring log verbosity level to recommended level ...", !
+    do ##class(Port.Configuration).SetLogLevel(1)
+    write "> Registering source control log cleaner task for "_$namespace_" ...", !
+    $$$ThrowOnError(##class(Port.SourceControl.LogCleaner).StartTask())
+    write "> Installing %SourceControl hooks and activating it ...", !!
+    set ^Port.Configuration("old.sourcecontrol") = ##class(%Studio.SourceControl.Interface).SourceControlClassGet($namespace)
     $$$ThrowOnError(##class(%Studio.SourceControl.Interface).SourceControlClassSet("Port.SourceControl.Hooks", $namespace))
     write "ALL DONE.", !
-    write "NOTE: Please note that you must restart Studio in order to make the new settings have effect."
-    set ^Port.SourceControl.Settings("installed") = 1
+    write "NOTE: You must restart Studio in order to make the source control hooks work as expected."
+    set ^Port.Configuration("installed") = 1
   } catch ex {
     set sc = ex.AsStatus()    
     write !!, "FATAL: Failed to install port due to the following reason: "
     do $System.OBJ.DisplayError(sc)
   }
-  quit sc
+  return sc
 }
 
 ClassMethod CreateGlobalMapping() As %Status
@@ -427,7 +428,7 @@ ClassMethod CreateGlobalMapping() As %Status
   
   if ##class(Config.MapGlobals).Exists(thisNamespace, "Port.SourceControl*") {
     write "> Global is already mapped. Skipping ...", !
-    quit $$$OK
+    return $$$OK
   }
   
   try {
@@ -438,7 +439,7 @@ ClassMethod CreateGlobalMapping() As %Status
     set sc = ex.AsStatus()
   }
   set $namespace = thisNamespace
-  quit sc
+  return sc
 }
 
 ClassMethod RemoveGlobalMapping() As %Status
@@ -450,9 +451,9 @@ ClassMethod RemoveGlobalMapping() As %Status
   set $namespace = "%SYS"  
   
   if ##class(Config.MapGlobals).Exists(thisNamespace, "Port.SourceControl*") {
-    quit ##class(Config.MapGlobals).Delete(thisNamespace, "Port.SourceControl*")
+    return ##class(Config.MapGlobals).Delete(thisNamespace, "Port.SourceControl*")
   }
-  quit $$$OK
+  return $$$OK
 }
 
 ClassMethod GetWebAppPhysicalPath(Output path As %String = "") As %Status
@@ -468,7 +469,7 @@ ClassMethod GetWebAppPhysicalPath(Output path As %String = "") As %Status
   }
   set path = ##class(%File).NormalizeFilename(settings("Path"))
   set $namespace = currentNS
-  quit sc
+  return sc
 }
 
 ClassMethod CreateMessageDictionary() As %Status [ CodeMode = objectgenerator ]
@@ -495,7 +496,7 @@ ClassMethod CreateMessageDictionary() As %Status [ CodeMode = objectgenerator ]
     do %code.WriteLine("  set (localXData, tmpFilename, file) = """"")    
   }
   do %code.WriteLine("  $$$QuitOnError(##class(%MessageDictionary).GenerateInclude(""portmd"",,,""Port Errors,Port Log Messages,Port Menu Labels,Port Context Menu Labels""))")
-  do %code.WriteLine("  quit $$$OK")
+  do %code.WriteLine("  return $$$OK")
 }
 
 }

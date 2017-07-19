@@ -1,42 +1,57 @@
-Class UnitTest.Port.Project.Exporter Extends (Port.UnitTest.TestCase, UnitTest.Port.Helper)
-{
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Class name="UnitTest.Port.Project.Exporter">
+<Super>Port.UnitTest.TestCase,UnitTest.Port.Helper</Super>
+<TimeCreated>64426,56009.879156</TimeCreated>
 
-Property Exporter As Port.Project.Exporter;
+<Property name="Exporter">
+<Type>Port.Project.Exporter</Type>
+</Property>
 
-Property ConfiguredExtension As %String;
+<Property name="ConfiguredExtension">
+<Type>%String</Type>
+</Property>
 
-Method OnBeforeAllTests() As %Status
-{
+<Method name="OnBeforeAllTests">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
   set ..ConfiguredExtension = ##class(Port.Configuration).GetSourceExtension()
   do ##class(Port.Configuration).SetSourceExtension("")
   return $$$OK
-}
+]]></Implementation>
+</Method>
 
-Method OnAfterAllTests() As %Status
-{
+<Method name="OnAfterAllTests">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
   do ##class(Port.Configuration).SetSourceExtension(..ConfiguredExtension)
   return $$$OK
-}
+]]></Implementation>
+</Method>
 
-Method OnBeforeOneTest() As %Status
-{
+<Method name="OnBeforeOneTest">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
      
   $$$QuitOnError(..CloneTestProject(..GetTestDirectory("../fixtures"), "dummy-project", 1))
   set ..Exporter = ##class(Port.Project.Exporter).%New(..GetTestDirectory("../fixtures/_/dummy-project"))
   // Turn off logger notification to prevent breaking test feedbacks.
   set ..Exporter.Logger.Silent = 1
   return $$$OK
-}
+]]></Implementation>
+</Method>
 
-Method OnAfterOneTest() As %Status
-{
+<Method name="OnAfterOneTest">
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
   $$$QuitOnError(..DeleteTestProject(..GetTestDirectory("../fixtures"), "dummy-project"))
   set ..Exporter = ""
   return $$$OK
-}
+]]></Implementation>
+</Method>
 
-Method TestOnNew()
-{
+<Method name="TestOnNew">
+<Implementation><![CDATA[
   set exporter = ""
   
   try {
@@ -44,10 +59,12 @@ Method TestOnNew()
   } catch ex {
     do $$$AssertStatusNotOK(ex.AsStatus(), "does not accept inexistent projects")
   }
-}
+]]></Implementation>
+</Method>
 
-Method TestExportItem(ovewrite As %Boolean = 0)
-{
+<Method name="TestExportItem">
+<FormalSpec>ovewrite:%Boolean=0</FormalSpec>
+<Implementation><![CDATA[
   #define ItemPath(%itemName) ##class(Port.Util).GetItemSourcePathFromWorkspace(%itemName, "dummy-project")  
   
   set sc = $$$OK
@@ -75,10 +92,11 @@ Method TestExportItem(ovewrite As %Boolean = 0)
     }
   }
   //do $$$AssertStatusOK(sc, "exports items individually")
-}
+]]></Implementation>
+</Method>
 
-Method TestExport()
-{
+<Method name="TestExport">
+<Implementation><![CDATA[
   #define ItemPath(%itemName) ##class(Port.Util).GetItemSourcePathFromWorkspace(%itemName, "dummy-project")
   
   set items = ..GetTestProjectItemsPath("dummy-project", ..GetTestDirectory("../fixtures/_/dummy-project"))
@@ -103,10 +121,12 @@ Method TestExport()
   }
   do $$$AssertStatusOK(sc, "exports all project files")
   quit
-}
+]]></Implementation>
+</Method>
 
-ClassMethod test()
-{
+<Method name="test">
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
   set ^||Port.Project = "port"
   set t = ..%New(##class(Port.UnitTest.Manager).%New())
   do t.OnBeforeAllTests()
@@ -114,7 +134,7 @@ ClassMethod test()
   do t.TestExportItem()
   do t.OnAfterAllTests()
   do t.OnAfterOneTest()
-}
-
-}
-
+]]></Implementation>
+</Method>
+</Class>
+</Export>

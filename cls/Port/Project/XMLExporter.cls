@@ -7,7 +7,7 @@ Method ExportToXML(justProject As %Boolean = 0, qspec As %String = "/diffexport=
   write ..LogLine($$$ExportingXML, 0, ..ProjectName)
   $$$QuitOnError(..Project.Export(destination, qspec, justProject, errorlog, charset))
   write ..LogLine($$$XMLExportedTo, 0, ..ProjectName, destination)
-  quit $$$OK
+  return $$$OK
 }
 
 Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay", ByRef tests As %String = "", ByRef errors = "") As %Status
@@ -17,7 +17,7 @@ Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay"
   set exported = 0
   
   set absoluteBasePath = ##class(%File).NormalizeFilename(path)
-  $$$QuitOnError(##class(Port.Project.Helper).ImplyDirectoryCreation(absoluteBasePath))
+  $$$QuitOnError(##class(Port.Util).CreateMissingPath(absoluteBasePath))
   
   set s = ##class(%SQL.Statement).%New()
   $$$QuitOnError(s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList"))
@@ -35,7 +35,7 @@ Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay"
   if 'exported {
     set sc = $$$PERROR($$$NoTestSuitesWereFound)
   }
-  quit sc
+  return sc
 }
 
 Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Status = {$$$OK}, qspec = "/diffexport=1/nodisplay") As %Boolean
@@ -43,7 +43,7 @@ Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Stat
   set sc = $$$OK
   set exported  = 0
   
-  if '##class(Port.UnitTest.Util).IsUnitTestClass(className) quit exported  
+  if '##class(Port.UnitTest.Util).IsUnitTestClass(className) return exported  
   
   set test = ##class(Port.UnitTest.Util).ResolveTestLocation(absoluteBasePath, className)
   
@@ -57,7 +57,7 @@ Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Stat
     else  write ..LogLine($$$Failed, 0)
     set exported = 1
   }
-  quit exported
+  return exported
 }
 
 }

@@ -39,7 +39,7 @@ Method Create(ByRef list As %String = 0) As %Status
   
   if $$$ISOK(sc) write ..Logger.Log($$$Done, 1), !
   else  write ..Logger.Log($$$Failed, 1), !
-  quit sc  
+  return sc  
 
 
 Scan(group, type, created)
@@ -59,7 +59,7 @@ Scan(group, type, created)
     }
     set backupDestination = ##class(%File).NormalizeFilename(..BackupDirectory_"/"_$replace(itemName, appPath, ""))
     set parentBackupDirectory = ##class(%File).GetDirectory(backupDestination)
-    set sc = ##class(Port.Project.Helper).ImplyDirectoryCreation(parentBackupDirectory)
+    set sc = ##class(Port.Util).CreateMissingPath(parentBackupDirectory)
     if $$$ISERR(sc) quit
     
     set created = 1    

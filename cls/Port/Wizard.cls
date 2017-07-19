@@ -1,6 +1,6 @@
 Include portutils
 
-Class Port.SourceControl.Wizard [ Abstract ]
+Class Port.Wizard [ Abstract ]
 {
 
 ClassMethod Start(hideIntroduction As %Boolean = 0)
@@ -18,12 +18,12 @@ ClassMethod Start(hideIntroduction As %Boolean = 0)
     do Menu
   }
     
-  if choice = 1 quit ..StartWorkspaceConfigAssistant() quit
-  if choice = 2 quit ..StartTestConfigAssistant() quit
-  if choice = 3 quit ..StartAutoExportXMLConfigAssistant() quit
-  if choice = 4 quit ..StartLogLevelConfigAssistant() quit
-  if choice = 5 quit ..StartSourceExtensionConfigAssistant() quit
-  if choice = 6 write !, $$$FormatWizardMsg($$$PCWBye) quit $$$OK
+  if choice = 1 return ..StartWorkspaceConfigAssistant() quit
+  if choice = 2 return ..StartTestConfigAssistant() quit
+  if choice = 3 return ..StartAutoExportXMLConfigAssistant() quit
+  if choice = 4 return ..StartLogLevelConfigAssistant() quit
+  if choice = 5 return ..StartSourceExtensionConfigAssistant() quit
+  if choice = 6 write !, $$$FormatWizardMsg($$$PCWBye) return $$$OK
          
 Menu
   set choice = ""
@@ -60,11 +60,11 @@ ClassMethod StartWorkspaceConfigAssistant(hideIntroduction As %Boolean = 0)
     do Menu
   }
   
-  if choice = 1 quit ..StartWorkspaceChoice1ConfigAssistant()
-  if choice = 2 quit ..StartWorkspaceChoice2ConfigAssistant()
-  if choice = 3 quit ..Start(1) 
+  if choice = 1 return ..StartWorkspaceChoice1ConfigAssistant()
+  if choice = 2 return ..StartWorkspaceChoice2ConfigAssistant()
+  if choice = 3 return ..Start(1) 
   
-  quit $$$OK
+  return $$$OK
     
 Menu
   set choice = ""
@@ -105,9 +105,9 @@ ClassMethod StartWorkspaceChoice1ConfigAssistant()
   
   if path = "" set path = "/CacheProjects/{NAMESPACE}/{PROJECT}"
     
-  do ##class(Config).SetPrimaryWorkspace(path)
+  do ##class(Port.Configuration).SetPrimaryWorkspace(path)
   write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice1StatusNow, path), !
-  quit ..StartWorkspaceConfigAssistant(1)
+  return ..StartWorkspaceConfigAssistant(1)
 }
 
 ClassMethod StartWorkspaceChoice2ConfigAssistant()
@@ -118,35 +118,35 @@ ClassMethod StartWorkspaceChoice2ConfigAssistant()
   write !, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2Prompt), !
   read projectName
   
-  if projectName = "" write !, $$$FormatWizardMsg($$$PCWAborted), !! quit ..StartWorkspaceConfigAssistant(1)
+  if projectName = "" write !, $$$FormatWizardMsg($$$PCWAborted), !! return ..StartWorkspaceConfigAssistant(1)
   set projectExists = ##class(%Studio.Project).%ExistsId(projectName)
   
   if 'projectExists {
     write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2Warning), !!
   }  
   
-  set currentWorkspace = ##class(Config).GetCustomWorkspace(projectName)
-  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice1StatusCurrent, ##class(Config).GetWorkspace(projectName)), !
-  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2CurrentWorskpaceWarn), !
+  set currentWorkspace = ##class(Port.Configuration).GetCustomWorkspace(projectName)
+  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice1StatusCurrent, ##class(Port.Configuration).GetWorkspace(projectName)), !
+  write !, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2CurrentWorskpaceWarn)
+  
+  write !!, $$$FormatWizardMsg($$$PCWPathAbsolute), !!
   
   write $$$FormatWizardMsg($$$PCWPlaceholdersProject), !
   write $$$FormatWizardMsg($$$PCWPlaceholdersNamespace), !
   write $$$FormatWizardMsg($$$PCWPlaceholdersUsername), !
   write $$$FormatWizardMsg($$$PCWPlaceholdersInstallDir)
+    
+  write !!, $$$FormatWizardMsg($$$PCWPathOSSchemes) 
   
-  write !!, $$$FormatWizardMsg($$$PCWPathAbsolute), !!
- 
-  write $$$FormatWizardMsg($$$PCWPathOSSchemes), !!  
-  
-  write $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2Prompt2), !
+  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2Prompt2), !
   read workspacePath
   
-  if workspacePath = "" write !, $$$FormatWizardMsg($$$PCWAborted), !! quit ..StartWorkspaceConfigAssistant(1)
+  if workspacePath = "" write !, $$$FormatWizardMsg($$$PCWAborted), !! return ..StartWorkspaceConfigAssistant(1)
   
-  do ##class(Config).SetCustomWorkspace(projectName, workspacePath)
-  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2StatusNow, ##class(Config).GetWorkspace(projectName)), !!
+  do ##class(Port.Configuration).SetCustomWorkspace(projectName, workspacePath)
+  write !!, $$$FormatWizardMsg($$$PCWManageWorkspaceChoice2StatusNow, projectName, ##class(Port.Configuration).GetWorkspace(projectName)), !
   
-  quit ..StartWorkspaceConfigAssistant(1)
+  return ..StartWorkspaceConfigAssistant(1)
 }
 
 ClassMethod StartTestConfigAssistant(hideIntroduction As %Boolean = 0)
@@ -164,12 +164,12 @@ ClassMethod StartTestConfigAssistant(hideIntroduction As %Boolean = 0)
     do Menu
   }
   
-  if choice = 1 quit ..StartTestChoice1ConfigAssistant()
-  if choice = 2 quit ..StartTestChoice2ConfigAssistant()
-  if choice = 3 quit ..StartTestChoice3ConfigAssistant()
-  if choice = 4 quit ..Start(1)
+  if choice = 1 return ..StartTestChoice1ConfigAssistant()
+  if choice = 2 return ..StartTestChoice2ConfigAssistant()
+  if choice = 3 return ..StartTestChoice3ConfigAssistant()
+  if choice = 4 return ..Start(1)
   
-  quit $$$OK
+  return $$$OK
     
 Menu
   set choice = ""
@@ -204,13 +204,13 @@ ClassMethod StartAutoExportXMLConfigAssistant()
     do Menu
   }
   
-  if choice = 1 do ##class(Port.SourceControl.Config).EnableAutoExportXML()  
-  if choice = 2 do ##class(Port.SourceControl.Config).DisableAutoExportXML()
+  if choice = 1 do ##class(Port.Configuration).EnableAutoExportXML()  
+  if choice = 2 do ##class(Port.Configuration).DisableAutoExportXML()
     
   write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice1StatusCurrent, labels(choice - 1))
   
   write !!
-  quit ..Start(1)
+  return ..Start(1)
   
 Menu
   set choice = ""
@@ -219,7 +219,7 @@ Menu
   write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice1), ! 
   write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice2), !!  
      
-  set status = ##class(Port.SourceControl.Config).IsAutoExportXMLEnabled()
+  set status = ##class(Port.Configuration).IsAutoExportXMLEnabled()
   
   write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice1StatusCurrent, labels(status)), !!
   write $$$FormatWizardMsg($$$PCWChoicePrompt)
@@ -243,9 +243,9 @@ ClassMethod StartLogLevelConfigAssistant()
     do Menu
   }
   
-  do ##class(Port.SourceControl.Config).SetLogLevel(choice)
-  write $$$FormatWizardMsg($$$PCWSetLogLevelStatusNow, ##class(Port.SourceControl.Config).GetLogLevel())
-  quit ..Start(1)
+  do ##class(Port.Configuration).SetLogLevel(choice)
+  write $$$FormatWizardMsg($$$PCWSetLogLevelStatusNow, ##class(Port.Configuration).GetLogLevel())
+  return ..Start(1)
   
 Menu
   set choice = ""
@@ -255,7 +255,7 @@ Menu
   
   write $$$FormatWizardMsg($$$PCWSetLogLevelStatusChoice2), !!
   
-  write $$$FormatWizardMsg($$$PCWSetLogLevelStatusCurrent, ##class(Port.SourceControl.Config).GetLogLevel()), !!
+  write $$$FormatWizardMsg($$$PCWSetLogLevelStatusCurrent, ##class(Port.Configuration).GetLogLevel()), !!
   write $$$FormatWizardMsg($$$PCWChoicePrompt)
   
   read choice
@@ -275,10 +275,10 @@ ClassMethod StartSourceExtensionConfigAssistant()
   write $$$FormatWizardMsg($$$PCWPathNew)
   read extension   
   
-  do ##class(Port.SourceControl.Config).SetSourceExtension(extension)
+  do ##class(Port.Configuration).SetSourceExtension(extension)
   set savedExtension = $get(^Port.SourceControl.Settings("source.extension"))
   write !!, $$$FormatWizardMsg($$$PWCSetSourceExtensionStatusNow, $select(savedExtension = "" : "none.", 1: "."_savedExtension))
-  quit ..Start(1)
+  return ..Start(1)
 }
 
 ClassMethod StartTestChoice1ConfigAssistant()
@@ -297,13 +297,13 @@ ClassMethod StartTestChoice1ConfigAssistant()
     do Menu
   }
   
-  if choice = 1 do ##class(Port.SourceControl.Config).EnableTestOnDemand()      
-  if choice = 2 do ##class(Port.SourceControl.Config).DisableTestOnDemand()
+  if choice = 1 do ##class(Port.Configuration).EnableTestOnDemand()      
+  if choice = 2 do ##class(Port.Configuration).DisableTestOnDemand()
   
   write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1StatusCurrent, labels(choice - 1))
   
   write !
-  quit ..StartTestConfigAssistant(1)
+  return ..StartTestConfigAssistant(1)
   
 Menu
   set choice = ""
@@ -312,7 +312,7 @@ Menu
   write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1Choice1), ! 
   write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1Choice2), !! 
      
-  set status = ##class(Port.SourceControl.Config).IsTestOnDemandEnabled()
+  set status = ##class(Port.Configuration).IsTestOnDemandEnabled()
   
   write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice1StatusCurrent, labels(status)), !
   write $$$FormatWizardMsg($$$PCWChoicePrompt)
@@ -332,14 +332,14 @@ ClassMethod StartTestChoice2ConfigAssistant()
   
   write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice2Prompt), !  
   write $$$FormatWizardMsg($$$PCWPathDefault), " UnitTest", !
-  write $$$FormatWizardMsg($$$PCWPathCurrent), " ", ##class(Port.SourceControl.Config).GetTestClassPrefix(), !!
+  write $$$FormatWizardMsg($$$PCWPathCurrent), " ", ##class(Port.Configuration).GetTestClassPrefix(), !!
   write $$$FormatWizardMsg($$$PCWPathNew)
   read prefix   
   
-  do ##class(Port.SourceControl.Config).SetTestClassPrefix(prefix)
-  write !!, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice2StatusNow, ##class(Port.SourceControl.Config).GetTestClassPrefix())
+  do ##class(Port.Configuration).SetTestClassPrefix(prefix)
+  write !!, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice2StatusNow, ##class(Port.Configuration).GetTestClassPrefix())
   write !!
-  quit ..StartTestConfigAssistant(1)
+  return ..StartTestConfigAssistant(1)
 }
 
 ClassMethod StartTestChoice3ConfigAssistant()
@@ -360,10 +360,10 @@ ClassMethod StartTestChoice3ConfigAssistant()
   write $$$FormatWizardMsg($$$PCWPathNew), !
   read path
    
-  do ##class(Port.SourceControl.Config).SetTestPath(path)
+  do ##class(Port.Configuration).SetTestPath(path)
   write !!, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice3StatusNow, ^Port.SourceControl.Settings("test.path"))
   write !!
-  quit ..StartTestConfigAssistant(1)
+  return ..StartTestConfigAssistant(1)
 }
 
 }

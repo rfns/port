@@ -70,6 +70,7 @@
 #define CMLRunActiveTest                                -6002
 #define CMLImportActive                                 -6001
 #define CMLExportActive                                 -6000
+#define CouldNotDetermineWorkspace                      -116
 #define LogLevelIsOutOfRange                            -115
 #define ErrorsWhileImportingType                        -114
 #define ExportingProjectNotFound                        -113
@@ -127,7 +128,7 @@
 #define AllDone                                         -502
 #define Failed                                          -501
 #define Done                                            -500
-#define TotalExtraneousItemsItemsRemoved                -406
+#define TotalExtraneousItemsRemoved                     -406
 #define RemovingDirectory                               -405
 #define RemovingFile                                    -404
 #define NoExtraneousItems                               -403

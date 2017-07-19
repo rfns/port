@@ -1,7 +1,7 @@
 Install
-  do ##class(Port.SourceControl.Installer).Install()
+  do ##class(Port.Installer).Install()
   quit
 
 Wizard
-  do ##class(Port.SourceControl.Wizard).Start()
+  do ##class(Port.Wizard).Start()
   quit

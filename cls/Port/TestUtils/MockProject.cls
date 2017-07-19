@@ -13,13 +13,13 @@ Method %OnNew(fixtureDir As %String, withFauxFiles As %Boolean = 0, addToProject
 {
   set ..FixtureDirectory = fixtureDir
   $$$QuitOnError(..Create(withFauxFiles, addToProject))
-  quit $$$OK
+  return $$$OK
 }
 
 Method %OnClose() As %Status
 {
   $$$QuitOnError(..Delete())
-  quit $$$OK
+  return $$$OK
 }
 
 Method Delete() As %Status
@@ -28,7 +28,7 @@ Method Delete() As %Status
     $$$QuitOnError(##class(%Studio.Project).Delete(..#MOCKNAME))
     $$$QuitOnError(..DisposeFauxItems())
   }  
-  quit $$$OK
+  return $$$OK
 }
 
 Method Create(withFauxFiles As %Boolean = 0, addToProject As %Boolean = 0) As %Status
@@ -41,7 +41,7 @@ Method Create(withFauxFiles As %Boolean = 0, addToProject As %Boolean = 0) As %S
   if addToProject   $$$QuitOnError(..AddItemsToProject())
   set sc = ..Project.%Save()
   $$$QuitOnError(sc)
-  quit $$$OK
+  return $$$OK
 }
 
 Method CreateFauxItems() As %Status
@@ -100,12 +100,12 @@ Method CreateFauxItems() As %Status
     set i%ItemsList(destination) = contentType
     set file = ""
   }
-  quit sc
+  return sc
 }
 
 Method DisposeFauxItems() As %Status
 {
-  if $data(i%ItemsList) quit $$$OK
+  if $data(i%ItemsList) return $$$OK
   set name = ""
   for {
     set name = $order(i%ItemsList(name), 1, type)
@@ -115,7 +115,7 @@ Method DisposeFauxItems() As %Status
     if type = 2 do $System.OBJ.Delete(name)
     if type = 3 do ##class(%File).Delete($System.Util.InstallDirectory()_"/csp/"_$$$lcase($namespace)_"/name")
   }
-  quit $$$OK
+  return $$$OK
 }
 
 Method AddItemsToProject() As %Status
@@ -127,7 +127,7 @@ Method AddItemsToProject() As %Status
     
     do ..Project.AddItem(name)
   }
-  quit $$$OK
+  return $$$OK
 }
 
 }
