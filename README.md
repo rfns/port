@@ -20,11 +20,26 @@ Since it uses a project based approach to handle the source code, the following 
 
 ## How to install
 
+<<<<<<< HEAD
 In order to install Port, you just need to import the file [port.xml](https://github.com/rfns/port/blob/master/port.xml) with the compile flag enabled and restart your Studio.
 
 ## Configuration
 
 You can configure advanced settings using the class `Port.Configuration`. You can also check what you can configure by running `##class(Port.Configuration).Help()` or using the wizard: `Wizard^Port`.
+=======
+In order to install Port, you just need to follow the steps below:
+
+1. Import the file [port.xml](https://github.com/rfns/port/blob/master/port.xml).
+2. Run the class method ``##class(Port.Installer).Install()``.
+3. Restart the Studio.
+
+## Configuration
+
+You might also want to check out the class ``Port.Configuration`` and configure
+the source control integration according to your taste.
+
+Or you could simply call `do ##class(Port.Wizard).Start()` and let the wizard help you.
+>>>>>>> f5ea291a33cffb45727f33fbb020a0a87d543f58
 
 ## How to use
 
@@ -81,7 +96,7 @@ The deal is: you might want something simplier to do something simplier.
 
 ## FAQ: So, does that mean you are ignoring Atelier?
 
-No, I've been [experimenting](https://github.com/rfns/port/blob/master/cls/Port/REST/API.cls.txt) things out with it's REST API to provide integrations with [source code editors](https://en.wikipedia.org/wiki/Source_code_editor) like VSCode and Atom.
+No, I've been [experimenting](https://github.com/rfns/port/blob/master/cls/Port/REST/API.cls) things out with it's REST API to provide integrations with [source code editors](https://en.wikipedia.org/wiki/Source_code_editor) like VSCode and Atom.
 
 There are already some few options like [cos-vscode](https://github.com/doublefint/cos-vscode). But since I wanted to focus on using projects, I decided to implement my own.
 

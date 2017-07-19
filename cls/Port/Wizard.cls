@@ -99,7 +99,7 @@ ClassMethod StartWorkspaceChoice1ConfigAssistant()
  
   write $$$FormatWizardMsg($$$PCWPathOSSchemes), !!
   write $$$FormatWizardMsg($$$PCWPathDefault), !, "/CacheProjects/{NAMESPACE}/{PROJECT}", !
-  write $$$FormatWizardMsg($$$PCWPathCurrent), !, $get(^Port.SourceControl.Settings("source.path"), "none"), !!
+  write $$$FormatWizardMsg($$$PCWPathCurrent), !, $get(^Port.Configuration("source.path"), "none"), !!
   write $$$FormatWizardMsg($$$PCWPathNew), !
   read path
   
@@ -266,7 +266,7 @@ Menu
 
 ClassMethod StartSourceExtensionConfigAssistant()
 {
-  set currentExtension = $get(^Port.SourceControl.Settings("source.extension"))
+  set currentExtension = $get(^Port.Configuration("source.extension"))
   write !, $$$FormatWizardMsg($$$PCWSetSourceExtensionDescription), !
   
   write $$$FormatWizardMsg($$$PWCSetSourceExtensionPrompt), !!
@@ -276,7 +276,7 @@ ClassMethod StartSourceExtensionConfigAssistant()
   read extension   
   
   do ##class(Port.Configuration).SetSourceExtension(extension)
-  set savedExtension = $get(^Port.SourceControl.Settings("source.extension"))
+  set savedExtension = $get(^Port.Configuration("source.extension"))
   write !!, $$$FormatWizardMsg($$$PWCSetSourceExtensionStatusNow, $select(savedExtension = "" : "none.", 1: "."_savedExtension))
   return ..Start(1)
 }
@@ -356,12 +356,12 @@ ClassMethod StartTestChoice3ConfigAssistant()
   write !!, $$$FormatWizardMsg($$$PCWPathRelative), !
     
   write $$$FormatWizardMsg($$$PCWPathDefault), !, "tests", !
-  write $$$FormatWizardMsg($$$PCWPathCurrent), !, $get(^Port.SourceControl.Settings("test.path")), !!
+  write $$$FormatWizardMsg($$$PCWPathCurrent), !, $get(^Port.Configuration("test.path")), !!
   write $$$FormatWizardMsg($$$PCWPathNew), !
   read path
    
   do ##class(Port.Configuration).SetTestPath(path)
-  write !!, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice3StatusNow, ^Port.SourceControl.Settings("test.path"))
+  write !!, $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice3StatusNow, ^Port.Configuration("test.path"))
   write !!
   return ..StartTestConfigAssistant(1)
 }
