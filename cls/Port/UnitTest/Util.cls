@@ -27,7 +27,7 @@ ClassMethod IsUnitTestClass(className As %String) As %Boolean
   return isUnitTest
 }
 
-ClassMethod AssertTestableClass(className, Output testableClass As %String = "") As %Boolean
+ClassMethod AssertTestableClass(className, Output testableClass As %String = "", projectName As %String = {$get(^||Port.Project)}) As %Boolean
 {
   if $piece(className, ".", *) = "CLS" set className = $piece(className, ".", 1, *-1)
   set prefix = ##class(Port.Configuration).GetTestClassPrefix()  
@@ -39,7 +39,12 @@ ClassMethod AssertTestableClass(className, Output testableClass As %String = "")
   } elseif ##class(%Dictionary.ClassDefinition).%ExistsId(prefix_"."_className) {
     set maybeTestableClass = prefix_"."_className
     if ..IsUnitTestClass(maybeTestableClass) {
-      set testableClass = prefix_"."_className 
+      set testableClass = prefix_"."_className
+      if '##class(Port.Util).ExistsInProject(projectName, testableClass_".CLS") {
+        // Cannot export Unit Test classes that aren't in the project.
+        set testableClass = ""
+        return 0
+      }
     }
   }
   return (testableClass '= "")

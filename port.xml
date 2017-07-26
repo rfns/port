@@ -1282,48 +1282,6 @@ Scan(group, type, created)
 ]]></Implementation>
 </Method>
 
-<Method name="NormalizeOutput">
-<FormalSpec>itemName:%String,*path:%String="",*extension:%String=""</FormalSpec>
-<Private>1</Private>
-<ReturnType>%String</ReturnType>
-<Implementation><![CDATA[
-  
-  set extension = ##class(Port.Util).GetItemExtension(itemName)
-  set dest = ""
-  
-  // Package.Class.Name -> cls/Package/Class/Name.cls.txt
-  if extension = "CLS" {
-    set classBasePath = ..ResolvePathType("CLS")
-    set classItemName = $piece(itemName, ".", 1, *-1)
-    set classPath = $listtostring($listbuild(classBasePath, $replace(classItemName, ".", ..Slash)), ..Slash)
-    set packagePath = $piece(classPath, ..Slash, 1, *-1)
-    set className = $piece(classPath, ..Slash, $length(classPath, ..Slash))
-    set dest = classPath_".cls"_..GetSourceExtension()
-    set path = packagePath
-  }
-  
-  // Routine.(type) -> /(type)/routine.(type).txt
-  elseif ##class(Port.Util).IsRoutine(itemName) {    
-    set type = $$$ucase($piece(itemName, ".", *))
-    set path = ..ResolvePathType(type, itemName)
-    set dest = path_..Slash_itemName
-    set extPos = $length(dest, ".")
-    set $piece(dest, ".", extPos) = $$$lcase($piece(dest, ".", extPos))_..GetSourceExtension()
-  }
-  
-  // /csp/path/to/somefile.(*) -> /web/path/to/somefile.(*).txt
-  else {
-    set appPath = $System.CSP.GetDefaultApp($namespace)
-    set baseTypePath = ..ResolvePathType("CSP")
-    set ext = $$$lcase($piece(itemName, ".", *))
-    set fileWithoutExtension = $piece(itemName, ".", 1, *-1)
-    set dest = ##class(%File).NormalizeFilename(baseTypePath_..Slash_$piece(fileWithoutExtension, "/", 3, *))_"."_ext
-    set path = ##class(%File).GetDirectory(dest) 
-  }
-  return dest
-]]></Implementation>
-</Method>
-
 <Method name="IsOutdated">
 <FormalSpec>current:%String,external:%String,isImport:%Boolean=0</FormalSpec>
 <ReturnType>%Boolean</ReturnType>
@@ -1360,9 +1318,8 @@ Scan(group, type, created)
   if currentTS = externalTS return 0
   if 'isImport {
     if currentTS = "" return 1
-    // Now here the following rule are applied:
-    // As currentTS is referring to the source inside Caché, this conditions checks if 
-    // the currrent source present is newer than the file exported last time, we also keep a registry
+    // As currentTS is referring to the imported source code, this condition checks if 
+    // it is newer than the file exported last time, we also keep a registry
     // about changes made using Port so we check against it as well.
     return (
       (currentTS ] externalTS) && 
@@ -1370,7 +1327,7 @@ Scan(group, type, created)
     )
   }
   // Otherwise everything is inverted:
-  // External files must be newer than the current source inside Caché and newer than their last
+  // External files must be newer than the imported source code and newer than their last
   // registry as well. 
   return (
     (externalTS ] currentTS) && 
@@ -2857,8 +2814,8 @@ LoopThroughType(projectName, importedList, group)
       }
       
       if type = "CLS" {        
-        set sc = exporter.ExportClass(InternalName, .exported)
-        if exported '= "" && ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass) {
+        set sc = exporter.ExportClass(InternalName)
+        if ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass) {
           set testPath = ##class(Port.Configuration).GetTestPath()
           set xmlExporter = ##class(Port.Project.XMLExporter).%New(exportPath, 2)
           do xmlExporter.ExportTest($$$NFN(exportPath_"/"_testPath), testableClass, .ssc)          
@@ -3491,7 +3448,7 @@ to load the item from an external format.</Description>
 
 <Method name="AssertTestableClass">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>className,*testableClass:%String=""</FormalSpec>
+<FormalSpec>className,*testableClass:%String="",projectName:%String=$get(^||Port.Project)</FormalSpec>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[
   if $piece(className, ".", *) = "CLS" set className = $piece(className, ".", 1, *-1)
@@ -3504,7 +3461,12 @@ to load the item from an external format.</Description>
   } elseif ##class(%Dictionary.ClassDefinition).%ExistsId(prefix_"."_className) {
     set maybeTestableClass = prefix_"."_className
     if ..IsUnitTestClass(maybeTestableClass) {
-      set testableClass = prefix_"."_className 
+      set testableClass = prefix_"."_className
+      if '##class(Port.Util).ExistsInProject(projectName, testableClass_".CLS") {
+        // Cannot export Unit Test classes that aren't in the project.
+        set testableClass = ""
+        return 0
+      }
     }
   }
   return (testableClass '= "")
@@ -4540,8 +4502,7 @@ Menu
       if ##class(Port.Util).ExistsInProject("dummy-project", itemName) {
         if '##class(%File).Exists(itemLocation) {
           set sc = $$$ERROR($$$GeneralError, $$$FormatText("file not generated for item %1", itemName))
-          quit
-        
+          quit        
         }
       }       
     }

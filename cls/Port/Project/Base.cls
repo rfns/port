@@ -176,44 +176,6 @@ Method BuildTypePaths(workingDirectory As %String) As %Status [ Final, Internal,
   return $$$OK
 }
 
-Method NormalizeOutput(itemName As %String, Output path As %String = "", Output extension As %String = "") As %String [ Private ]
-{
-  
-  set extension = ##class(Port.Util).GetItemExtension(itemName)
-  set dest = ""
-  
-  // Package.Class.Name -> cls/Package/Class/Name.cls.txt
-  if extension = "CLS" {
-    set classBasePath = ..ResolvePathType("CLS")
-    set classItemName = $piece(itemName, ".", 1, *-1)
-    set classPath = $listtostring($listbuild(classBasePath, $replace(classItemName, ".", ..Slash)), ..Slash)
-    set packagePath = $piece(classPath, ..Slash, 1, *-1)
-    set className = $piece(classPath, ..Slash, $length(classPath, ..Slash))
-    set dest = classPath_".cls"_..GetSourceExtension()
-    set path = packagePath
-  }
-  
-  // Routine.(type) -> /(type)/routine.(type).txt
-  elseif ##class(Port.Util).IsRoutine(itemName) {    
-    set type = $$$ucase($piece(itemName, ".", *))
-    set path = ..ResolvePathType(type, itemName)
-    set dest = path_..Slash_itemName
-    set extPos = $length(dest, ".")
-    set $piece(dest, ".", extPos) = $$$lcase($piece(dest, ".", extPos))_..GetSourceExtension()
-  }
-  
-  // /csp/path/to/somefile.(*) -> /web/path/to/somefile.(*).txt
-  else {
-    set appPath = $System.CSP.GetDefaultApp($namespace)
-    set baseTypePath = ..ResolvePathType("CSP")
-    set ext = $$$lcase($piece(itemName, ".", *))
-    set fileWithoutExtension = $piece(itemName, ".", 1, *-1)
-    set dest = ##class(%File).NormalizeFilename(baseTypePath_..Slash_$piece(fileWithoutExtension, "/", 3, *))_"."_ext
-    set path = ##class(%File).GetDirectory(dest) 
-  }
-  return dest
-}
-
 Method IsOutdated(current As %String, external As %String, isImport As %Boolean = 0) As %Boolean
 {
   if '##class(%File).Exists(external) return 1 
@@ -248,9 +210,8 @@ Method IsOutdated(current As %String, external As %String, isImport As %Boolean 
   if currentTS = externalTS return 0
   if 'isImport {
     if currentTS = "" return 1
-    // Now here the following rule are applied:
-    // As currentTS is referring to the source inside Caché, this conditions checks if 
-    // the currrent source present is newer than the file exported last time, we also keep a registry
+    // As currentTS is referring to the imported source code, this condition checks if 
+    // it is newer than the file exported last time, we also keep a registry
     // about changes made using Port so we check against it as well.
     return (
       (currentTS ] externalTS) && 
@@ -258,7 +219,7 @@ Method IsOutdated(current As %String, external As %String, isImport As %Boolean 
     )
   }
   // Otherwise everything is inverted:
-  // External files must be newer than the current source inside Caché and newer than their last
+  // External files must be newer than the imported source code and newer than their last
   // registry as well. 
   return (
     (externalTS ] currentTS) && 

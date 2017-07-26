@@ -60,8 +60,8 @@ Method OnAfterSave(InternalName As %String) As %Status
       }
       
       if type = "CLS" {        
-        set sc = exporter.ExportClass(InternalName, .exported)
-        if exported '= "" && ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass) {
+        set sc = exporter.ExportClass(InternalName)
+        if ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass) {
           set testPath = ##class(Port.Configuration).GetTestPath()
           set xmlExporter = ##class(Port.Project.XMLExporter).%New(exportPath, 2)
           do xmlExporter.ExportTest($$$NFN(exportPath_"/"_testPath), testableClass, .ssc)          

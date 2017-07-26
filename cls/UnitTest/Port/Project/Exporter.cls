@@ -95,8 +95,7 @@ Method TestExport()
       if ##class(Port.Util).ExistsInProject("dummy-project", itemName) {
         if '##class(%File).Exists(itemLocation) {
           set sc = $$$ERROR($$$GeneralError, $$$FormatText("file not generated for item %1", itemName))
-          quit
-        
+          quit        
         }
       }       
     }
