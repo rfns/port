@@ -25,6 +25,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-114" Name="ErrorsWhileImportingType">There were errors while importing items type of %1.</Message>
     <Message Id="-115" Name="LogLevelIsOutOfRange">The provided log level %1 is out of range. Parameter must be one of: %2.</Message>
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Could not determine the correct workspace from the provided path.</Message>
+    <Message Id="-117" Name="CannotSaveUbiquitousItem">Cannot save items that belongs to other projects. Please remove '%1' from the projects listed below if you want to save it into '%3': %2</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Starting backup ...</Message>
@@ -199,6 +200,7 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-114" Name="ErrorsWhileImportingType">Houveram errors ao importar itens do tipo %1.</Message>
     <Message Id="-115" Name="LogLevelIsOutOfRange">O nível de log fornecido está fora da faixa permitida. O parâmetro deve ser um destes: %2.</Message>
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Não foi possível determinar o espaço de trabalho correto a patir do caminho fornecido.</Message>
+    <Message Id="-117" Name="CannotSaveUbiquitousItem">Não é possível salvar itens que pertençam a outros projetos. Por favor remova o item %1 dos projetos abaixo se você deseja salvá-lo em '%3': %2</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>

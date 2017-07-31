@@ -70,6 +70,7 @@
 #define CMLRunActiveTest                                -6002
 #define CMLImportActive                                 -6001
 #define CMLExportActive                                 -6000
+#define CannotSaveUbiquitousItem                        -117
 #define CouldNotDetermineWorkspace                      -116
 #define LogLevelIsOutOfRange                            -115
 #define ErrorsWhileImportingType                        -114

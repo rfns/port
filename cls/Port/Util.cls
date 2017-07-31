@@ -5,7 +5,6 @@ Class Port.Util [ Abstract ]
 
 ClassMethod ResolveItemExtension(itemName As %String) As %String
 {
-  
   set ext = $$$ucase($piece(itemName, ".", *))
   if $lf($$$RoutineExtensions, "."_ext) || (itemName [ "/") || (ext = "CLS") || (ext = "PRJ") return ext
   return "PKG"

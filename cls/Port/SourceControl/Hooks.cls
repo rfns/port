@@ -36,9 +36,12 @@ XData Menu
 Method OnAfterSave(InternalName As %String) As %Status
 {
   #dim exporter As Port.Project.Exporter 
-  set projectName = $get(^||Port.Project)
+  
   set sc = $$$OK
-  if projectName '= "" && (projectName '[ "Default") {
+  set projectName = $get(^||Port.Project)
+  if projectName [ "Default" return sc  
+  
+  if projectName '= "" {
     set exportPath = ##class(Port.Configuration).GetWorkspace()
     set type = ##class(Port.Util).ResolveItemExtension(InternalName)
     
@@ -86,19 +89,36 @@ Method OnAfterSave(InternalName As %String) As %Status
   return sc
 }
 
-Method OnBeforeSave() As %Status
+Method OnBeforeSave(InternalName As %String, Location As %String = "", ByRef Object As %RegisteredObject = {$$$NULLOREF}) As %Status
 {
   set projectName = $get(^||Port.Project)
+  set targetProject = projectName
+  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
   
-  if projectName '= "" && (projectName [ "Default") {
+  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
+  set isProject = (ext '= "PRJ")
+  
+  if isProject && (InternalName [ targetProject) {
+    set targetProject = $piece(InternalName, ".")
+  }
+      
+  if targetProject '= "" && (targetProject [ "Default") {
     write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
     write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
+    if 'isProject return $$$ERROR($$$CanNotExportDefaultProject, targetProject)
   }
+  
+  set projectsOwningItem = $lts(##class(Port.Util).UbiquitousInProject(projectName, InternalName), $char(10))
+  if projectsOwningItem '= "" {
+    return $$$PERROR($$$CannotSaveUbiquitousItem, InternalName, $char(10, 10)_projectsOwningItem, projectName)
+  }  
+  
   return $$$OK
 }
 
 Method UserAction(Type As %Integer, Name As %String, InternalName As %String, SelectedText As %String, ByRef Action As %String, ByRef Target As %String, ByRef Msg As %String, ByRef Reload As %Boolean) As %Status
 {
+  
   set name = $piece(Name, ",", 2)
   set isContextual = ($piece(Name, ",", 1) = "%SourceContext")
   // We must know if the user is importing from a XML and prevent it from being exported.
@@ -106,6 +126,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
   
   if $data(^||Port.Project) {
     set projectName = ^||Port.Project
+    if projectName [ "Default" return $$$OK
     set fullPath = ##class(Port.Util).GetItemSourcePathFromWorkspace(InternalName)
     set projectPath = ##class(Port.Configuration).GetWorkspace()
     set testPath = ##class(Port.Configuration).GetTestPath()
@@ -290,7 +311,7 @@ Method OnBeforeDelete(InternalName As %String) As %Status
 }
 
 /// This is called before the actual load of data to give the chance
-/// to load the item from an external format.
+/// to load the item from an external format. 
 Method OnBeforeLoad(InternalName As %String) As %Status
 {
   // We need to use our own project global to prevent %Studio.Project from disrupting the current source control hooks.
@@ -298,13 +319,22 @@ Method OnBeforeLoad(InternalName As %String) As %Status
   set studioProject = $get(^||%Studio.Project)
   if studioProject '= "" set ^||Port.Project = studioProject
   set projectName = ^||Port.Project
+  set targetProject = projectName
+  
+  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
+  set isProject = (ext '= "PRJ")
+      
+  if projectName '= "" && (projectName [ "Default") {
+    write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
+    write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
+  }  
   
   set ubiquitousList = ##class(Port.Util).UbiquitousInProject(projectName, InternalName)
   if ubiquitousList '= "" {
     write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected, InternalName, $lts(ubiquitousList, ", "))
-    write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2)
+    write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2), !
   }
-  return ..OnBeforeSave()
+  return $$$OK
 }
 
 }

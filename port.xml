@@ -346,6 +346,7 @@ Remove all Port configurations. This will not erase project logs.</Description>
     <Message Id="-114" Name="ErrorsWhileImportingType">There were errors while importing items type of %1.</Message>
     <Message Id="-115" Name="LogLevelIsOutOfRange">The provided log level %1 is out of range. Parameter must be one of: %2.</Message>
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Could not determine the correct workspace from the provided path.</Message>
+    <Message Id="-117" Name="CannotSaveUbiquitousItem">Cannot save items that belongs to other projects. Please remove '%1' from the projects listed below if you want to save it into '%3': %2</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Starting backup ...</Message>
@@ -522,6 +523,7 @@ Remove all Port configurations. This will not erase project logs.</Description>
     <Message Id="-114" Name="ErrorsWhileImportingType">Houveram errors ao importar itens do tipo %1.</Message>
     <Message Id="-115" Name="LogLevelIsOutOfRange">O nível de log fornecido está fora da faixa permitida. O parâmetro deve ser um destes: %2.</Message>
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Não foi possível determinar o espaço de trabalho correto a patir do caminho fornecido.</Message>
+    <Message Id="-117" Name="CannotSaveUbiquitousItem">Não é possível salvar itens que pertençam a outros projetos. Por favor remova o item %1 dos projetos abaixo se você deseja salvá-lo em '%3': %2</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>
@@ -2790,9 +2792,12 @@ LoopThroughType(projectName, importedList, group)
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   #dim exporter As Port.Project.Exporter 
-  set projectName = $get(^||Port.Project)
+  
   set sc = $$$OK
-  if projectName '= "" && (projectName '[ "Default") {
+  set projectName = $get(^||Port.Project)
+  if projectName [ "Default" return sc  
+  
+  if projectName '= "" {
     set exportPath = ##class(Port.Configuration).GetWorkspace()
     set type = ##class(Port.Util).ResolveItemExtension(InternalName)
     
@@ -2842,14 +2847,31 @@ LoopThroughType(projectName, importedList, group)
 </Method>
 
 <Method name="OnBeforeSave">
+<FormalSpec><![CDATA[InternalName:%String,Location:%String="",&Object:%RegisteredObject=$$$NULLOREF]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set projectName = $get(^||Port.Project)
+  set targetProject = projectName
+  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
   
-  if projectName '= "" && (projectName [ "Default") {
+  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
+  set isProject = (ext '= "PRJ")
+  
+  if isProject && (InternalName [ targetProject) {
+    set targetProject = $piece(InternalName, ".")
+  }
+      
+  if targetProject '= "" && (targetProject [ "Default") {
     write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
     write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
+    if 'isProject return $$$ERROR($$$CanNotExportDefaultProject, targetProject)
   }
+  
+  set projectsOwningItem = $lts(##class(Port.Util).UbiquitousInProject(projectName, InternalName), $char(10))
+  if projectsOwningItem '= "" {
+    return $$$PERROR($$$CannotSaveUbiquitousItem, InternalName, $char(10, 10)_projectsOwningItem, projectName)
+  }  
+  
   return $$$OK
 ]]></Implementation>
 </Method>
@@ -2858,6 +2880,7 @@ LoopThroughType(projectName, importedList, group)
 <FormalSpec><![CDATA[Type:%Integer,Name:%String,InternalName:%String,SelectedText:%String,&Action:%String,&Target:%String,&Msg:%String,&Reload:%Boolean]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+  
   set name = $piece(Name, ",", 2)
   set isContextual = ($piece(Name, ",", 1) = "%SourceContext")
   // We must know if the user is importing from a XML and prevent it from being exported.
@@ -2865,6 +2888,7 @@ LoopThroughType(projectName, importedList, group)
   
   if $data(^||Port.Project) {
     set projectName = ^||Port.Project
+    if projectName [ "Default" return $$$OK
     set fullPath = ##class(Port.Util).GetItemSourcePathFromWorkspace(InternalName)
     set projectPath = ##class(Port.Configuration).GetWorkspace()
     set testPath = ##class(Port.Configuration).GetTestPath()
@@ -3062,7 +3086,7 @@ Called after the compile of the item is done.</Description>
 <Method name="OnBeforeLoad">
 <Description>
 This is called before the actual load of data to give the chance
-to load the item from an external format.</Description>
+to load the item from an external format. </Description>
 <FormalSpec>InternalName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
@@ -3071,13 +3095,22 @@ to load the item from an external format.</Description>
   set studioProject = $get(^||%Studio.Project)
   if studioProject '= "" set ^||Port.Project = studioProject
   set projectName = ^||Port.Project
+  set targetProject = projectName
+  
+  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
+  set isProject = (ext '= "PRJ")
+      
+  if projectName '= "" && (projectName [ "Default") {
+    write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
+    write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
+  }  
   
   set ubiquitousList = ##class(Port.Util).UbiquitousInProject(projectName, InternalName)
   if ubiquitousList '= "" {
     write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected, InternalName, $lts(ubiquitousList, ", "))
-    write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2)
+    write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2), !
   }
-  return ..OnBeforeSave()
+  return $$$OK
 ]]></Implementation>
 </Method>
 </Class>
@@ -3145,7 +3178,7 @@ to load the item from an external format.</Description>
     set itemName = $qsubscript(q, 3)
     
     if type '= "CLS" && (type '= "PRJ") set itemName = itemName_"."_type
-    if type = "CSP" set itemName = $extract(itemName, 2, $length(itemName))
+    if type = "CSP" set itemName = $extract(itemName, 2, *)
     set itemId = projectName_"||"_itemName_"||"_type
     if '$$$ProjectExists(projectName) || '$$$ItemExists(itemId) {
       kill @q
@@ -3494,7 +3527,6 @@ to load the item from an external format.</Description>
 <FormalSpec>itemName:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
-  
   set ext = $$$ucase($piece(itemName, ".", *))
   if $lf($$$RoutineExtensions, "."_ext) || (itemName [ "/") || (ext = "CLS") || (ext = "PRJ") return ext
   return "PKG"
@@ -4815,7 +4847,7 @@ Menu
 </Class>
 
 
-<Project name="port" LastModified="2017-07-19 14:58:33.35276" Target="##class(UnitTest.Port.Project.Exporter).test()" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2017-07-31 16:29:39.220756" Target="##class(UnitTest.Port.Project.Exporter).test()" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.AutoInstall" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Configuration" type="CLS"></ProjectItem>
@@ -4923,6 +4955,7 @@ Menu
 #define CMLRunActiveTest                                -6002
 #define CMLImportActive                                 -6001
 #define CMLExportActive                                 -6000
+#define CannotSaveUbiquitousItem                        -117
 #define CouldNotDetermineWorkspace                      -116
 #define LogLevelIsOutOfRange                            -115
 #define ErrorsWhileImportingType                        -114
