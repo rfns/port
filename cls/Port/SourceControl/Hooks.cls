@@ -45,7 +45,17 @@ Method OnAfterSave(InternalName As %String) As %Status
     set exportPath = ##class(Port.Configuration).GetWorkspace()
     set type = ##class(Port.Util).ResolveItemExtension(InternalName)
     
-    if type '= "PRJ" {      
+    if '##class(%File).DirectoryExists($$$NFN(exportPath)) {
+     set logLevel = ##class(Port.Configuration).GetLogLevel()
+     set sourceExtension = ##class(Port.Configuration).GetSourceExtension()
+     
+     write "Port: "_$$$FormatMsg("Port Log Messages", $$$NewWorkspaceDetected, projectName), !
+     
+     $$$QuitOnError(##class(Port.Project.Manager).Export(exportPath, logLevel, 1,, sourceExtension))
+     return ##class(Port.Project.Manager).ExportTestSuiteToXML(exportPath)
+    }
+    
+    if type '= "PRJ" {
       set sourceExtension = ##class(Port.Configuration).GetSourceExtension()
       set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
       set shouldExportAsXML = ##class(Port.Configuration).IsAutoExportXMLEnabled()

@@ -36,6 +36,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-301" Name="ExportingProject">Exporting the project %1.</Message>
     <Message Id="-302" Name="SourceExportedToPath">The source code has been exported to the path %1.</Message>
     <Message Id="-303" Name="ExportingType">Exporting %1 %2 ...</Message>
+    <Message Id="-304" Name="NewWorkspaceDetected">A new workspace has been detected for %1. The project will be exported as a whole.</Message>
     <Message Id="-400" Name="SynchronizingProject">Synchronizing the project %1.</Message>
     <Message Id="-401" Name="CheckingExtraneousItems">Checking for the presence of orphan items in the project.</Message>
     <Message Id="-402" Name="TotalExtraneousItems">Total orphan items detected: %1.</Message>
@@ -211,6 +212,7 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-301" Name="ExportingProject">Exportando o projeto %1.</Message>
     <Message Id="-302" Name="SourceExportedToPath">O código-fonte foi exportado para o caminho %1.</Message>
     <Message Id="-303" Name="ExportingType">Exportando %1 %2 ...</Message>
+    <Message Id="-304" Name="NewWorkspaceDetected">Um novo espaço de trabalho foi detectado para %1. O projeto será exportado como um todo.</Message>
     <Message Id="-400" Name="SynchronizingProject">Sincronizando o projeto %1.</Message>
     <Message Id="-401" Name="CheckingExtraneousItems">Verificando presença de itens órfãos no projeto.</Message>
     <Message Id="-402" Name="TotalExtraneousItems">Total de itens órfãos detectados: %1.</Message>

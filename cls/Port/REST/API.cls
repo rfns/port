@@ -21,7 +21,6 @@ Method CreateHttpRequestHandler(resourceLocation As %String, Output httpRequest 
 
 ClassMethod GetNamespaceProjects(namespace As %String) As %Status
 {
-  
   #define ThrowOnSQLError(%o) throw:(%o.%SQLCODE > 0) ##class(%Exception.SQL).CreateFromSQLCODE(%o.%SQLCODE, o.%Message) 
   #dim item As %DynamicObject
   #dim items As %DynamicArray = []
