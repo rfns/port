@@ -32,10 +32,10 @@ Method TestOnNew()
 Method TestLog()
 {
  
-  set expectedText = "Port: "_$$$FormatMsg("Port Log Messages", $$$ImportingProject, "dummy")
+  set expectedText = "[Port] "_$$$FormatMsg("Port Log Messages", $$$ImportingProject, "dummy")
   
   do $$$AssertEquals(..Logger.Log($$$ImportingProject, 0, "dummy"), expectedText, "can receive arity params")
-  do $$$AssertEquals(..Logger.Log($$$NoExtraneousItems, 0), "Port: "_$$$FormatMsg("Port Log Messages", $$$NoExtraneousItems), "does not break if no arity is passed")
+  do $$$AssertEquals(..Logger.Log($$$NoExtraneousItems, 0), "[Port] "_$$$FormatMsg("Port Log Messages", $$$NoExtraneousItems), "does not break if no arity is passed")
   
   set ..Logger.LogLevel = 1
   do $$$AssertEquals(..Logger.Log($$$ImportingProject, 2, "dummy"), "", " DO NOT WRITE the message if level is higher than log level")
@@ -49,7 +49,7 @@ Method TestLog()
 
 Method TestLogLine()
 {
-  set expectedText = "Port: "_$$$FormatMsg("Port Log Messages", $$$ImportingProject, "dummy")_$c(13, 10)
+  set expectedText = "[Port] "_$$$FormatMsg("Port Log Messages", $$$ImportingProject, "dummy")_$c(13, 10)
   do $$$AssertEquals(..Logger.LogLine($$$ImportingProject, 0, "dummy"), expectedText, "breaks to a new line")
 }
 

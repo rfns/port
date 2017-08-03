@@ -167,6 +167,20 @@ ClassMethod Uninstall() As %Status
   return $$$OK
 }
 
+/// Defines a class used to handle source control hooks after Port execution.
+ClassMethod RegisterExtendedHooks(implementer As %String) As %Status
+{
+  if implementer = "" kill ^Port.Configuration("source.hooks.custom")
+  if '##class(%Dictionary.CompiledClass).%ExistsId(implementer) return $$$ERROR($$$ClassDoesNotExist, implementer)
+  set ^Port.Configuration("source.hooks.custom") = implementer
+  return $$$OK
+}
+
+ClassMethod GetExtendedHooksImplementer() As %String
+{
+  return $get(^Port.Configuration("source.hooks.custom"))
+}
+
 ClassMethod RewritePlaceHolders(basePath As %String, projectName As %String = {$get(^||Port.Project)}, allowedPlaceholders = "*", params... As %String) As %String [ Internal ]
 {
  

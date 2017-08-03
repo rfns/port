@@ -288,6 +288,27 @@ Remove all Port configurations. This will not erase project logs.</Description>
 ]]></Implementation>
 </Method>
 
+<Method name="RegisterExtendedHooks">
+<Description>
+Defines a class used to handle source control hooks after Port execution.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>implementer:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  if implementer = "" kill ^Port.Configuration("source.hooks.custom")
+  if '##class(%Dictionary.CompiledClass).%ExistsId(implementer) return $$$ERROR($$$ClassDoesNotExist, implementer)
+  set ^Port.Configuration("source.hooks.custom") = implementer
+  return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="GetExtendedHooksImplementer">
+<ClassMethod>1</ClassMethod>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[  return $get(^Port.Configuration("source.hooks.custom"))
+]]></Implementation>
+</Method>
+
 <Method name="RewritePlaceHolders">
 <Internal>1</Internal>
 <ClassMethod>1</ClassMethod>
@@ -347,6 +368,7 @@ Remove all Port configurations. This will not erase project logs.</Description>
     <Message Id="-115" Name="LogLevelIsOutOfRange">The provided log level %1 is out of range. Parameter must be one of: %2.</Message>
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Could not determine the correct workspace from the provided path.</Message>
     <Message Id="-117" Name="CannotSaveUbiquitousItem">Cannot save items that belongs to other projects. Please remove '%1' from the projects listed below if you want to save it into '%3': %2</Message>
+    <Message Id="-118" Name="FailedWhileRunningExtendedHook">Failed while running extended hook '%1'.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Starting backup ...</Message>
@@ -403,10 +425,13 @@ Remove all Port configurations. This will not erase project logs.</Description>
     <Message Id="-812" Name="CLSGroupType">classes</Message>
     <Message Id="-813" Name="FileGroupType">files</Message>
     <Message Id="-900" Name="ExportingXML">Exporting the project %1 to XML ...</Message>
-    <Message Id="-901" Name="XMLExportedTo">%1 project XML exported to %1.</Message>
+    <Message Id="-901" Name="XMLExportedTo">%1 project XML exported to %2.</Message>
     <Message Id="-902" Name="ExportingTestClassToXML">Exporting test class %1 ...</Message>
     <Message Id="-1000" Name="UbiquitousItemDetected">CAUTION! Detected the usage of the item %1 on the following projects: %2.</Message>
     <Message Id="-1001" Name="UbiquitousItemDetected2">It's extremely recommended to keep the item exclusive to a single project!</Message>
+    <Message Id="-1100" Name="RunningCustomHook">Executing hook extension %1 from the class %2 ...</Message>
+    <Message Id="-1101" Name="HookReturnedOK">%1 returned without errors.</Message>
+    <Message Id="-1102" Name="HookReturnedError">Failed while executing %1 due to the following reason: %2.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Menu Labels">
     <Message Id="-5000" Name="MLExport">Export</Message>    
@@ -525,6 +550,7 @@ Remove all Port configurations. This will not erase project logs.</Description>
     <Message Id="-115" Name="LogLevelIsOutOfRange">O nível de log fornecido está fora da faixa permitida. O parâmetro deve ser um destes: %2.</Message>
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Não foi possível determinar o espaço de trabalho correto a patir do caminho fornecido.</Message>
     <Message Id="-117" Name="CannotSaveUbiquitousItem">Não é possível salvar itens que pertençam a outros projetos. Por favor remova o item %1 dos projetos abaixo se você deseja salvá-lo em '%3': %2</Message>
+    <Message Id="-118" Name="FailedWhileRunningExtendedHook">Falha ao rodar extensão do evento '%1'.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>
@@ -585,6 +611,9 @@ Remove all Port configurations. This will not erase project logs.</Description>
     <Message Id="-902" Name="ExportingTestClassToXML">Exportando a classe de teste %1 ...</Message>
     <Message Id="-1000" Name="UbiquitousItemDetected">CUIDADO! Foi detectada a presença do item %1 nos seguintes projetos: %2.</Message>
     <Message Id="-1001" Name="UbiquitousItemDetected2">É extremamente recomendado manter o item exclusivo a um projeto!</Message>
+    <Message Id="-1100" Name="RunningCustomHook">Executando extensão do evento %1 da classe %2 ...</Message>
+    <Message Id="-1101" Name="HookReturnedOK">%1 retornou sem erros.</Message>
+    <Message Id="-1102" Name="HookReturnedError">Falhou ao executar %1 devido ao seguinte motivo: %2</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Menu Labels">
     <Message Id="-5000" Name="MLExport">Exportar</Message>    
@@ -889,7 +918,7 @@ Remove all Port configurations. This will not erase project logs.</Description>
     set formattedParams(formattedParams) = $$$FormatMessage($$$SessionLanguage, "Port Log Messages", params(i), params(i))
   }
   set msg = $$$FormatMsg("Port Log Messages", messageCode, formattedParams...)
-  if messageCode '= $$$Done && (messageCode '= $$$Failed) set msg = "Port: "_msg
+  if messageCode '= $$$Done && (messageCode '= $$$Failed) set msg = "[Port] "_msg
   return msg
 ]]></Implementation>
 </Method>
@@ -2752,6 +2781,122 @@ LoopThroughType(projectName, importedList, group)
 </Class>
 
 
+<Class name="Port.SourceControl.ExtendedHooks">
+<Abstract>1</Abstract>
+<IncludeCode>portutils</IncludeCode>
+<TimeCreated>64496,37005.318621</TimeCreated>
+
+<Method name="Call">
+<Internal>1</Internal>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>sourceControl:%Studio.Extension.Base,hookName:%String="",parameters...:%String</FormalSpec>
+<ProcedureBlock>0</ProcedureBlock>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  new sc, content, implementer, alreadyRedirected, 
+      isNewLineTerminator, currentMnemonic, 
+      childSC, expectingContent, firstLine, s
+  
+  set sc = $$$OK
+  set s = ""
+  set childSC = $$$OK
+  set implementer = ##class(Port.Configuration).GetExtendedHooksImplementer() 
+  set alreadyRedirected = ##class(%Device).ReDirectIO()
+  set expectingContent = 0
+  set firstLine = ""
+  
+  if '##class(%Dictionary.CompiledMethod).%ExistsId(implementer_"||"_hookName) return sc 
+  set content = ##class(%Stream.GlobalBinary).%New() 
+  
+  if implementer '= "" { 
+    write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$RunningCustomHook, hookName, implementer)
+    
+    try {
+      set currentMnemonic = "^"_##class(%Device).GetMnemonicRoutine()
+      use $io::("^"_$zname)
+      do ##class(%Device).ReDirectIO(1)
+      set sc = $classmethod(implementer, hookName, sourceControl, parameters...)
+    } catch ex {
+      set content = "" 
+      set sc = ex.AsStatus() 
+    }
+  }
+  
+  if alreadyRedirected { 
+    do ##class(%Device).ReDirectIO(1) 
+    use $io::(currentMnemonic) 
+  }
+  
+  if $isobject(content) {  
+    do content.OutputToDevice()    
+  }
+  
+  write !       
+  
+  if $$$ISOK(sc) {    
+    write "[Port] "_$$$FormatMsg("Port Log Messages", $$$HookReturnedOK, hookName)
+  } else {
+    set errorText = $System.Status.GetOneStatusText(sc)
+    write "[Port] "_$$$FormatMsg("Port Log Messages", $$$HookReturnedError, hookName, errorText)
+    set childSC = sc
+    set sc = $$$PERROR($$$FailedWhileRunningExtendedHook, hookName)    
+    set sc = $$$EMBEDSC(sc, childSC)  
+  }
+  write !   
+  return sc 
+  
+rchr(c)      
+  quit
+rstr(sz,to)  
+  quit
+wchr(s)      
+  do output($char(s))  
+  quit 
+wff()        
+  do output($char(12))  
+  quit
+wnl()
+  if firstLine = 0 set firstLine = 1
+  else  set firstLine = -1
+  do output($char(13,10))
+  quit
+wstr(s)
+  do output(s) 
+  quit
+wtab(s)      
+  do output($char(9)) 
+  quit
+output(s)
+  // Skips writing the first !, we leave it to our write.
+  if firstLine = 1 quit
+  // Remaining writes ! are always a standalone buffer so we can check it's equality.
+  if s = $c(13,10) {
+    // However we can only write if the the next buffer has indeed some content.
+    // So we defer it to the next call where we can actually assert it.    
+    set expectingContent = 1
+    // This catches writes with embedded CRLF (like the compiler ones).    
+  } elseif $extract(s, 1, 2) = $c(13,10) {
+    set expectingContent = 1
+    do output($replace(s, $c(13,10), ""))
+    set expectingContent = 0 
+    quit
+  } elseif $length(s) > 0 {
+    // After deferring it, we can finally write a CRLF and the content, as long as it's not empty.
+    if expectingContent = 1 { 
+      set expectingContent = 0      
+      do content.WriteLine("")
+      do content.Write($$$FormatText("[Port] %1: ", hookName)) 
+    }
+    // Writes without ! must be written on the same line.     
+    do content.Write(s)
+  }
+   
+  quit
+]]></Implementation>
+</Method>
+</Class>
+
+
 <Class name="Port.SourceControl.Hooks">
 <IncludeCode>portutils</IncludeCode>
 <Super>%Studio.SourceControl.Base</Super>
@@ -2806,10 +2951,11 @@ LoopThroughType(projectName, importedList, group)
      set logLevel = ##class(Port.Configuration).GetLogLevel()
      set sourceExtension = ##class(Port.Configuration).GetSourceExtension()
      
-     write "Port: "_$$$FormatMsg("Port Log Messages", $$$NewWorkspaceDetected, projectName), !
+     write "[Port] "_$$$FormatMsg("Port Log Messages", $$$NewWorkspaceDetected, projectName), !
      
      $$$QuitOnError(##class(Port.Project.Manager).Export(exportPath, logLevel, 1,, sourceExtension))
-     return ##class(Port.Project.Manager).ExportTestSuiteToXML(exportPath)
+     // Called with do, because we don't want to display errors from it.
+     do ##class(Port.Project.Manager).ExportTestSuiteToXML(exportPath) return $$$OK
     }
     
     if type '= "PRJ" {
@@ -2825,8 +2971,8 @@ LoopThroughType(projectName, importedList, group)
       }
       
       if ubiquitousList '= "" {
-        write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected, InternalName, $lfs(ubiquitousList))
-        write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2)
+        write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected, InternalName, $lfs(ubiquitousList))
+        write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2)
       }
       
       if type = "CLS" {        
@@ -2852,13 +2998,14 @@ LoopThroughType(projectName, importedList, group)
   }
   if '##class(Port.Configuration).HasCustomWorkspace(projectName) { 
     do ##class(Port.Configuration).SetCustomWorkspace(projectName)
-  }   
+  }
+  $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterSave", InternalName)) 
   return sc
 ]]></Implementation>
 </Method>
 
 <Method name="OnBeforeSave">
-<FormalSpec><![CDATA[InternalName:%String,Location:%String="",&Object:%RegisteredObject=$$$NULLOREF]]></FormalSpec>
+<FormalSpec>InternalName:%String,Location:%String="",Object:%RegisteredObject=$$$NULLOREF</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set projectName = $get(^||Port.Project)
@@ -2873,8 +3020,8 @@ LoopThroughType(projectName, importedList, group)
   }
       
   if targetProject '= "" && (targetProject [ "Default") {
-    write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
-    write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
+    write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
+    write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
     if 'isProject return $$$ERROR($$$CanNotExportDefaultProject, targetProject)
   }
   
@@ -2882,7 +3029,7 @@ LoopThroughType(projectName, importedList, group)
   if projectsOwningItem '= "" {
     return $$$PERROR($$$CannotSaveUbiquitousItem, InternalName, $char(10, 10)_projectsOwningItem, projectName)
   }  
-  
+  $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeSave", InternalName, Location, Object))
   return $$$OK
 ]]></Implementation>
 </Method>
@@ -2991,7 +3138,15 @@ LoopThroughType(projectName, importedList, group)
       return ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
     }    
   }
+  $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "UserAction",  Type, Name, InternalName, SelectedText, .Action, .Target, .Msg, .Reload))
   return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="AfterUserAction">
+<FormalSpec><![CDATA[Type:%Integer,Name:%String,InternalName:%String,Answer:%Integer,Msg:%String="",&Reload:%Boolean]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "AfterUserAction", Type, Name, InternalName, Answer, .Msg, .Reload)
 ]]></Implementation>
 </Method>
 
@@ -3077,6 +3232,7 @@ Called after the compile of the item is done.</Description>
       } 
     }
   }
+  $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterCompile",  InternalName))
   return $$$OK
 ]]></Implementation>
 </Method>
@@ -3090,6 +3246,7 @@ Called after the compile of the item is done.</Description>
     set projectName = $piece(InternalName, ".", 1, *-1)
     do ##class(Port.Configuration).RemoveCustomWorkspace(projectName)
   }
+  $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeDelete",  InternalName))
   return $$$OK
 ]]></Implementation>
 </Method>
@@ -3112,16 +3269,103 @@ to load the item from an external format. </Description>
   set isProject = (ext '= "PRJ")
       
   if projectName '= "" && (projectName [ "Default") {
-    write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
-    write "Port: "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
+    write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
+    write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
   }  
   
   set ubiquitousList = ##class(Port.Util).UbiquitousInProject(projectName, InternalName)
   if ubiquitousList '= "" {
-    write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected, InternalName, $lts(ubiquitousList, ", "))
-    write !, "Port: "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2), !
+    write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected, InternalName, $lts(ubiquitousList, ", "))
+    write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2), !
   }
+  $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeLoad",  InternalName))
   return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="OnAfterAllClassCompile">
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[List:%String,Level:%Integer,&qstruct:%String,Status:%Status]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  $$$QuitOnError(##super(.List, .Level, .qstruct, .Status))
+  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterAllClassCompile", .List, Level, .qstruct, Status)
+]]></Implementation>
+</Method>
+
+<Method name="OnAfterClassCompile">
+<FormalSpec><![CDATA[List:%String,Level:%Integer,&qstruct:%String,Status:%Status]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterClassCompile", .List, Level, qstruct, Status)
+]]></Implementation>
+</Method>
+
+<Method name="OnAfterDelete">
+<Description>
+Called after an item is deleted.</Description>
+<FormalSpec>InternalName:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterDelete", InternalName)
+]]></Implementation>
+</Method>
+
+<Method name="OnAfterLoad">
+<FormalSpec>InternalName:%String,Object:%RegisteredObject=$$$NULLOREF</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterLoad", InternalName)
+]]></Implementation>
+</Method>
+
+<Method name="OnAfterStorage">
+<FormalSpec>InternalName:%String,Location:%String=""</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterStorage", InternalName, Location)
+]]></Implementation>
+</Method>
+
+<Method name="OnBeforeAllClassCompile">
+<Description><![CDATA[
+Called in the activated source control class before starting a compile after we have resolved the list of classes
+but before we have started the compile itself. Note that this is a class method and it does not require the source
+control class to be instanciated in order for it to be called. By default it will call the <method>OnBeforeClassCompile</method>
+if there is a source control class instanciated, but you can override this to do whatever you require.
+Returning an error here will abort the compile.
+<var>List</var> is a subscripted array of items that will be compiled.]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[List:%String,Level:%Integer,&qstruct:%String]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+  $$$QuitOnError(##super(.List, Level, .qstruct))
+  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeAllClassCompile", .List, Level, qstruct)
+]]></Implementation>
+</Method>
+
+<Method name="OnBeforeClassCompile">
+<Description><![CDATA[
+Called in the class compiler after we have resolved the list of classes to be compiled but
+before we have started the compile itself.
+<var>List</var> is a subscripted array of items that will be compiled.]]></Description>
+<FormalSpec><![CDATA[List:%String,Level:%Integer,&qstruct:%String]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeClassCompile", .List, Level, qstruct)
+]]></Implementation>
+</Method>
+
+<Method name="OnBeforeCompile">
+<Description>
+Called before the compile of the item is done.
+It is passed a qstruct which can be inspected and modified.</Description>
+<FormalSpec><![CDATA[InternalName:%String,&qstruct:%String]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeCompile", InternalName, qstruct)
+]]></Implementation>
+</Method>
+
+<Method name="OnBeforeTimestamp">
+<Description>
+Called before Studio checks for the timestamp of an item.</Description>
+<FormalSpec>InternalName:%String</FormalSpec>
+<Implementation><![CDATA[  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeTimestamp", InternalName)
 ]]></Implementation>
 </Method>
 </Class>
@@ -4407,10 +4651,10 @@ Menu
 <Method name="TestLog">
 <Implementation><![CDATA[
  
-  set expectedText = "Port: "_$$$FormatMsg("Port Log Messages", $$$ImportingProject, "dummy")
+  set expectedText = "[Port] "_$$$FormatMsg("Port Log Messages", $$$ImportingProject, "dummy")
   
   do $$$AssertEquals(..Logger.Log($$$ImportingProject, 0, "dummy"), expectedText, "can receive arity params")
-  do $$$AssertEquals(..Logger.Log($$$NoExtraneousItems, 0), "Port: "_$$$FormatMsg("Port Log Messages", $$$NoExtraneousItems), "does not break if no arity is passed")
+  do $$$AssertEquals(..Logger.Log($$$NoExtraneousItems, 0), "[Port] "_$$$FormatMsg("Port Log Messages", $$$NoExtraneousItems), "does not break if no arity is passed")
   
   set ..Logger.LogLevel = 1
   do $$$AssertEquals(..Logger.Log($$$ImportingProject, 2, "dummy"), "", " DO NOT WRITE the message if level is higher than log level")
@@ -4425,7 +4669,7 @@ Menu
 
 <Method name="TestLogLine">
 <Implementation><![CDATA[
-  set expectedText = "Port: "_$$$FormatMsg("Port Log Messages", $$$ImportingProject, "dummy")_$c(13, 10)
+  set expectedText = "[Port] "_$$$FormatMsg("Port Log Messages", $$$ImportingProject, "dummy")_$c(13, 10)
   do $$$AssertEquals(..Logger.LogLine($$$ImportingProject, 0, "dummy"), expectedText, "breaks to a new line")
 ]]></Implementation>
 </Method>
@@ -4858,7 +5102,7 @@ Menu
 </Class>
 
 
-<Project name="port" LastModified="2017-07-31 16:29:39.220756" Target="##class(UnitTest.Port.Project.Exporter).test()" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2017-08-03 17:05:56" Target="##class(UnitTest.Port.Project.Exporter).test()" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.AutoInstall" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Configuration" type="CLS"></ProjectItem>
@@ -4873,6 +5117,7 @@ Menu
     <ProjectItem name="Port.Project.Synchronizer" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Project.XMLExporter" type="CLS"></ProjectItem>
     <ProjectItem name="Port.REST.API" type="CLS"></ProjectItem>
+    <ProjectItem name="Port.SourceControl.ExtendedHooks" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Hooks" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.Log" type="CLS"></ProjectItem>
     <ProjectItem name="Port.SourceControl.LogCleaner" type="CLS"></ProjectItem>
@@ -4966,6 +5211,7 @@ Menu
 #define CMLRunActiveTest                                -6002
 #define CMLImportActive                                 -6001
 #define CMLExportActive                                 -6000
+#define FailedWhileRunningExtendedHook                  -118
 #define CannotSaveUbiquitousItem                        -117
 #define CouldNotDetermineWorkspace                      -116
 #define LogLevelIsOutOfRange                            -115
@@ -4984,6 +5230,9 @@ Menu
 #define CannotCreateDirectory                           -102
 #define NamespaceAppPathDoesnExists                     -101
 #define InvalidPhysicalPath                             -100
+#define HookReturnedError                               -1102
+#define HookReturnedOK                                  -1101
+#define RunningCustomHook                               -1100
 #define UbiquitousItemDetected2                         -1001
 #define UbiquitousItemDetected                          -1000
 #define ExportingTestClassToXML                         -902

@@ -70,6 +70,7 @@
 #define CMLRunActiveTest                                -6002
 #define CMLImportActive                                 -6001
 #define CMLExportActive                                 -6000
+#define FailedWhileRunningExtendedHook                  -118
 #define CannotSaveUbiquitousItem                        -117
 #define CouldNotDetermineWorkspace                      -116
 #define LogLevelIsOutOfRange                            -115
@@ -88,6 +89,9 @@
 #define CannotCreateDirectory                           -102
 #define NamespaceAppPathDoesnExists                     -101
 #define InvalidPhysicalPath                             -100
+#define HookReturnedError                               -1102
+#define HookReturnedOK                                  -1101
+#define RunningCustomHook                               -1100
 #define UbiquitousItemDetected2                         -1001
 #define UbiquitousItemDetected                          -1000
 #define ExportingTestClassToXML                         -902
@@ -136,6 +140,7 @@
 #define TotalExtraneousItems                            -402
 #define CheckingExtraneousItems                         -401
 #define SynchronizingProject                            -400
+#define NewWorkspaceDetected                            -304
 #define ExportingType                                   -303
 #define SourceExportedToPath                            -302
 #define ExportingProject                                -301

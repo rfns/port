@@ -70,6 +70,50 @@ This feature can be accesed using the Wizard and navigating to `1. Manage worksp
 
 Using project workspaces can become a powerful ally for keeping multiple source codes organized if used correctly. For example, you could group multiple projects within a single repository and take a monorepository approach. It's all up to your creativity.
 
+## Extended Hooks
+
+Extended hooks allows another source control class to take over the Studio event (hook) cycle and execute specific tasks.
+In order to create extended hooks, you need to create a class that implements one or more of the following hooks:
+
+* OnBeforeLoad
+* OnAfterLoad
+* OnBeforeSave
+* OnAfterSave
+* OnAfterStorage
+* OnBeforeCompile
+* OnAfterCompile
+* OnBeforeClassCompile
+* OnAfterClassCompile
+* OnBeforeAllClassCompile
+* OnAfterAllClassCompile
+* OnBeforeDelete
+* OnAfterDelete
+* UserAction
+* AfterUserAction
+
+You can check what each hook does by reading `%Studio.Extension.Base` [documentation](http://docs.intersystems.com/latest/csp/documatic/%25CSP.Documatic.cls?LIBRARY=%SYS&CLASSNAME=%25Studio.Extension.Base&MEMBER=&CSPCHD=000000000000oPMJCmLTaI$$s0x3lp1bujCh8EybMEuEEU5g8t&CSPSHARE=1).
+
+Unlike `%Studio.Extension.Base`, each hook should be implemented as class method and receive the `%Studio.Extension.Base` as the first parameter.
+
+Now let's make a little demo: consider a case where you need to do some validation before the file is saved, you would use _OnBeforeSave_.
+
+You must consider modifying the method signature from `%Studio.Extension.Base`:
+
+> Method OnBeforeSave(InternalName As %String, Location As %String = "", Object As %RegisteredObject = {$$$NULLOREF}) As %Status
+
+to:
+
+> __ClassMethod__ OnBeforeSave(__SourceControl As %Studio.Extension.Base,__ InternalName As %String, Location As %String = "", Object As %RegisteredObject = {$$$NULLOREF}) As %Status
+
+Finally, after implementing your hooks you need to register the class with:
+
+> `do ##class(Port.Configuration).RegisterExtendedHooks("Your.Implementer.Class")`.
+
+If you want to remove it, just call the same method with an empty string.
+
+> __NOTE:__ Using extended hooks means that all output will be redirect to Port. Which means that you're responsible for organizing all your feedbacks.
+
+
 ## FAQ: Why not Atelier?
 
 Really, I started this project some few months before Atelier 1.0 was released, by that time Atelier hadn't support for static files.

@@ -26,6 +26,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-115" Name="LogLevelIsOutOfRange">The provided log level %1 is out of range. Parameter must be one of: %2.</Message>
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Could not determine the correct workspace from the provided path.</Message>
     <Message Id="-117" Name="CannotSaveUbiquitousItem">Cannot save items that belongs to other projects. Please remove '%1' from the projects listed below if you want to save it into '%3': %2</Message>
+    <Message Id="-118" Name="FailedWhileRunningExtendedHook">Failed while running extended hook '%1'.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Starting backup ...</Message>
@@ -82,10 +83,13 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-812" Name="CLSGroupType">classes</Message>
     <Message Id="-813" Name="FileGroupType">files</Message>
     <Message Id="-900" Name="ExportingXML">Exporting the project %1 to XML ...</Message>
-    <Message Id="-901" Name="XMLExportedTo">%1 project XML exported to %1.</Message>
+    <Message Id="-901" Name="XMLExportedTo">%1 project XML exported to %2.</Message>
     <Message Id="-902" Name="ExportingTestClassToXML">Exporting test class %1 ...</Message>
     <Message Id="-1000" Name="UbiquitousItemDetected">CAUTION! Detected the usage of the item %1 on the following projects: %2.</Message>
     <Message Id="-1001" Name="UbiquitousItemDetected2">It's extremely recommended to keep the item exclusive to a single project!</Message>
+    <Message Id="-1100" Name="RunningCustomHook">Executing hook extension %1 from the class %2 ...</Message>
+    <Message Id="-1101" Name="HookReturnedOK">%1 returned without errors.</Message>
+    <Message Id="-1102" Name="HookReturnedError">Failed while executing %1 due to the following reason: %2.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Menu Labels">
     <Message Id="-5000" Name="MLExport">Export</Message>    
@@ -202,6 +206,7 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-115" Name="LogLevelIsOutOfRange">O nível de log fornecido está fora da faixa permitida. O parâmetro deve ser um destes: %2.</Message>
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Não foi possível determinar o espaço de trabalho correto a patir do caminho fornecido.</Message>
     <Message Id="-117" Name="CannotSaveUbiquitousItem">Não é possível salvar itens que pertençam a outros projetos. Por favor remova o item %1 dos projetos abaixo se você deseja salvá-lo em '%3': %2</Message>
+    <Message Id="-118" Name="FailedWhileRunningExtendedHook">Falha ao rodar extensão do evento '%1'.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>
@@ -262,6 +267,9 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-902" Name="ExportingTestClassToXML">Exportando a classe de teste %1 ...</Message>
     <Message Id="-1000" Name="UbiquitousItemDetected">CUIDADO! Foi detectada a presença do item %1 nos seguintes projetos: %2.</Message>
     <Message Id="-1001" Name="UbiquitousItemDetected2">É extremamente recomendado manter o item exclusivo a um projeto!</Message>
+    <Message Id="-1100" Name="RunningCustomHook">Executando extensão do evento %1 da classe %2 ...</Message>
+    <Message Id="-1101" Name="HookReturnedOK">%1 retornou sem erros.</Message>
+    <Message Id="-1102" Name="HookReturnedError">Falhou ao executar %1 devido ao seguinte motivo: %2</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Menu Labels">
     <Message Id="-5000" Name="MLExport">Exportar</Message>    
