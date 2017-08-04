@@ -103,27 +103,24 @@ Method OnAfterSave(InternalName As %String) As %Status
 
 Method OnBeforeSave(InternalName As %String, Location As %String = "", Object As %RegisteredObject = {$$$NULLOREF}) As %Status
 {
-  set projectName = $get(^||Port.Project)
-  set targetProject = projectName
   set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
+  set isProject = (ext = "PRJ")
+  set projectName = $get(^||Port.Project)  
   
-  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
-  set isProject = (ext '= "PRJ")
-  
-  if isProject && (InternalName [ targetProject) {
-    set targetProject = $piece(InternalName, ".")
-  }
-      
-  if targetProject '= "" && (targetProject [ "Default") {
-    write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
-    write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
-    if 'isProject return $$$ERROR($$$CanNotExportDefaultProject, targetProject)
-  }
-  
-  set projectsOwningItem = $lts(##class(Port.Util).UbiquitousInProject(projectName, InternalName), $char(10))
-  if projectsOwningItem '= "" {
-    return $$$PERROR($$$CannotSaveUbiquitousItem, InternalName, $char(10, 10)_projectsOwningItem, projectName)
-  }  
+  if isProject {
+    if InternalName [ "Default" {
+      set projectName = $piece(InternalName, ".")
+      write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
+      write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
+      return $$$ERROR($$$CanNotExportDefaultProject, projectName)
+    }
+  } else {
+    set projectsOwningItem = $lts(##class(Port.Util).UbiquitousInProject(projectName, InternalName), $char(10))    
+    if projectsOwningItem '= "" {
+      return $$$PERROR($$$CannotSaveUbiquitousItem, InternalName, $char(10, 10)_projectsOwningItem, projectName)
+    }
+  }    
+
   $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeSave", InternalName, Location, Object))
   return $$$OK
 }
@@ -330,19 +327,14 @@ Method OnBeforeDelete(InternalName As %String) As %Status
   return $$$OK
 }
 
-/// This is called before the actual load of data to give the chance
-/// to load the item from an external format. 
 Method OnBeforeLoad(InternalName As %String) As %Status
 {
+  set isProject = (##class(Port.Util).ResolveItemExtension(InternalName) = "PRJ")  
+  
   // We need to use our own project global to prevent %Studio.Project from disrupting the current source control hooks.
   // This also allows us to modify the project only if certain conditions are met.
-  set studioProject = $get(^||%Studio.Project)
-  if studioProject '= "" set ^||Port.Project = studioProject
+  if isProject set ^||Port.Project = $piece(InternalName, ".", 1, *-1)
   set projectName = ^||Port.Project
-  set targetProject = projectName
-  
-  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
-  set isProject = (ext '= "PRJ")
       
   if projectName '= "" && (projectName [ "Default") {
     write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
@@ -385,34 +377,22 @@ Method OnAfterStorage(InternalName As %String, Location As %String = "") As %Sta
   return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterStorage", InternalName, Location)
 }
 
-/// Called in the activated source control class before starting a compile after we have resolved the list of classes
-/// but before we have started the compile itself. Note that this is a class method and it does not require the source
-/// control class to be instanciated in order for it to be called. By default it will call the <method>OnBeforeClassCompile</method>
-/// if there is a source control class instanciated, but you can override this to do whatever you require.
-/// Returning an error here will abort the compile.
-/// <var>List</var> is a subscripted array of items that will be compiled.
 ClassMethod OnBeforeAllClassCompile(List As %String, Level As %Integer, ByRef qstruct As %String) As %Status
 {
   $$$QuitOnError(##super(.List, Level, .qstruct))
   return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeAllClassCompile", .List, Level, qstruct)
 }
 
-/// Called in the class compiler after we have resolved the list of classes to be compiled but
-/// before we have started the compile itself.
-/// <var>List</var> is a subscripted array of items that will be compiled.
 Method OnBeforeClassCompile(List As %String, Level As %Integer, ByRef qstruct As %String) As %Status
 {
   return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeClassCompile", .List, Level, qstruct)
 }
 
-/// Called before the compile of the item is done.
-/// It is passed a qstruct which can be inspected and modified.
 Method OnBeforeCompile(InternalName As %String, ByRef qstruct As %String) As %Status
 {
   return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeCompile", InternalName, qstruct)
 }
 
-/// Called before Studio checks for the timestamp of an item.
 Method OnBeforeTimestamp(InternalName As %String)
 {
   return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeTimestamp", InternalName)
