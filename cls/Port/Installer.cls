@@ -246,7 +246,6 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-612" Name="FatalApplyingBackup">Aplicando o backup para reverter alterações no caminho da aplicação.</Message>
     <Message Id="-613" Name="FatalFailedToRestoreBackup">ERRO: Não foi possível aplicar o backup inteiramente devido a um erro de sistema. O backup será mantido para uma correção manual.</Message>
     <Message Id="-614" Name="ProjectSaved">O projeto %1 foi salvo com %2 itens.</Message>
-    <Message Id="-615" Name="ItemAddedToProject">O item %1 foi adicionado ao projeto %2.</Message>
     <Message Id="-700" Name="CannotUseDefault">Não é permitido o uso de projetos 'Default'. Se você deseja usar este projeto, você precisa fornecer outro nome utilizando Arquivo->Salvar Como.</Message>
     <Message Id="-701" Name="CannotUseDefault2">Todos os eventos foram desativados.</Message>
     <Message Id="-800" Name="ClassType">classe</Message>
