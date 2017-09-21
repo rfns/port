@@ -53,7 +53,8 @@ Method OnAfterSave(InternalName As %String) As %Status
      
      $$$QuitOnError(##class(Port.Project.Manager).Export(exportPath, logLevel, 1,, sourceExtension))
      // Called with do, because we don't want to display errors from it.
-     do ##class(Port.Project.Manager).ExportTestSuiteToXML(exportPath) return $$$OK
+     do ##class(Port.Project.Manager).ExportTestSuiteToXML(exportPath) 
+     return $$$OK
     }
     
     if type '= "PRJ" {
@@ -103,19 +104,20 @@ Method OnAfterSave(InternalName As %String) As %Status
 
 Method OnBeforeSave(InternalName As %String, Location As %String = "", Object As %RegisteredObject = {$$$NULLOREF}) As %Status
 {
-  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
-  set isProject = (ext = "PRJ")
   set projectName = $get(^||Port.Project)  
+  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
+  set isProject = (ext = "PRJ")  
   
   if isProject {
-    if InternalName [ "Default" {
-      set projectName = $piece(InternalName, ".")
+    set projectName = $replace(InternalName, ".PRJ", "")
+    set ^||Port.Project = projectName  
+    if projectName [ "Default" {
       write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
       write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
       return $$$ERROR($$$CanNotExportDefaultProject, projectName)
     }
   } else {
-    set projectsOwningItem = $lts(##class(Port.Util).UbiquitousInProject(projectName, InternalName), $char(10))    
+    set projectsOwningItem = $lts(##class(Port.Util).UbiquitousInProject(projectName, InternalName), $char(10))
     if projectsOwningItem '= "" {
       return $$$PERROR($$$CannotSaveUbiquitousItem, InternalName, $char(10, 10)_projectsOwningItem, projectName)
     }
@@ -318,7 +320,7 @@ Method OnAfterCompile(InternalName As %String) As %Status
 
 Method OnBeforeDelete(InternalName As %String) As %Status
 {
-  // This is used to prevent orphan workspaces entries.
+  // This is used to prevent orphan workspace entries.
   if (InternalName?1".PRJ") {
     set projectName = $piece(InternalName, ".", 1, *-1)
     do ##class(Port.Configuration).RemoveCustomWorkspace(projectName)

@@ -143,6 +143,7 @@ ClassMethod ExistsInProject(projectName As %String, name As %String, type As %St
 ClassMethod UbiquitousInProject(projectName As %String, name As %String, type As %String = "") As %List
 {
   do ##class(%Studio.Project).NormalizeName(.name, .type)
+  if type = "CLS" set packages = $$SplitPackages(name)
   &sql(
     SELECT 
       LIST(P.NAME) INTO :ubiquitousEntries
@@ -151,9 +152,26 @@ ClassMethod UbiquitousInProject(projectName As %String, name As %String, type As
     LEFT OUTER JOIN 
       %STUDIO.PROJECT P ON P.ID = PI.Project
     WHERE 
-      P.NAME <> :projectName AND PI.NAME = :name     
+      P.NAME <> :projectName AND (       
+       -- This deals with common cases.
+       (:type NOT IN ('PKG', 'CLS') AND PI.NAME = :name) OR
+       -- This deals with cases where a project is trying to add a package that is
+       -- depended by another class in another project.
+       (:type = 'PKG' AND PI.NAME %STARTSWITH :name) OR
+       -- This deals with attempts to add classes that are owned by another project's
+       -- package.
+       (:type = 'CLS' AND PI.NAME %INLIST(:packages))
+      )
   )
   return $lfs(ubiquitousEntries)
+
+SplitPackages(className)
+  set splittedPackages = ""
+  set packageLength = $length(className, ".")
+  for i=packageLength:-1:2 {
+    set $list(splittedPackages, *+1) = $piece(className, ".", 1, i) 
+  }   
+  quit splittedPackages
 }
 
 ClassMethod CreateMissingPath(path As %String) As %Status
