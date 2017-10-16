@@ -3,11 +3,35 @@ Class Port.Project.XMLExporter Extends Port.Project.Base
 
 Method ExportToXML(justProject As %Boolean = 0, qspec As %String = "/diffexport=1/nodisplay", charset As %String = "UTF8", Output errorlog As %Status = "") As %Status
 {
-  set destination = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_".xml")
+  set developmentXML = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_".xml")
+  set productionXML = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_"-prod.xml")
   write ..LogLine($$$ExportingXML, 0, ..ProjectName)
-  $$$QuitOnError(..Project.Export(destination, qspec, justProject, errorlog, charset))
-  write ..LogLine($$$XMLExportedTo, 0, ..ProjectName, destination)
-  return $$$OK
+  $$$QuitOnError(..Project.Export(developmentXML, qspec, justProject, errorlog, charset))
+  write ..LogLine($$$XMLExportedTo, 0, ..ProjectName, developmentXML)  
+  
+  do RemoveTestClasses(.items)  
+  
+  if $order(items("")) '= "" {  
+    $$$QuitOnError($System.OBJ.Export(.items, productionXML, qspec, errorlog, charset))
+    write ..LogLine($$$XMLExportedTo, 0, ..ProjectName, productionXML)
+  }
+    
+  return $$$OK    
+  
+RemoveTestClasses(items="")
+  set sc = $$$OK 
+  set testPrefix = ##class(Port.Configuration).GetTestClassPrefix()
+  if testPrefix '= "" {
+    for i=1:1:..Project.Items.Count() {  
+      set item  = ..Project.Items.GetAt(i) 
+      if item.Type '= "PRJ" && '($extract(item.Name, 1, $length(testPrefix)) = testPrefix && (item.Type = "CLS")) {
+        set name = item.Name
+        if item.Type = "CLS" set item.Name = item.Name_".CLS"
+        set items(item.Name) = "" 
+      }
+    }
+  }
+  quit
 }
 
 Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay", ByRef tests As %String = "", ByRef errors = "") As %Status
