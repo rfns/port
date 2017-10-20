@@ -2545,8 +2545,10 @@ RemoveTestClasses(items="")
       set item  = ..Project.Items.GetAt(i) 
       if item.Type '= "PRJ" && '($extract(item.Name, 1, $length(testPrefix)) = testPrefix && (item.Type = "CLS")) {
         set name = item.Name
-        if item.Type = "CLS" set item.Name = item.Name_".CLS"
-        set items(item.Name) = "" 
+        set type = item.Type
+        do ##class(%Studio.Project).NormalizeName(.name, .type)        
+        if type = "CLS" || (type = "PKG") set name = name_"."_type
+        set items(name) = "" 
       }
     }
   }
@@ -2961,7 +2963,8 @@ output(s)
 <FormalSpec>InternalName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  #dim exporter As Port.Project.Exporter 
+  #dim exporter As Port.Project.Exporter
+  if %importingFromXML return $$$OK 
   
   set sc = $$$OK
   set projectName = $get(^||Port.Project)
@@ -3014,11 +3017,10 @@ output(s)
         set sc = exporter.ExportPackage(InternalName)     
       } elseif type '= "" {
         set sc = exporter.ExportWebFile(InternalName)     
-      }
-      if '%importingFromXML {        
-        $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
-        if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath, 2))
-      }
+      }   
+      
+      $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath, 2))      
     }  
   }
   if '##class(Port.Configuration).HasCustomWorkspace(projectName) { 
@@ -3033,6 +3035,7 @@ output(s)
 <FormalSpec>InternalName:%String,Location:%String="",Object:%RegisteredObject=$$$NULLOREF</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+  if %importingFromXML return $$$OK
   set projectName = $get(^||Port.Project)  
   set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
   set isProject = (ext = "PRJ")  
@@ -3064,7 +3067,7 @@ output(s)
   
   set name = $piece(Name, ",", 2)
   set isContextual = ($piece(Name, ",", 1) = "%SourceContext")
-  // We must know if the user is importing from a XML and prevent it from being exported.
+  // We must know if the user is importing from a XML and prevent it from realizing certain tasks automatically.
   set %importingFromXML = (Name = 6)
   
   if $data(^||Port.Project) {
@@ -3233,7 +3236,7 @@ Called after the compile of the item is done.</Description>
 <FormalSpec>InternalName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  if $get(%importingFromXML, 0) return $$$OK
+  if %importingFromXML return $$$OK
   set projectName = $get(^||Port.Project)
   set sc = $$$OK
   
@@ -3969,7 +3972,7 @@ Called after an item is deleted.</Description>
   if type = "CLS" set packages = $$SplitPackages(name)
   &sql(
     SELECT 
-      LIST(P.NAME) INTO :ubiquitousEntries
+      LIST(DISTINCT P.NAME) INTO :ubiquitousEntries
     FROM
       %STUDIO.PROJECTITEM PI
     LEFT OUTER JOIN 

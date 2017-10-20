@@ -26,8 +26,10 @@ RemoveTestClasses(items="")
       set item  = ..Project.Items.GetAt(i) 
       if item.Type '= "PRJ" && '($extract(item.Name, 1, $length(testPrefix)) = testPrefix && (item.Type = "CLS")) {
         set name = item.Name
-        if item.Type = "CLS" set item.Name = item.Name_".CLS"
-        set items(item.Name) = "" 
+        set type = item.Type
+        do ##class(%Studio.Project).NormalizeName(.name, .type)        
+        if type = "CLS" || (type = "PKG") set name = name_"."_type
+        set items(name) = "" 
       }
     }
   }

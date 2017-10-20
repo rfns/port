@@ -35,7 +35,8 @@ XData Menu
 
 Method OnAfterSave(InternalName As %String) As %Status
 {
-  #dim exporter As Port.Project.Exporter 
+  #dim exporter As Port.Project.Exporter
+  if %importingFromXML return $$$OK 
   
   set sc = $$$OK
   set projectName = $get(^||Port.Project)
@@ -88,11 +89,10 @@ Method OnAfterSave(InternalName As %String) As %Status
         set sc = exporter.ExportPackage(InternalName)     
       } elseif type '= "" {
         set sc = exporter.ExportWebFile(InternalName)     
-      }
-      if '%importingFromXML {        
-        $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
-        if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath, 2))
-      }
+      }   
+      
+      $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
+      if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath, 2))      
     }  
   }
   if '##class(Port.Configuration).HasCustomWorkspace(projectName) { 
@@ -104,6 +104,7 @@ Method OnAfterSave(InternalName As %String) As %Status
 
 Method OnBeforeSave(InternalName As %String, Location As %String = "", Object As %RegisteredObject = {$$$NULLOREF}) As %Status
 {
+  if %importingFromXML return $$$OK
   set projectName = $get(^||Port.Project)  
   set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
   set isProject = (ext = "PRJ")  
@@ -132,7 +133,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
   
   set name = $piece(Name, ",", 2)
   set isContextual = ($piece(Name, ",", 1) = "%SourceContext")
-  // We must know if the user is importing from a XML and prevent it from being exported.
+  // We must know if the user is importing from a XML and prevent it from realizing certain tasks automatically.
   set %importingFromXML = (Name = 6)
   
   if $data(^||Port.Project) {
@@ -292,7 +293,7 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
 /// Called after the compile of the item is done.
 Method OnAfterCompile(InternalName As %String) As %Status
 {
-  if $get(%importingFromXML, 0) return $$$OK
+  if %importingFromXML return $$$OK
   set projectName = $get(^||Port.Project)
   set sc = $$$OK
   

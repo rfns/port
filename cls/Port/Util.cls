@@ -146,7 +146,7 @@ ClassMethod UbiquitousInProject(projectName As %String, name As %String, type As
   if type = "CLS" set packages = $$SplitPackages(name)
   &sql(
     SELECT 
-      LIST(P.NAME) INTO :ubiquitousEntries
+      LIST(DISTINCT P.NAME) INTO :ubiquitousEntries
     FROM
       %STUDIO.PROJECTITEM PI
     LEFT OUTER JOIN 
