@@ -11,10 +11,6 @@
 #define PCWPlaceholdersProject                          -7971
 #define PCWPlaceholdersAnnounce                         -7970
 #define PCWExit                                         -7600
-#define PWCSetSourceExtensionStatusNow                  -7503
-#define PWCSetSourceExtensionPrompt                     -7502
-#define PCWSetSourceExtensionDescription                -7501
-#define PCWSetSourceExtensionChoice                     -7500
 #define PCWSetLogLevelStatusChoice2                     -7420
 #define PCWSetLogLevelStatusChoice1                     -7410
 #define PCWSetLogLevelStatusPrompt                      -7404
@@ -71,7 +67,7 @@
 #define CMLImportActive                                 -6001
 #define CMLExportActive                                 -6000
 #define FailedWhileRunningExtendedHook                  -118
-#define CannotSaveUbiquitousItem                        -117
+#define CannotSaveConflictingItems                      -117
 #define CouldNotDetermineWorkspace                      -116
 #define LogLevelIsOutOfRange                            -115
 #define ErrorsWhileImportingType                        -114
@@ -87,13 +83,13 @@
 #define UnableToCopySource                              -104
 #define CannotUseRelativePath                           -103
 #define CannotCreateDirectory                           -102
-#define NamespaceAppPathDoesnExists                     -101
+#define NamespaceDoesntHaveAppWithPath                  -101
 #define InvalidPhysicalPath                             -100
 #define HookReturnedError                               -1102
 #define HookReturnedOK                                  -1101
 #define RunningCustomHook                               -1100
-#define UbiquitousItemDetected2                         -1001
-#define UbiquitousItemDetected                          -1000
+#define ConflictingItemDetected2                        -1001
+#define ConflictingItemDetected                         -1000
 #define ExportingTestClassToXML                         -902
 #define XMLExportedTo                                   -901
 #define ExportingXML                                    -900
@@ -129,7 +125,7 @@
 #define EnqueingType                                    -601
 #define ImportingType                                   -600
 #define OvewriteWithExtension                           -504
-#define KeepCacheExtension                              -503
+#define UpToDate                                        -503
 #define AllDone                                         -502
 #define Failed                                          -501
 #define Done                                            -500

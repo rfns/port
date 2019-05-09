@@ -1,9 +1,10 @@
 Class Port.UnitTest.Util [ Abstract ]
 {
 
-ClassMethod ResolveTestLocation(absoluteBasePath As %String, className As %String) As %Status [ Final, Internal ]
+ClassMethod ResolveTestLocation(workspace As %String, className As %String) As %Status [ Final, Internal ]
 {
-  return $listbuild(className_".CLS", ##class(Port.Util).ClassToFile(absoluteBasePath, className, "xml"))
+  set className = className_".CLS"
+  return $listbuild(className, $replace(##class(Port.Util).ItemToPath(className, workspace), ".cls", ".xml"))
 }
 
 ClassMethod IsUnitTestClass(className As %String) As %Boolean

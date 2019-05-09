@@ -11,50 +11,44 @@ Property Tool As Port.Project.Base [ Private ];
 
 Property TypePaths As %List [ Private ];
 
-Method %OnNew(tool As Port.Project.Base) As %Status
+Property Simulated As %Boolean [ InitialExpression = 0 ];
+
+Method %OnNew(tool As Port.Project.Base, simulated As %Boolean = 0) As %Status
 {
   set ..Tool = tool
-  do ..PrepareTypePathList()
+  set ..Simulated = simulated
+  do ..BuildTypePaths()
   return $$$OK
 }
 
-Method PrepareTypePathList() [ Internal, Private ]
+Method BuildTypePaths()
 {
-  // Kills CSP and CSR from the list and adds an empty entry, since /web should be the default path for unrecognized formats.
-  // We force GetTypePath to default "" to project/web.
-  set types = $lfs($piece($lts($$$ImportTypes), ",", 1, *-2)_",""")
-  for i=1:1:$listlength(types) {
-    set type = $listget(types, i)
-    // We need to pass a dummy item to prevent it FROM falling into a falsy MAC type trap. e.g.: INC files.
-    set $list(i%TypePaths, $listlength(i%TypePaths) + 1) = ..Tool.GetTypePath(type, "dummy."_type)
-  }
+  for i=1:1:$ll($$$PathTypes) set $list(i%TypePaths, *+1) = $$$NFN($$$FormatText("%1/%2", ..Tool.BasePath, $lg($$$PathTypes, i)))
 }
 
 Method AddToWhitelist(itemName As %String, sourceLocation As %String = "") As %Status [ Internal ]
 {
-   
+
   set sc = $$$OK
-  set slash = $$$Slash
-  set type = ##class(Port.Util).ResolveItemExtension(itemName)
+  set type = ##class(Port.Util).GetItemType(itemName)
   set typePath = ..Tool.GetTypePath(type)
-  
+  set slash = $$$Slash(typePath)
+
   if sourceLocation = "" {
-    set workspacePath = $piece(typePath, $$$Slash, 1, *-1)
-    set sourceLocation = ##class(Port.Util).MountItemSourcePath(itemName, workspacePath)
+    set workspacePath = $piece(typePath, slash, 1, *-1)
+    set sourceLocation = ##class(Port.Util).ItemToPath(itemName, workspacePath)
   }
-  
-  if $extract(typePath) = "/" {
-    set typePath = $extract(typePath, 2, *)
-  }
-    
+
+  set typePath = $$$LTrimProvidedSlash(typePath, "/")
+
   set absoluteBasePath = ##class(%File).NormalizeFilename(typePath, slash)
   set dirLength = $length(sourceLocation, slash)
   set dirLengthLimit = dirLength - (dirLength - $length(absoluteBasePath, slash))
-  
-  // Slices the path for every iteration. Ex: /a/b/c -> /a/b -> /a
-  // This surely can be improved.
+
+  // Slices the path at every iteration. Ex: /a/b/c -> /a/b -> /a
+  // We do this to create a dependency chain based on those directories.
   for i=dirLength:-1:dirLengthLimit+1 {
-    set dir = $piece(sourceLocation, slash, 1, i)    
+    set dir = $piece(sourceLocation, slash, 1, i)
     if ..Whitelist.IsDefined(dir) return $$$OK
     set sc = ..Whitelist.SetAt(itemName, dir)
     if $$$ISERR(sc) quit
@@ -64,43 +58,43 @@ Method AddToWhitelist(itemName As %String, sourceLocation As %String = "") As %S
 
 Method Purge() As %Status
 {
-  
-  set slash = $$$Slash
+
   set sc = $$$OK
-  set s = ##class(%SQL.Statement).%New()  
-  
+  set s = ##class(%SQL.Statement).%New()
+
   $$$QuitOnError(s.%PrepareClassQuery("%File", "FileSet"))
-  
+
   set removedDirectories = ""
   set lastParent = ""
-  set parentDirectory = ""  
-  
-  write ..Tool.LogLine($$$CheckingExtraneousItems, 1)  
-  
+  set parentDirectory = ""
+
+  write ..Tool.LogLine($$$CheckingExtraneousItems, 1)
+
   for i=1:1:$listlength(i%TypePaths) {
     set pathToSearch = $listget(i%TypePaths, i)
     set sc = ..Scan(s, pathToSearch)
     if $$$ISERR(sc) return sc
   }
-  
+
   set length = $listlength(i%ExtraneousEntries)
   if length > 0 write ..Tool.LogLine($$$TotalExtraneousItems, 1, length)
   else  write ..Tool.LogLine($$$NoExtraneousItems, 1)
-  
+
   for i=1:1:length {
     set possiblyDeleted = 0
     set extraneousItem = $listget(i%ExtraneousEntries, i)
     set path = $listget(extraneousItem, 1)
+    set slash = $$$Slash(path)
     set type = $listget(extraneousItem, 2)
     if parentDirectory '= "" && (path [ parentDirectory) set possiblyDeleted = 1
     if type = "F" && ##class(%File).Exists(path) {
       set fileName = ##class(%File).GetFilename(path)
       set lastNode = ##class(%File).GetDirectoryPiece(parentDirectory, $length(parentDirectory, slash))
-      set fileName = $piece(fileName, ".", 1)           
-      if fileName = lastNode set possiblyDeleted = 0 
+      set fileName = $piece(fileName, ".", 1)
+      if fileName = lastNode set possiblyDeleted = 0
       if possiblyDeleted = 1 continue
       write ..Tool.LogLine($$$RemovingFile, 2, path)
-      do ##class(%File).Delete(path)        
+      if ..Simulated = 0 do ##class(%File).Delete(path)
     } elseif type = "D" {
       if parentDirectory = "" || (path '[ parentDirectory) {
         set lastParent = parentDirectory
@@ -109,35 +103,44 @@ Method Purge() As %Status
       }
       if possiblyDeleted = 1 continue
       write ..Tool.LogLine($$$RemovingDirectory, 2, path)
-      do ##class(%File).RemoveDirectoryTree(path)
+      if ..Simulated = 0 do ##class(%File).RemoveDirectoryTree(path)
     }
-  } 
+  }
   if length > 0 {
     write ..Tool.LogLine($$$TotalExtraneousItemsRemoved, 1, length)
   }
   return sc
 }
 
-Method Scan(statement As %SQL.Statement, path As %String) As %Status [ Private ]
+Method Scan(statement As %SQL.Statement, path As %String, filesCount As %Integer = 0) As %Status [ Private ]
 {
-   
+
   set dir = $$$NFN(path)
+  set dirType = ##class(Port.Util).GetPathType(path)
+  // Need to convert from Port format to CSP legacy format.
+  if dirType = "PUBLIC" set dirType = "CSP"
+
+  set slash = $$$Slash(path)
   set row = statement.%Execute(dir)
   set sc = $$$OK
-  
+
   while row.%Next(.sc) {
     if $$$ISERR(sc) quit
-    set type = row.%Get("Type")    
-    set fullPath = row.%Get("Name")     
-    
+    set type = row.%Get("Type")
+    set fullPath = row.%Get("Name")
+
     if ..Tool.IsIgnored(fullPath) continue
-            
-    if type = "D" {      
-      set sc = ..Scan(statement, fullPath)
+
+    if type = "D" {
+      set filesCount = 0
+      set sc = ..Scan(statement, fullPath, .filesCount)
       if $$$ISERR(sc) return sc
-    } 
-    if '..Whitelist.IsDefined(fullPath) && '$listfind(i%ExtraneousEntries, fullPath) {
-      set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = $listbuild(fullPath, type)            
+    } else {
+      set filesCount =  filesCount + 1
+    }
+
+    if 'filesCount && $lf($$$ImportTypes, dirType) || ($lf($$$ImportTypes, dirType) && '..Whitelist.IsDefined(fullPath) && '$listfind(i%ExtraneousEntries, fullPath)) {
+      set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = $listbuild(fullPath, type)
     }
   }
   return sc
@@ -149,5 +152,10 @@ Method Reset() As %Status
   return ..Whitelist.Clear()
 }
 
+ClassMethod T()
+{
+  do ##class(Port.Project.Manager).ExportTestSuiteToXML("/CacheProjects/DEV/port")
+  do ##class(Port.Project.Manager).Export("/CacheProjects/DEV/port")
 }
 
+}

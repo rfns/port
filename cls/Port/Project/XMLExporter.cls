@@ -3,20 +3,20 @@ Class Port.Project.XMLExporter Extends Port.Project.Base
 
 Method ExportToXML(justProject As %Boolean = 0, qspec As %String = "/diffexport=1/nodisplay", charset As %String = "UTF8", Output errorlog As %Status = "") As %Status
 {
-  set developmentXML = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_".xml")
-  set productionXML = ##class(%File).NormalizeFilename(..BasePath_"/"_..ProjectName_"-prod.xml")
-  write ..LogLine($$$ExportingXML, 0, ..ProjectName)
+  set developmentXML = ##class(%File).NormalizeFilename(..BasePath_"/"_..Project.Name_".xml")
+  set productionXML = ##class(%File).NormalizeFilename(..BasePath_"/"_..Project.Name_"-prod.xml")
+  write ..LogLine($$$ExportingXML, 0, ..Project.Name)
   $$$QuitOnError(..Project.Export(developmentXML, qspec, justProject, errorlog, charset))
-  write ..LogLine($$$XMLExportedTo, 0, ..ProjectName, developmentXML)  
+  write ..LogLine($$$XMLExportedTo, 0, ..Project.Name, developmentXML)  
   
   do RemoveTestClasses(.items)  
   
   if $order(items("")) '= "" {  
     $$$QuitOnError($System.OBJ.Export(.items, productionXML, qspec, errorlog, charset))
-    write ..LogLine($$$XMLExportedTo, 0, ..ProjectName, productionXML)
+    write ..LogLine($$$XMLExportedTo, 0, ..Project.Name, productionXML)
   }
     
-  return $$$OK    
+  quit $$$OK    
   
 RemoveTestClasses(items="")
   set sc = $$$OK 
@@ -24,11 +24,11 @@ RemoveTestClasses(items="")
   if testPrefix '= "" {
     for i=1:1:..Project.Items.Count() {  
       set item  = ..Project.Items.GetAt(i) 
-      if item.Type '= "PRJ" && '($extract(item.Name, 1, $length(testPrefix)) = testPrefix && (item.Type = "CLS")) {
+      if $isobject(item) && (item.Type '= "PRJ") && '($extract(item.Name, 1, $length(testPrefix)) = testPrefix && (item.Type = "CLS")) {
         set name = item.Name
         set type = item.Type
         do ##class(%Studio.Project).NormalizeName(.name, .type)        
-        if type = "CLS" || (type = "PKG") set name = name_"."_type
+        if type = "CLS" || (type = "PKG") set name = name_"."_type        
         set items(name) = "" 
       }
     }
@@ -43,7 +43,7 @@ Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay"
   set exported = 0
   
   set absoluteBasePath = ##class(%File).NormalizeFilename(path)
-  $$$QuitOnError(##class(Port.Util).CreateMissingPath(absoluteBasePath))
+  $$$QuitOnError(##class(Port.Util).EnsurePathExists(absoluteBasePath))
   
   set s = ##class(%SQL.Statement).%New()
   $$$QuitOnError(s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList"))
@@ -61,7 +61,7 @@ Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay"
   if 'exported {
     set sc = $$$PERROR($$$NoTestSuitesWereFound)
   }
-  return sc
+  quit sc
 }
 
 Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Status = {$$$OK}, qspec = "/diffexport=1/nodisplay") As %Boolean
@@ -69,7 +69,7 @@ Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Stat
   set sc = $$$OK
   set exported  = 0
   
-  if '##class(Port.UnitTest.Util).IsUnitTestClass(className) return exported  
+  if '##class(Port.UnitTest.Util).IsUnitTestClass(className) quit exported  
   
   set test = ##class(Port.UnitTest.Util).ResolveTestLocation(absoluteBasePath, className)
   
@@ -83,7 +83,13 @@ Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Stat
     else  write ..LogLine($$$Failed, 0)
     set exported = 1
   }
-  return exported
+  quit exported
+}
+
+ClassMethod T()
+{
+  set xml = ##class(Port.Project.XMLExporter).%New("/CacheProjects/DEV/frontier")
+  do xml.ExportToXML()
 }
 
 }

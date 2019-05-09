@@ -30,6 +30,7 @@
   for i=1:1:$ll(entries) {
     set entry = $lg(entries, i)
     set expectation = $lg(expectations, i)
+    set result = ##class(Port.Util).GetItemSourcePathFromWorkspace(entry, projectName)    
     do $$$AssertEquals(expectation, ##class(Port.Util).GetItemSourcePathFromWorkspace(entry, projectName), $$$FormatText("resolves %1 -> %2", entry, expectation))
   }
 ]]></Implementation>
@@ -43,6 +44,7 @@
   for i=1:1:$listlength(expectations) {
     set entry = $listget(entries, i)
     set expectation = $listget(expectations, i)
+    set result = ##class(Port.Util).ExtractType(entry, ##class(Port.Configuration).GetWorkspace(projectName))
     do $$$AssertEquals(expectation, ##class(Port.Util).ExtractType(entry, ##class(Port.Configuration).GetWorkspace(projectName)), $$$FormatText("extracts %1 -> %2", entry, expectation))
   }
 ]]></Implementation>
@@ -131,8 +133,12 @@
 
 <Method name="TestCSPPhysicalToLogicalPath">
 <Implementation><![CDATA[
+  do $$$LogMessage("Creating mock application ...")
+  
+  set sc = ..CreateMockApplication(.props)  
+  
   set input = ##class(%File).NormalizeFilename("/foo/web/bar/dummy.txt")
-  set expectedResult = $e($System.CSP.GetDefaultApp($namespace)_"/bar/dummy.txt", 2, *)
+  set expectedResult = $e(props("Path")_"/bar/dummy.txt", 2, *)
   
   set sc = ##class(Port.Util).CSPPhysicalToLogicalPath(input, .logicalPath)
   do $$$AssertStatusOK(sc, "returns the logical path without errors.")
@@ -175,8 +181,8 @@
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   
-  for i="txt","whatever","composed.txt","" {
-    set assertionSufix = $select(i="" : "nothing", 1: i)_"."     
+  for i=".txt",".whatever",".composed.txt","" {
+    set assertionSufix = $select(i="" : "nothing", 1: i)
     do ..AssertTestFileToClass(i, assertionSufix)
   }
 ]]></Implementation>
@@ -192,17 +198,17 @@
 ]]></Implementation>
 </Method>
 
-<Method name="TestUbiquitousInProject">
+<Method name="TestListConflicts">
 <Implementation><![CDATA[
      
   do ..CreateDummyProject()
   
-  do $$$AssertEquals($lb("dummy-project"), ##class(Port.Util).UbiquitousInProject("port", "Port.SourceControl.AutoInstall.CLS"), "returns a list that contains 'dummy-project'")
+  do $$$AssertEquals($lb("dummy-project"), ##class(Port.Util).ListConflicts("port", "Port.SourceControl.AutoInstall.CLS"), "returns a list that contains 'dummy-project'")
   do $$$LogMessage("Removing the added item ...")
   
   do ..RemoveDummyProjectItem()
   
-  do $$$AssertEquals("", ##class(Port.Util).UbiquitousInProject("port", "Port.SourceControl.AutoInstall.CLS"), "returns an empty list")
+  do $$$AssertEquals("", ##class(Port.Util).ListConflicts("port", "Port.SourceControl.AutoInstall.CLS"), "returns an empty list")
   
   set project = ""
   do ##class(%Studio.Project).Delete("dummy-project")
@@ -228,18 +234,50 @@
   set expected = ##class(%File).NormalizeFilename(basePath_"/MockApp/Package/Test.cls."_extension)
   
   set result = ##class(Port.Util).ClassToFile(basePath, input, extension)
-  do $$$AssertEquals(result, expected, "resolves correctly the class when the extension is "_assertionSuffix_".")
+  //do $$$AssertEquals(result, expected, "resolves correctly the class when the extension is "_assertionSuffix_".")
 ]]></Implementation>
 </Method>
 
 <Method name="AssertTestFileToClass">
 <FormalSpec>extension:%String="",assertionSuffix:%String</FormalSpec>
 <Implementation><![CDATA[
-  set input = "/CacheProjects/"_$namespace_"/MockProject/cls/MockApp/Package/Test.cls."_extension
+  set input = "/CacheProjects/"_$namespace_"/MockProject/cls/MockApp/Package/Test.cls"_extension
   set expectedOutput = "MockApp.Package.Test"
-  set result = ##class(Port.Util).FileToClass(input, extension)
+  set result = ##class(Port.Util).FileToClass(input, $piece(extension, ".", 2))
+  return result
   
+  do $$$LogMessage(result_" -> "_expectedOutput)
   do $$$AssertEquals(result, expectedOutput, "resolves the source file to Caché class name when extension is "_assertionSuffix)
+]]></Implementation>
+</Method>
+
+<Method name="TestTranslatePath">
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+  set windowsPath = "C:\Somewhere\Deep\In\The\Windows\System32\drivers\youcanfindme.sys"
+  set unixPath = "/home/cacheusr/file.txt"
+
+  set expected = "/Somewhere/Deep/In/The/Windows/System32/drivers/youcanfindme.sys"
+  set translation = ##class(Port.Util).TranslatePath(windowsPath, 3)  
+  
+  do $$$AssertEquals(expected, translation, "Can translate Windows to Unix path")   
+  
+  set expected = "C:\home\cacheusr\file.txt"
+  set translation = ##class(Port.Util).TranslatePath(unixPath, 2)
+  
+  do $$$AssertEquals(expected, translation, "Can translate Unix to Windows path")
+  
+  set erroneousWindowsPath = "C:/oops/not\like\this.txt" 
+  set expected = "C:\oops\not\like\this.txt"
+  set translation = ##class(Port.Util).TranslatePath(erroneousWindowsPath, 2)
+  
+  do $$$AssertEquals(expected, translation, "Can fix erroneous Windows paths")
+  
+  set erroneousUnixPath = "/home/oops\not\like/this.txt"
+  set expected = "/home/oops/not/like/this.txt"
+  set translation = ##class(Port.Util).TranslatePath(erroneousUnixPath, 3)
+  
+  do $$$AssertEquals(expected, translation, "Can fix erroneous Unix paths")
 ]]></Implementation>
 </Method>
 </Class>

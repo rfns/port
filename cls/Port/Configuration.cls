@@ -54,7 +54,7 @@ ClassMethod IsAutoExportXMLEnabled() As %Status
 /// Relative to it's project. Sets the path where test cases should be exported.
 ClassMethod SetTestPath(newPath As %String = "")
 {
-  
+
   set ^Port.Configuration("test.path") = $select(newPath = "" : "tests/cls", 1: newPath)
 }
 
@@ -91,50 +91,12 @@ ClassMethod SetTestClassPrefix(newPrefix As %String = "")
 /// Gets the associated test prefix.
 ClassMethod GetTestClassPrefix() As %String
 {
-  
+
   return $get(^Port.Configuration("test.prefix"))
 }
 
-/// Defines the extension to be appended when exporting Caché files. If extension starts with a dot, it will be removed.
-ClassMethod SetSourceExtension(value As %String = "") As %Status
-{
-  do ..TrackActiveExtension()
-  if $extract(value) = "." set value = $extract(value, 2, *)
-  set ^Port.Configuration("source.extension") = value
-  return $$$OK
-}
-
-/// Gets the appending source extension.
-ClassMethod GetSourceExtension() As %String
-{
-  
-  set extension = $get(^Port.Configuration("source.extension"))
-  if extension = "" return extension
-  return extension
-}
-
-ClassMethod IsSameSourceExtension() As %Boolean [ Final, Internal ]
-{
-  // For internal use only: Checks if the configured extension is the same than the last one
-  // used to export a project. If it isn't, an exception will be fired.
-  set extension = ..GetSourceExtension()
-  return (extension = $get(^Port.Configuration("internals.trackers.extension")))
-}
-
-ClassMethod TrackActiveExtension() [ Final, Internal ]
-{
-  // For internal use only: Updates the last used extension to match the current configuration.
-  set ^Port.Configuration("internals.trackers.extension") = ..GetSourceExtension()
-}
-
-ClassMethod GetWebAppPath() As %String
-{
-  // For internal use only: Performs a quick search of the web app path that is registered when Port is installed.
-  return $get(^Port.Configuration("internals.webapp.path"))
-}
-
 /// Defines a custom workspace, a path where a single project should be exported. This configuration ovewrites the primary workspace.
-ClassMethod SetCustomWorkspace(projectName As %String, path As %String = {..GetWorkspace()}) As %Status [ Internal ]
+ClassMethod SetCustomWorkspace(projectName As %String, path As %String = {..GetWorkspace()}) As %Status
 {
   set ^Port.Configuration("workspace.project", projectName) = path
   return $$$OK
@@ -150,7 +112,7 @@ ClassMethod GetCustomWorkspace(projectName As %String) As %String [ Internal ]
 /// Returns if the project has a custom workspace.
 ClassMethod HasCustomWorkspace(projectName As %String) As %Boolean [ Internal ]
 {
- 
+
   return (..GetCustomWorkspace(projectName) '= "")
 }
 
@@ -158,6 +120,22 @@ ClassMethod HasCustomWorkspace(projectName As %String) As %Boolean [ Internal ]
 ClassMethod RemoveCustomWorkspace(projectName As %String)
 {
   kill ^Port.Configuration("workspace.project", projectName)
+}
+
+ClassMethod SetPrimaryWebApplication(webApp As %String, namespace As %String = {$namespace}) As %Status
+{
+  $$$QuitOnError(##class(Port.Util2).DiscoverQualifiedWebApplication(namespace, .webApp, .path))
+  set ^Port.Configuration("webApplication.path") = path
+  set ^Port.Configuration("webApplication.name") = webApp
+  quit $$$OK
+}
+
+ClassMethod SetCustomWebApplication(projectName As %String, webApp As %String, namespace As %String = {$namespace}) As %Status
+{
+  $$$QuitOnError(##class(Port.Util2).DiscoverQualifiedWebApplication(namespace, .webApp, .path))
+  set ^Port.Configuration("workspace.webApplication.path", projectName) = path
+  set ^Port.Configuration("workspace.webApplication.name", projectName) = webApp
+  quit $$$OK
 }
 
 /// Remove all Port configurations. This will not erase project logs.
@@ -183,21 +161,21 @@ ClassMethod GetExtendedHooksImplementer() As %String
 
 ClassMethod RewritePlaceHolders(basePath As %String, projectName As %String = {$get(^||Port.Project)}, allowedPlaceholders = "*", params... As %String) As %String [ Internal ]
 {
- 
+
   if '$data(params) set params = ""
-  set translatedPath = basePath  
-  #define RewriteIfPathContains(%expression, %replacement) if ($lv(allowedPlaceholders) && $lf(allowedPlaceholders, %expression)) || (allowedPlaceholders = "*") set translatedPath = $select(translatedPath [ %expression : $replace(translatedPath, %expression, %replacement), 1: translatedPath) 
-  
+  set translatedPath = basePath
+  #define RewriteIfPathContains(%expression, %replacement) if ($lv(allowedPlaceholders) && $lf(allowedPlaceholders, %expression)) || (allowedPlaceholders = "*") set translatedPath = $select(translatedPath [ %expression : $replace(translatedPath, %expression, %replacement), 1: translatedPath)
+
   set installDirectory = $System.Util.InstallDirectory()
   set installDirectory = $extract(installDirectory, 1, $length(installDirectory) - 1)
   $$$RewriteIfPathContains("{NAMESPACE}", $namespace)
   $$$RewriteIfPathContains("{INSTALLDIR}", installDirectory)
-  $$$RewriteIfPathContains("{USERNAME}", $username) 
+  $$$RewriteIfPathContains("{USERNAME}", $username)
   $$$RewriteIfPathContains("{EXPORTPATH}", ..GetWorkspace())
-  $$$RewriteIfPathContains("{FULLEXPORTPATH}", ##class(%File).NormalizeFilename(..GetWorkspace())) 
+  $$$RewriteIfPathContains("{FULLEXPORTPATH}", ##class(%File).NormalizeFilename(..GetWorkspace()))
   $$$RewriteIfPathContains("{SLASH}", $select($$$isWINDOWS: "\", 1: "/"))
-  $$$RewriteIfPathContains("{PROJECT}", projectName) 
-  
+  $$$RewriteIfPathContains("{PROJECT}", projectName)
+
   if params {
     for i=1:1:params $$$RewriteIfPathContains("{P"_i_"}", params(i))
   }

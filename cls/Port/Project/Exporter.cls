@@ -1,45 +1,47 @@
 Include portutils
 
+/// This is the utility used to export the source code to the workspace.
 Class Port.Project.Exporter Extends Port.Project.Base
 {
 
+/// A list of packages that are already exported, this is used to prevent items from the same package from being exported again.
 Property ExportedPackages As %List [ Private ];
 
+/// A reference for the sychronizer, which keeps the workspace directory sync'ed with the project items.
 Property Synchronizer As Synchronizer [ Private ];
 
-Method %OnNew(path As %String, logLevel As %Integer = 2, sourceExtension As %String = "") As %Status
+Method %OnNew(path As %String, logLevel As %Integer = 2) As %Status
 {
-  $$$QuitOnError(##super(path, logLevel, sourceExtension))  
-       
+  $$$QuitOnError(##super(path, logLevel))
+
   if '$isobject(..Project) {
-    set ..ProjectName = "null"
-    throw ##class(%Exception.StatusException).CreateFromStatus($$$PERROR($$$ExportingProjectNotFound, ..ProjectName))
+    set ..Project.Name = "null"
+    throw ##class(%Exception.StatusException).CreateFromStatus($$$PERROR($$$ExportingProjectNotFound, ..Project.Name))
   }
   set ..Synchronizer = ##class(Synchronizer).%New($this)
   return $$$OK
 }
 
+/// Exports the project to the provided workspace.
 Method Export() As %Status
 {
-  
+
   set ..IsBatch = 1
   do ..Reset()
-  
+
   write ..LogLine($$$ExportingProject, 0, ..Project.Name)
-  
+
   $$$QuitOnError(..ExportProjectItems())
-  
+
   if ..AffectedCount > 0 {
     write ..LogLine($$$SourceExportedToPath, 0, ..BasePath)
+    write ..LogLine($$$SynchronizingProject, 0, ..Project.Name)
+    write ..LogLine($$$AllDone, 0)
   } else {
     write ..LogLine($$$NoItemsToExport, 0, ..Project.Name)
   }
-  
-  write ..LogLine($$$SynchronizingProject, 0, ..Project.Name)
-  
+
   $$$QuitOnError(..Synchronizer.Purge())
-  
-  write ..LogLine($$$AllDone, 0)
   return $$$OK
 }
 
@@ -48,7 +50,7 @@ Method ExportProjectItems() As %Status [ Private ]
   set sc = $$$OK
   set s = ##class(%SQL.Statement).%New()
   $$$QuitOnError(s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList"))
-  set r = s.%Execute(..ProjectName, 1) 
+  set r = s.%Execute(..Project.Name, 1)
   while r.%Next(.sc) {
     if $$$ISERR(sc) quit
     set itemName = r.%Get("Name")
@@ -58,26 +60,28 @@ Method ExportProjectItems() As %Status [ Private ]
   return sc
 }
 
+/// Exports a single item from the project to the workspace.
 Method ExportItem(itemName As %String, type As %String = "") As %Status
 {
   if ##class(Port.Util).IsRoutine(itemName) return ..ExportRoutine(itemName)
-  
-  set itemType = $case(type, "": ##class(Port.Util).ResolveItemExtension(itemName), : type)
+
+  set itemType = $case(type, "": ##class(Port.Util).GetItemType(itemName), : type)
   if itemType = "PKG" return ..ExportPackage(itemName)
   if itemType = "CLS" return ..ExportClass(itemName)
-  
-  return ..ExportWebFile(itemName)
+
+  return ..ExportPublicFile(itemName)
 }
 
+/// Exports a class package and all its classes added by the project.
 Method ExportPackage(packageName As %String) As %Status
 {
-  set id = ##class(Port.Util).MountIdFromName(packageName_".PKG", ..Project.Name)
-  // Cannot assume that the package is always present in the project, 
+  set id = ##class(Port.Util).ResolveItemId(packageName_".PKG", ..Project.Name)
+  // Cannot assume that the package is always present in the project,
   // even if the project has some classes from it.
   if '##class(%Studio.ProjectItem).%ExistsId(id) return $$$OK
-  
-  if $listfind(i%ExportedPackages, packageName) return $$$OK  
-  
+
+  if $listfind(i%ExportedPackages, packageName) return $$$OK
+
   set classList = $System.OBJ.GetPackageList(.classList, packageName)
   set className = ""
   set sc = $$$OK
@@ -94,121 +98,160 @@ Method ExportPackage(packageName As %String) As %Status
   return sc
 }
 
-Method ExportWebFile(itemName As %String) As %Status
+/// Export a CSP-like file to the workspace's public folder.
+/// The CSP application name is mirrored into subfolders inside the public folder.
+Method ExportPublicFile(itemName As %String) As %Status
 {
-  set id = ##class(Port.Util).MountIdFromName(itemName, ..Project.Name)  
+  set sc = $$$OK
+  set id = ##class(Port.Util).ResolveItemId(itemName, ..Project.Name)
+  set exported = 0
+
   if '##class(%Studio.ProjectItem).%ExistsId(id) {
     return $$$PERROR($$$UnableToExportInvalidItem, itemName)
-  }  
-      
-  $$$QuitOnError(##class(Port.Util).CSPLogicalToPhysicalPath(itemName, .source))
-  set dest = ##class(Port.Util).GetItemSourcePathFromWorkspace(itemName, ..Project.Name)
-  set path = ##class(%File).GetDirectory(dest) 
-  
-  $$$QuitOnError(##class(Port.Util).CreateMissingPath(path))
-  $$$QuitOnError(..Synchronizer.AddToWhitelist(itemName))
-  
-  if ..Overwrite = 0 && '..IsOutdated(itemName, dest) return $$$OK
-  
-  write ..Log($$$ExportingType, 1, $$$FileType, dest)
-  set exported = ##class(%File).CopyFile(source, dest, 1)  
-  
-  if exported = 0 {
-    write ..LogLine($$$Failed)
-    return $$$PERROR($$$UnableToCopySource, source, dest)
   }
-  
-  write ..LogLine($$$Done)
-  set ..AffectedCount = ..AffectedCount + 1
-  
-  return $$$OK
+
+  set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
+
+  try {
+    set csp = ##class(%RoutineMgr).%New(itemName)
+    set destination = ##class(Port.Util).ItemToPath(itemName, workspace)
+    set destinationLocation = ##class(%File).GetDirectory(destination)
+
+    write ..Log($$$ExportingType, 1, $$$FileType, destination)
+
+    $$$ThrowOnError(##class(Port.Util).EnsurePathExists(destinationLocation))
+    $$$ThrowOnError(..Synchronizer.AddToWhitelist(itemName))
+
+    if ..Overwrite = 0 && '..IsOutdated(itemName, destination) {
+      write ..LogLine($$$UpToDate)
+      quit
+    }
+
+    set exported = ##class(%File).CopyFile(csp.Code.Filename, destination, 1)
+
+    write ..LogLine($$$Done)
+    set ..AffectedCount = ..AffectedCount + 1
+  } catch ex {
+    set sc = ex.AsStatus()
+    if exported = 0 {
+      if $$$ISOK(sc) set sc = $$$PERROR($$$UnableToCopySource, source, dest)
+    }
+    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
+  }
+  quit $$$OK
 }
 
+/// Export a routine to the workspace, the path inside the workspace is taken from the type of routine to be exported.
 Method ExportRoutine(name As %String) As %Status
 {
-  set id = ##class(Port.Util).MountIdFromName(name, ..Project.Name)
-  
-  if '##class(%Studio.ProjectItem).%ExistsId(id) {
-    return $$$PERROR($$$UnableToExportInvalidItem, name)
+  set sc = $$$OK
+
+  try {
+    write ..Log($$$ExportingType, 1, $$$RoutineType, name)
+
+    set id = ##class(Port.Util).ResolveItemId(name, ..Project.Name)
+
+    if '##class(%Studio.ProjectItem).%ExistsId(id) {
+      return $$$PERROR($$$UnableToExportInvalidItem, name)
+    }
+
+    set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
+    set destination = ##class(Port.Util).ItemToPath(name, workspace)
+    set destinationLocation = ##class(%File).GetDirectory(destination)
+
+    $$$ThrowOnError(..Synchronizer.AddToWhitelist(name))
+
+    if '##class(%RoutineMgr).Exists(name) $$$ThrowStatus($$$PERROR($$$UnableToExportInvalidItem, name))
+    $$$ThrowOnError(##class(Port.Util).EnsurePathExists(destinationLocation))
+
+    if ..Overwrite = 0 && '..IsOutdated(name, destination) {
+      write ..LogLine($$$UpToDate)
+      quit
+    }
+
+    set file = ##class(%Stream.FileCharacter).%New()
+    set file.TranslateTable = "UTF8"
+    do file.LinkToFile(destination)
+
+    set routine = ##class(%RoutineMgr).%OpenId(name)
+    set sc = file.CopyFrom(routine.Code)
+
+    $$$ThrowOnError(file.%Save())
+    write ..LogLine($$$Done)
+
+    set ..AffectedCount = ..AffectedCount + 1
+  } catch ex {
+    set sc = ex.AsStatus()
+    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
   }
 
-  set dest = ##class(Port.Util).GetItemSourcePathFromWorkspace(name, ..Project.Name, ..SourceExtension)  
-  set path = ##class(%File).GetDirectory(dest)
-  
-  $$$QuitOnError(..Synchronizer.AddToWhitelist(name))
-  
-  if '##class(%RoutineMgr).Exists(name) return $$$PERROR($$$UnableToExportInvalidItem, name)
-  $$$QuitOnError(##class(Port.Util).CreateMissingPath(path))
-      
-  if ..Overwrite = 0 && '..IsOutdated(name, dest) return $$$OK
-  
-  write ..Log($$$ExportingType, 1, $$$RoutineType, name)
-  
-  set file = ##class(%FileCharacterStream).%New()
-  set file.Filename = dest
-  
-  set routine = ##class(%RoutineMgr).%OpenId(name)  
-  set sc = file.CopyFrom(routine.Code)
-  
-  if $$$ISERR(sc) write ..LogLine($$$Failed) return sc 
-  
-  write ..LogLine($$$Done)
-  
-  $$$QuitOnError(file.%Save())
-  
-  set ..AffectedCount = ..AffectedCount + 1
-  return $$$OK
+  quit sc
 }
 
+/// Export a class to the workspace's 'cls' folder. Each class package is treated like a subfolder.
 Method ExportClass(className As %String, fromPackage As %Boolean = 0) As %Status
 {
-  
-  // Checks if this entry is coming from %SourceControl and fixes it removing the CLS type.
-  if ##class(Port.Util).ResolveItemExtension(className) = "CLS" {
+  set sc = $$$OK
+
+  set itemName = className
+
+  // If the call is from the source control remove the suffix.
+  if ##class(Port.Util).GetItemType(className) = "CLS" {
     set className = $piece(className, ".", 1, *-1)
-  } 
-  
-  set itemName = className_".CLS"
-  
-  // Cannot export classes that don't belong to the project.
-  set id = ##class(Port.Util).MountIdFromName(itemName, ..Project.Name)
-  // Cannot check for the class item id if the call was delegated by ExportPackage.
-  if 'fromPackage && '##class(%Studio.ProjectItem).%ExistsId(id) {
-    return $$$PERROR($$$UnableToExportInvalidItem, itemName)
+  } else {
+    // But we still must ensure that a qualified item name is available.
+    set itemName = itemName_".CLS"
   }
-  
-  set package = $piece(itemName, ".", 1, *-1)
-  set dest = ##class(Port.Util).GetItemSourcePathFromWorkspace(itemName, ..Project.Name, ..SourceExtension)
-  set path = ##class(%File).GetDirectory(dest)  
-  
-  $$$QuitOnError(..Synchronizer.AddToWhitelist(itemName))
-  if $listfind(..ExportedPackages, package) return $$$OK  
-  
-  $$$QuitOnError(##class(Port.Util).CreateMissingPath(path))
-  
-  if ..Overwrite = 0 && '..IsOutdated(itemName, dest) return $$$OK
-  else  do ##class(%File).Delete(dest)
-  
-  write ..Log($$$ExportingType, 1, $$$ClassType, className)
-  
-  if '##class(%ClassDefinition).%ExistsId(className) {
-    write ..LogLine($$$Failed)
-    return $$$ERROR($$$UnableToExportInvalidItem, className)
+
+  try {
+    write ..Log($$$ExportingType, 1, $$$ClassType, className)
+
+    // We can rely on the id if the call is delegated by ExportPackages, so we only check it if the class is exported single-handedly.
+    if 'fromPackage && '##class(Port.Util).ExistsInProject(..Project.Name, itemName) {
+      $$$ThrowStatus($$$PERROR($$$UnableToExportInvalidItem, itemName))
+    }
+
+    set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
+    set package = $piece(itemName, ".", 1, *-1)
+    set destination = ##class(Port.Util).ItemToPath(itemName, workspace)
+    set destinationLocation = ##class(%File).GetDirectory(destination)
+
+    $$$ThrowOnError(..Synchronizer.AddToWhitelist(itemName))
+    if $listfind(..ExportedPackages, package) quit
+
+    $$$ThrowOnError(##class(Port.Util).EnsurePathExists(destinationLocation))
+
+    if ..Overwrite = 0 && '..IsOutdated(itemName, destination) {
+      write ..LogLine($$$UpToDate)
+      quit
+    }
+
+    if '##class(%ClassDefinition).%ExistsId(className) {
+      $$$ThrowStatus($$$PERROR($$$UnableToExportInvalidItem, className))
+    }
+
+    $$$ThrowOnError(##class(%Compiler.UDL.TextServices).GetTextAsStream($namespace, itemName, .stream))
+
+    set file = ##class(%Stream.FileCharacter).%New()
+    set file.TranslateTable = "UTF8"
+    do file.LinkToFile(destination)
+
+    $$$ThrowOnError(file.CopyFromAndSave(stream))
+    write ..LogLine($$$Done, 1)
+
+    set ..AffectedCount = ..AffectedCount + 1
+  } catch ex {
+    set sc = ex.AsStatus()
+    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
   }
-  
-  $$$QuitOnError(##class(%Compiler.UDL.TextServices).GetTextAsFile($namespace, itemName, dest))
-  write ..LogLine($$$Done)
-  
-  set ..AffectedCount = ..AffectedCount + 1
-  
-  return $$$OK
+
+  quit sc
 }
 
-Method Reset() As %Status
+Method Reset() As %Status [ Internal ]
 {
   set i%ExportedPackages = ""
   do ..Synchronizer.Reset()
 }
 
 }
-

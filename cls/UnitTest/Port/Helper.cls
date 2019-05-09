@@ -5,7 +5,7 @@ Class UnitTest.Port.Helper [ Abstract ]
 
 Parameter MOCKAPPNAME = "/unittest/mockapp";
 
-ClassMethod CreateMockApplication() As %Status
+ClassMethod CreateMockApplication(Output properties = "") As %Status
 {
   set ns = $namespace
   new $namespace
@@ -34,29 +34,29 @@ ClassMethod DestroyMockApplication() As %Status
 
 ClassMethod MockItems(projectName As %String, Output items As %List = "", Output outputs As %List = "")
 {
-  #define CurrentWorkspace(%item) $$$NFN($$$FormatText("%1/%2", ##class(Port.Configuration).GetWorkspace(projectName), %item))
+  set slash = $select($$$isWINDOWS : "\", 1: "/")
+  #define CurrentWorkspace(%item) $$$NFN($$$FormatText("%1%2%3", ##class(Port.Configuration).GetWorkspace(projectName), "/", %item))
   
   set currentApp = $extract($System.CSP.GetDefaultApp($namespace), 2, *)
-  set a = $lb("PKG", "CLS", "CLS", "PKG", "PKG", "INC", "MAC", "DFI", "BAS", "MVB", "MVI", "CSP", "HTML", "HTML", "JS", "HTML", "ONLYEXTENSION", "PRJ")
   
   set items = $lb(
-    "Dummy.PKG",
-    "Dummy.Class.CLS",
-    "Dummy.Another.Package.Here.CLS",
-    "Dummy.And.Here.We.Shall.Test.Packages.PKG",
-    "Dummy.And.Here.We.Shall.Test.Packages.Without.Extension.PKG",
-    "dummy.INC",
-    "dummy.MAC",
-    "dummy.DFI",
-    "dummy.BAS",
-    "dummy.MVB",
-    "dummy.MVI",
-    $$$FormatText("%1/dummy/index.csp", currentApp), 
-    $$$FormatText("%1/dummy/index.html", currentApp),
-    $$$FormatText("%1/dummy/composite.name.should.still.resolve.html", currentApp),
-    $$$FormatText("%1/dummy/js/some/deep/file.js", currentApp),
-    $$$FormatText("%1/dummy/js/some/deep/file.html", currentApp),
-    $$$FormatText("%1/dummy/js/some/deep/.onlyextension", currentApp)
+    "Dummy.pkg",
+    "Dummy.Class.cls",
+    "Dummy.Another.Package.Here.cls",
+    "Dummy.And.Here.We.Shall.Test.Packages.pkg",
+    "Dummy.And.Here.We.Shall.Test.Packages.Without.Extension.pkg",
+    "dummy.inc",
+    "dummy.mac",
+    "dummy.dfi",
+    "dummy.bas",
+    "dummy.mvb",
+    "dummy.mvi",
+    $$$FormatText("csp/dev/dummy/index.csp", currentApp), 
+    $$$FormatText("csp/dev/dummy/index.html", currentApp),
+    $$$FormatText("csp/dev/dummy/composite.name.should.still.resolve.html", currentApp),
+    $$$FormatText("csp/dev/dummy/js/some/deep/file.js", currentApp),
+    $$$FormatText("csp/dev/dummy/js/some/deep/file.html", currentApp),
+    $$$FormatText("csp/dev/dummy/js/some/deep/.onlyextension", currentApp)
   )
   
   set outputs = $lb(
@@ -71,12 +71,12 @@ ClassMethod MockItems(projectName As %String, Output items As %List = "", Output
     $$$CurrentWorkspace("bas/dummy.bas"),
     $$$CurrentWorkspace("mvb/dummy.mvb"),
     $$$CurrentWorkspace("mvi/dummy.mvi"),
-    $$$CurrentWorkspace("web/dummy/index.csp"),
-    $$$CurrentWorkspace("web/dummy/index.html"),
-    $$$CurrentWorkspace("web/dummy/composite.name.should.still.resolve.html"),
-    $$$CurrentWorkspace("web/dummy/js/some/deep/file.js"),
-    $$$CurrentWorkspace("web/dummy/js/some/deep/file.html"),
-    $$$CurrentWorkspace("web/dummy/js/some/deep/.onlyextension")    
+    $$$CurrentWorkspace("public/csp/dev/dummy/index.csp"),
+    $$$CurrentWorkspace("public/csp/dev/dummy/index.html"),
+    $$$CurrentWorkspace("public/csp/dev/dummy/composite.name.should.still.resolve.html"),
+    $$$CurrentWorkspace("public/csp/dev/dummy/js/some/deep/file.js"),
+    $$$CurrentWorkspace("public/csp/dev/dummy/js/some/deep/file.html"),
+    $$$CurrentWorkspace("public/csp/dev/dummy/js/some/deep/.onlyextension")
   )
 }
 
@@ -102,7 +102,7 @@ ClassMethod CloneTestProject(fixturePath As %String, projectName As %String, usi
   set source = $$$NFN($$$FormatText("%1/%2", fixturePath, projectName))
   set dest = $$$NFN($$$FormatText("%1/_/%2", fixturePath, projectName))
   if 'usingXMLOnly {
-    set copied = ##class(%File).CopyDir(source, dest, 1,, 1)
+    set copied = ##class(%File).CopyDir(source, dest,,.created, 1)
     if 'copied return $$$PERROR($$$UnableToCopySource, source, dest)
   } else {
     set originXML = $$$NFN($$$FormatText("%1/%2.xml", source, projectName))

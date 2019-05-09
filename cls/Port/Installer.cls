@@ -9,7 +9,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
 <MsgFile Language="en">
   <MsgDomain Domain="Port Errors">
     <Message Id="-100" Name="InvalidPhysicalPath">The provided physical path '%1' is not part of the static files directory.</Message>
-    <Message Id="-101" Name="NamespaceAppPathDoesnExists">There is not an application with this name for the namespace %1.</Message>
+    <Message Id="-101" Name="NamespaceDoesntHaveAppWithPath">There is not an application with a physical path for the namespace %1.</Message>
     <Message Id="-102" Name="CannotCreateDirectory">Could not create the directory %1.</Message>
     <Message Id="-103" Name="CannotUseRelativePath">Cannot use a relative path, an absolute path must be provided.</Message>
     <Message Id="-104" Name="UnableToCopySource">Could not copy the file from %1 to %2.</Message> 
@@ -25,7 +25,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-114" Name="ErrorsWhileImportingType">There were errors while importing items type of %1.</Message>
     <Message Id="-115" Name="LogLevelIsOutOfRange">The provided log level %1 is out of range. Parameter must be one of: %2.</Message>
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Could not determine the correct workspace from the provided path.</Message>
-    <Message Id="-117" Name="CannotSaveUbiquitousItem">Cannot save items that belongs to other projects. Please remove '%1' from the projects listed below if you want to save it into '%3': %2</Message>
+    <Message Id="-117" Name="CannotSaveConflictingItems">Cannot save items that belongs to other projects. Please remove '%1' from the projects listed below if you want to save it into '%3': %2</Message>
     <Message Id="-118" Name="FailedWhileRunningExtendedHook">Failed while running extended hook '%1'.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
@@ -47,9 +47,9 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total of removed orphan items: %1</Message>
     <Message Id="-500" Name="Done"> done.</Message>
     <Message Id="-501" Name="DoneWithErrors"> done, but with errors.</Message>
-    <Message Id="-501" Name="Failed"> failed.</Message>
+    <Message Id="-501" Name="Failed"> failed. Reason: %1.</Message>
     <Message Id="-502" Name="AllDone">Finished with success.</Message>
-    <Message Id="-503" Name="KeepCacheExtension"> keep your original format.</Message>
+    <Message Id="-503" Name="UpToDate"> is up-to-date.</Message>
     <Message Id="-504" Name="OvewriteWithExtension"> end with the %1 extension.</Message>
     <Message Id="-600" Name="ImportingType">Importing %1 %2 ...</Message>
     <Message Id="-601" Name="EnqueingType">Enqueueing the selected %1 to be imported.</Message>
@@ -72,7 +72,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-801" Name="ProjectType">project</Message>
     <Message Id="-802" Name="RoutineType">routine</Message>
     <Message Id="-803" Name="FileType">file</Message>
-    <Message Id="-804" Name="DirectoryType">diretÛrio</Message>
+    <Message Id="-804" Name="DirectoryType">diret√≥rio</Message>
     <Message Id="-805" Name="MACGroupType">macro routines</Message>
     <Message Id="-806" Name="INCGroupType">include files</Message>
     <Message Id="-807" Name="INTGroupType">intermediate routines</Message>
@@ -85,8 +85,8 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-900" Name="ExportingXML">Exporting the project %1 to XML ...</Message>
     <Message Id="-901" Name="XMLExportedTo">%1 project XML exported to %2.</Message>
     <Message Id="-902" Name="ExportingTestClassToXML">Exporting test class %1 ...</Message>
-    <Message Id="-1000" Name="UbiquitousItemDetected">CAUTION! Detected the usage of the item %1 on the following projects: %2.</Message>
-    <Message Id="-1001" Name="UbiquitousItemDetected2">It's extremely recommended to keep the item exclusive to a single project!</Message>
+    <Message Id="-1000" Name="ConflictingItemDetected">CAUTION! Detected the usage of the item %1 on the following projects: %2.</Message>
+    <Message Id="-1001" Name="ConflictingItemDetected2">It's extremely recommended to keep the item exclusive to a single project!</Message>
     <Message Id="-1100" Name="RunningCustomHook">Executing hook extension %1 from the class %2 ...</Message>
     <Message Id="-1101" Name="HookReturnedOK">%1 returned without errors.</Message>
     <Message Id="-1102" Name="HookReturnedError">Failed while executing %1 due to the following reason: %2.</Message>
@@ -123,7 +123,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-7110" Name="PCWManageWorkspaceChoice1">1. Change primary workspace.</Message>
     <Message Id="-7111" Name="PCWManageWorkspaceChoice1Description">Configures the primary workspace that will be used to export your source code.</Message>    
     <Message Id="-7112" Name="PCWManageWorkspaceChoice1StatusCurrent">The current primary workspace is %1.</Message>
-    <Message Id="-7113" Name="PCWManageWorkspaceChoice1StatusNow">The primary workspace is now set to %1.</Message>    
+    <Message Id="-7113" Name="PCWManageWorkspaceChoice1StatusNow">The primary workspace is now set to %1.</Message>
     <Message Id="-7120" Name="PCWManageWorkspaceChoice2">2. Manage existing workspaces.</Message>
     <Message Id="-7121" Name="PCWManageWorkspaceChoice2Description">Manages workspaces associated to projects.</Message>
     <Message Id="-7122" Name="PCWManageWorkspaceChoice2Description2">Projects named here will not use the primary workspace definition.</Message>
@@ -132,7 +132,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-7125" Name="PCWManageWorkspaceChoice2StatusCurrent">Current workspace for this project is: %1.</Message>
     <Message Id="-7126" Name="PCWManageWorkspaceChoice2CurrentWorskpaceWarn">You will be asked for a new workspace now.</Message>
     <Message Id="-7127" Name="PCWManageWorkspaceChoice2Prompt2">Type the workspace path (or leave it empty to abort):</Message>
-    <Message Id="-7128" Name="PCWManageWorkspaceChoice2StatusNow">The project %1 is now configured to be exported using the following path: %2.</Message>
+    <Message Id="-7128" Name="PCWManageWorkspaceChoice2StatusNow">The project %1 is now configured to be exported using the following path: %2.</Message>    
     <Message Id="-7200" Name="PCWManageChangeTestSettingsChoice">2. Change test settings.</Message>
     <Message Id="-7201" Name="PCWManageChangeTestSettingsDescription">Configures settings related to the Studio test integration.</Message>
     <Message Id="-7210" Name="PCWManageChangeTestSettingsChoice1">1. Enable or disable test on demand.</Message>
@@ -161,17 +161,13 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-7403" Name="PCWSetLogLevelStatusNow">Log verbosity level is now: %1.</Message>
     <Message Id="-7404" Name="PCWSetLogLevelStatusPrompt">Please set the log verbosity level (type the number): </Message>
     <Message Id="-7410" Name="PCWSetLogLevelStatusChoice1">1. Level 1: Displays item enqueieing, import categories, backup notifications, repository status and error messages.</Message>
-    <Message Id="-7420" Name="PCWSetLogLevelStatusChoice2">2. Level 2: Includes all verbosity from Level 1 plus detailed logging about atomical operations.</Message>
-    <Message Id="-7500" Name="PCWSetSourceExtensionChoice">5. Set source extension.</Message>
-    <Message Id="-7501" Name="PCWSetSourceExtensionDescription">Defines an extension to be appended globaly to every exported routine.</Message>    
-    <Message Id="-7502" Name="PWCSetSourceExtensionPrompt">Please type the extension below</Message>
-    <Message Id="-7503" Name="PWCSetSourceExtensionStatusNow">The extension is now set to: %1</Message>
+    <Message Id="-7420" Name="PCWSetLogLevelStatusChoice2">2. Level 2: Includes all verbosity from Level 1 plus detailed logging about atomical operations.</Message>    
     <Message Id="-7600" Name="PCWExit">6. Exit.</Message>
     <Message Id="-7970" Name="PCWPlaceholdersAnnounce">You can use the following specific placeholders:</Message>
     <Message Id="-7971" Name="PCWPlaceholdersProject">{PROJECT} - The active project name.</Message>
     <Message Id="-7972" Name="PCWPlaceholdersNamespace">{NAMESPACE} - The active namespace name.</Message>
     <Message Id="-7973" Name="PCWPlaceholdersUsername">{USERNAME} - The active user name.</Message>
-    <Message Id="-7974" Name="PCWPlaceholdersInstallDir">{INSTALLDIR} - The CachÈ installation directory.</Message>
+    <Message Id="-7974" Name="PCWPlaceholdersInstallDir">{INSTALLDIR} - The Cach√© installation directory.</Message>
     <Message Id="-7980" Name="PCWPathRelative">Please type the RELATIVE path to be used when exporting your test files. Paths should be relative to the exported project root. (Or leave it empty to restore the default)</Message>
     <Message Id="-7981" Name="PCWPathAbsolute">Please type the ABSOLUTE path to be used when exporting your source files (Or leave it empty to restore the default)</Message>
     <Message Id="-7982" Name="PCWPathOSSchemes">You can use both: *NIX or Windows schemes.</Message>
@@ -188,74 +184,74 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
 <?xml version="1.0" encoding="UTF-8"?>
 <MsgFile Language="pt-br">
   <MsgDomain Domain="Port Errors">
-    <Message Id="-100" Name="InvalidPhysicalPath">O caminho fÌsico '%1' fornecido n„o pertence ao diretÛrio de arquivos est·ticos.</Message>
-    <Message Id="-101" Name="NamespaceAppPathDoesnExists">N„o existe uma aplicaÁ„o com este nome para o namespace %1.</Message>
-    <Message Id="-102" Name="CannotCreateDirectory">N„o foi possÌvel criar o diretÛrio %1.</Message>
-    <Message Id="-103" Name="CannotUseRelativePath">N„o È possÌvel utilizar um caminho relativo, o caminho precisa estar completo.</Message> 
-    <Message Id="-104" Name="UnableToCopySource">N„o foi possÌvel copiar o arquivo de %1 para %2.</Message> 
-    <Message Id="-105" Name="UnableToExportInvalidItem">N„o foi possÌvel exportar o item %1 pois ele n„o existe.</Message>
+    <Message Id="-100" Name="InvalidPhysicalPath">O caminho f√≠sico '%1' fornecido n√£o pertence ao diret√≥rio de arquivos est√°ticos.</Message>
+    <Message Id="-101" Name="NamespaceDoesntHaveAppWithPath">N√£o existe uma aplica√ß√£o com caminho f√≠sico para o namespace %1.</Message>
+    <Message Id="-102" Name="CannotCreateDirectory">N√£o foi poss√≠vel criar o diret√≥rio %1.</Message>
+    <Message Id="-103" Name="CannotUseRelativePath">N√£o √© poss√≠vel utilizar um caminho relativo, o caminho precisa estar completo.</Message> 
+    <Message Id="-104" Name="UnableToCopySource">N√£o foi poss√≠vel copiar o arquivo de %1 para %2.</Message> 
+    <Message Id="-105" Name="UnableToExportInvalidItem">N√£o foi poss√≠vel exportar o item %1 pois ele n√£o existe.</Message>
     <Message Id="-106" Name="ErrorsWhileImporting">Houveram erros ao importar %1.</Message>
-    <Message Id="-107" Name="AmbiguousPartialToWorkspace">O caminho partial %1 obtido È ambÌguo ao caminho deste projeto. Se vocÍ deseja exportar o projeto, utilize o mÈtodo 'Import'.</Message>
-    <Message Id="-108" Name="SupressedAttemptToExportFromOutside">N„o È possÌvel importar um arquivo que esteja fora do espaÁo de trabalho deste projeto.</Message>
-    <Message Id="-109" Name="UnableToRemoveDirectory">N„o foi possÌvel remover o diretÛrio %1.</Message>
-    <Message Id="-110" Name="UnableToDescribeItem">N„o foi possÌvel descrever o item o %1 devido ‡ uma violaÁ„o no extens„o esperada: este item deve %2</Message>
-    <Message Id="-111" Name="PortIsNotInstalled">Port n„o est· instalado no namespace %1.</Message>
-    <Message Id="-112" Name="NoTestSuitesWereFound">N„o foram encontradas suÌtes de teste para este projeto.</Message>
-    <Message Id="-113" Name="ExportingProjectNotFound">O projeto %1 selecionado para ser exportado n„o existe.</Message>
+    <Message Id="-107" Name="AmbiguousPartialToWorkspace">O caminho partial %1 obtido √© amb√≠guo ao caminho deste projeto. Se voc√™ deseja exportar o projeto, utilize o m√©todo 'Import'.</Message>
+    <Message Id="-108" Name="SupressedAttemptToExportFromOutside">N√£o √© poss√≠vel importar um arquivo que esteja fora do espa√ßo de trabalho deste projeto.</Message>
+    <Message Id="-109" Name="UnableToRemoveDirectory">N√£o foi poss√≠vel remover o diret√≥rio %1.</Message>
+    <Message Id="-110" Name="UnableToDescribeItem">N√£o foi poss√≠vel descrever o item o %1 devido √† uma viola√ß√£o no extens√£o esperada: este item deve %2</Message>
+    <Message Id="-111" Name="PortIsNotInstalled">Port n√£o est√° instalado no namespace %1.</Message>
+    <Message Id="-112" Name="NoTestSuitesWereFound">N√£o foram encontradas su√≠tes de teste para este projeto.</Message>
+    <Message Id="-113" Name="ExportingProjectNotFound">O projeto %1 selecionado para ser exportado n√£o existe.</Message>
     <Message Id="-114" Name="ErrorsWhileImportingType">Houveram errors ao importar itens do tipo %1.</Message>
-    <Message Id="-115" Name="LogLevelIsOutOfRange">O nÌvel de log fornecido est· fora da faixa permitida. O par‚metro deve ser um destes: %2.</Message>
-    <Message Id="-116" Name="CouldNotDetermineWorkspace">N„o foi possÌvel determinar o espaÁo de trabalho correto a patir do caminho fornecido.</Message>
-    <Message Id="-117" Name="CannotSaveUbiquitousItem">N„o È possÌvel salvar itens que pertenÁam a outros projetos. Por favor remova o item %1 dos projetos abaixo se vocÍ deseja salv·-lo em '%3': %2</Message>
-    <Message Id="-118" Name="FailedWhileRunningExtendedHook">Falha ao rodar extens„o do evento '%1'.</Message>
+    <Message Id="-115" Name="LogLevelIsOutOfRange">O n√≠vel de log fornecido est√° fora da faixa permitida. O par√¢metro deve ser um destes: %2.</Message>
+    <Message Id="-116" Name="CouldNotDetermineWorkspace">N√£o foi poss√≠vel determinar o espa√ßo de trabalho correto a patir do caminho fornecido.</Message>
+    <Message Id="-117" Name="CannotSaveConflictingItems">N√£o √© poss√≠vel salvar itens que perten√ßam a outros projetos. Por favor remova o item %1 dos projetos abaixo se voc√™ deseja salv√°-lo em '%3': %2</Message>
+    <Message Id="-118" Name="FailedWhileRunningExtendedHook">Falha ao rodar extens√£o do evento '%1'.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>
-    <Message Id="-201" Name="BackupAlert">N√O INTERROMPA ESTE PROCESSO.</Message>
-    <Message Id="-202" Name="BackupMirror">Espelhando a estrutura da aplicaÁ„o web para um diretÛrio tempor·rio ... </Message>
-    <Message Id="-203" Name="RemovingBackupMirror">Removendo o diretÛrio tempor·rio.</Message>
-    <Message Id="-300" Name="NoItemsToExport">N„o h· itens para serem exportados. A operaÁ„o foi abortada.</Message>
+    <Message Id="-201" Name="BackupAlert">N√ÉO INTERROMPA ESTE PROCESSO.</Message>
+    <Message Id="-202" Name="BackupMirror">Espelhando a estrutura da aplica√ß√£o web para um diret√≥rio tempor√°rio ...</Message>
+    <Message Id="-203" Name="RemovingBackupMirror">Removendo o diret√≥rio tempor√°rio.</Message>
+    <Message Id="-300" Name="NoItemsToExport">N√£o h√° itens para serem exportados. A opera√ß√£o foi abortada.</Message>
     <Message Id="-301" Name="ExportingProject">Exportando o projeto %1.</Message>
-    <Message Id="-302" Name="SourceExportedToPath">O cÛdigo-fonte foi exportado para o caminho %1.</Message>
+    <Message Id="-302" Name="SourceExportedToPath">O c√≥digo-fonte foi exportado para o caminho %1.</Message>
     <Message Id="-303" Name="ExportingType">Exportando %1 %2 ...</Message>
-    <Message Id="-304" Name="NewWorkspaceDetected">Um novo espaÁo de trabalho foi detectado para %1. O projeto ser· exportado como um todo.</Message>
+    <Message Id="-304" Name="NewWorkspaceDetected">Um novo espa√ßo de trabalho foi detectado para %1. O projeto ser√° exportado como um todo.</Message>
     <Message Id="-400" Name="SynchronizingProject">Sincronizando o projeto %1.</Message>
-    <Message Id="-401" Name="CheckingExtraneousItems">Verificando presenÁa de itens Ûrf„os no projeto.</Message>
-    <Message Id="-402" Name="TotalExtraneousItems">Total de itens Ûrf„os detectados: %1.</Message>
-    <Message Id="-403" Name="NoExtraneousItems">Nenhum item Ûrf„o encontrado.</Message>
+    <Message Id="-401" Name="CheckingExtraneousItems">Verificando presen√ßa de itens √≥rf√£os no projeto.</Message>
+    <Message Id="-402" Name="TotalExtraneousItems">Total de itens √≥rf√£os detectados: %1.</Message>
+    <Message Id="-403" Name="NoExtraneousItems">Nenhum item √≥rf√£o encontrado.</Message>
     <Message Id="-404" Name="RemovingFile">Removendo item %1 (arquivo).</Message>
-    <Message Id="-405" Name="RemovingDirectory">Removendo item %1 (diretÛrio).</Message>
-    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total de itens Ûrf„os removidos: %1.</Message>
+    <Message Id="-405" Name="RemovingDirectory">Removendo item %1 (diret√≥rio).</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total de itens √≥rf√£os removidos: %1.</Message>
     <Message Id="-500" Name="Done"> feito.</Message>
     <Message Id="-501" Name="DoneWithErrors"> feito, mas com erros.</Message>
     <Message Id="-501" Name="Failed"> falhou.</Message>
     <Message Id="-502" Name="AllDone">Terminado com sucesso.</Message>
-    <Message Id="-503" Name="KeepCacheExtension">manter seu formato original.</Message>
-    <Message Id="-504" Name="OvewriteWithExtension">terminar com a extens„o %1.</Message> 
+    <Message Id="-503" Name="UpToDate"> o item j√° est√° atualizado.</Message>
+    <Message Id="-504" Name="OvewriteWithExtension">terminar com a extens√£o %1.</Message> 
     <Message Id="-600" Name="ImportingType">Importando %1 %2 ...</Message>
     <Message Id="-601" Name="EnqueingType">Enfileirando o %1 escolhido para ser importado ...</Message>
     <Message Id="-602" Name="NothingToImport">Nada para importar foi encontrado.</Message>
     <Message Id="-603" Name="ImportingProject">Importando o projeto %1.</Message>
     <Message Id="-604" Name="EnqueueingItems">Enfilerando itens para serem importados.</Message>
     <Message Id="-605" Name="TotalItemsToImport">Total de itens para importar: %1.</Message>
-    <Message Id="-606" Name="NoPendingItemsToImport">N„o h· itens para serem importados.</Message>
-    <Message Id="-607" Name="NewProject">O projeto %1 ainda n„o existe e ser· criado a seguir.</Message>
+    <Message Id="-606" Name="NoPendingItemsToImport">N√£o h√° itens para serem importados.</Message>
+    <Message Id="-607" Name="NewProject">O projeto %1 ainda n√£o existe e ser√° criado a seguir.</Message>
     <Message Id="-608" Name="FatalErrorAlert">FATAL: O seguintes erros impediram o projeto de ser importado:</Message>
-    <Message Id="-609" Name="FatalRollbackAlert">As alteraÁıes ser„o desfeitas nas etapas a seguir.</Message>
-    <Message Id="-610" Name="FatalProjectIntegrityRiskWarning">AVISO! N√O INTERROMPA O PROCESSO PARA N√O COMPROMETER A INTEGRIDADE DO PROJETO!</Message>
-    <Message Id="-611" Name="FatalRollingBackTransaction">Descartando a transaÁ„o pendente ...</Message>
-    <Message Id="-612" Name="FatalApplyingBackup">Aplicando o backup para reverter alteraÁıes no caminho da aplicaÁ„o.</Message>
-    <Message Id="-613" Name="FatalFailedToRestoreBackup">ERRO: N„o foi possÌvel aplicar o backup inteiramente devido a um erro de sistema. O backup ser· mantido para uma correÁ„o manual.</Message>
+    <Message Id="-609" Name="FatalRollbackAlert">As altera√ß√µes ser√£o desfeitas nas etapas a seguir.</Message>
+    <Message Id="-610" Name="FatalProjectIntegrityRiskWarning">AVISO! N√ÉO INTERROMPA O PROCESSO PARA N√ÉO COMPROMETER A INTEGRIDADE DO PROJETO!</Message>
+    <Message Id="-611" Name="FatalRollingBackTransaction">Descartando a transa√ß√£o pendente ...</Message>
+    <Message Id="-612" Name="FatalApplyingBackup">Aplicando o backup para reverter altera√ß√µes no caminho da aplica√ß√£o.</Message>
+    <Message Id="-613" Name="FatalFailedToRestoreBackup">ERRO: N√£o foi poss√≠vel aplicar o backup inteiramente devido a um erro de sistema. O backup ser√° mantido para uma corre√ß√£o manual.</Message>
     <Message Id="-614" Name="ProjectSaved">O projeto %1 foi salvo com %2 itens.</Message>
-    <Message Id="-700" Name="CannotUseDefault">N„o È permitido o uso de projetos 'Default'. Se vocÍ deseja usar este projeto, vocÍ precisa fornecer outro nome utilizando Arquivo->Salvar Como.</Message>
+    <Message Id="-700" Name="CannotUseDefault">N√£o √© permitido o uso de projetos 'Default'. Se voc√™ deseja usar este projeto, voc√™ precisa fornecer outro nome utilizando Arquivo->Salvar Como.</Message>
     <Message Id="-701" Name="CannotUseDefault2">Todos os eventos foram desativados.</Message>
     <Message Id="-800" Name="ClassType">classe</Message>
     <Message Id="-801" Name="ProjectType">projeto</Message>
     <Message Id="-802" Name="RoutineType">rotina</Message>
     <Message Id="-803" Name="FileType">arquivo</Message>
-    <Message Id="-804" Name="DirectoryType">diretÛrio</Message>
+    <Message Id="-804" Name="DirectoryType">diret√≥rio</Message>
     <Message Id="-805" Name="MACGroupType">rotinas macro</Message>
-    <Message Id="-806" Name="INCGroupType">arquivos de inclus„o</Message>
-    <Message Id="-807" Name="INTGroupType">rotinas intermedi·rias</Message>
+    <Message Id="-806" Name="INCGroupType">arquivos de inclus√£o</Message>
+    <Message Id="-807" Name="INTGroupType">rotinas intermedi√°rias</Message>
     <Message Id="-808" Name="BASGroupType">rotinas Basic</Message>
     <Message Id="-809" Name="MVBGroupType">rotinas MV Basic</Message>
     <Message Id="-810" Name="MVIGroupType">rotinas MVI</Message>
@@ -265,9 +261,9 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-900" Name="ExportingXML">Exportando o projeto %1 para XML ...</Message>
     <Message Id="-901" Name="XMLExportedTo">XML do projeto %1 exportado para %2.</Message>
     <Message Id="-902" Name="ExportingTestClassToXML">Exportando a classe de teste %1 ...</Message>
-    <Message Id="-1000" Name="UbiquitousItemDetected">CUIDADO! Foi detectada a presenÁa do item %1 nos seguintes projetos: %2.</Message>
-    <Message Id="-1001" Name="UbiquitousItemDetected2">… extremamente recomendado manter o item exclusivo a um projeto!</Message>
-    <Message Id="-1100" Name="RunningCustomHook">Executando extens„o do evento %1 da classe %2 ...</Message>
+    <Message Id="-1000" Name="ConflictingItemDetected">CUIDADO! Foi detectada a presen√ßa do item %1 nos seguintes projetos: %2.</Message>
+    <Message Id="-1001" Name="ConflictingItemDetected2">√â extremamente recomendado manter o item exclusivo a um projeto!</Message>
+    <Message Id="-1100" Name="RunningCustomHook">Executando extens√£o do evento %1 da classe %2 ...</Message>
     <Message Id="-1101" Name="HookReturnedOK">%1 retornou sem erros.</Message>
     <Message Id="-1102" Name="HookReturnedError">Falhou ao executar %1 devido ao seguinte motivo: %2</Message>
   </MsgDomain>
@@ -281,8 +277,8 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-5006" Name="MLScanAndFix">Verificar e corrigir</Message>
     <Message Id="-5007" Name="MLRunTests">Executar testes</Message>
     <Message Id="-5008" Name="MLImport">Importar</Message>
-    <Message Id="-5009" Name="MLForceExport">Exportar (forÁado)</Message>
-    <Message Id="-5010" Name="MLForceImport">Importar (forÁado)</Message>
+    <Message Id="-5009" Name="MLForceExport">Exportar (for√ßado)</Message>
+    <Message Id="-5010" Name="MLForceImport">Importar (for√ßado)</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Context Menu Labels">
     <Message Id="-6000" Name="CMLExportActive">Exportar a partir deste item</Message>
@@ -290,75 +286,71 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-6002" Name="CMLRunActiveTest">Executar teste</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Configuration Wizard">
-    <Message Id="-7000" Name="PCWWelcome">Bem-vindo ao assistente de configuraÁ„o do Port.</Message>
-    <Message Id="-7001" Name="PCWInvalidChoice">Escolha inv·lida.</Message>
-    <Message Id="-7002" Name="PCWChoiceQuestion">O que vocÍ deseja fazer? (digite o n˙mero)</Message>
+    <Message Id="-7000" Name="PCWWelcome">Bem-vindo ao assistente de configura√ß√£o do Port.</Message>
+    <Message Id="-7001" Name="PCWInvalidChoice">Escolha inv√°lida.</Message>
+    <Message Id="-7002" Name="PCWChoiceQuestion">O que voc√™ deseja fazer? (digite o n√∫mero)</Message>
     <Message Id="-7003" Name="PCWChoicePrompt">Sua escolha: </Message>
     <Message Id="-7004" Name="PCWAborted">Abortado.</Message>
     <Message Id="-7005" Name="PCWToggleEnabled">ATIVADO</Message>
     <Message Id="-7006" Name="PCWToggleDisabled">DESATIVADO</Message>
-    <Message Id="-7007" Name="PCWBye">AtÈ mais.</Message>
-    <Message Id="-7100" Name="PCWManageWorkspaceChoice">1. Gerenciar espaÁos de trabalho.</Message>
-    <Message Id="-7101" Name="PCWManageWorkspaceDescription">Gerencia espaÁos de trabalho que ir„o conter o cÛdigo-fonte.</Message>
-    <Message Id="-7110" Name="PCWManageWorkspaceChoice1">1. Alterar espaÁo de trabalho padr„o.</Message>
-    <Message Id="-7111" Name="PCWManageWorkspaceChoice1Description">Altera o espaÁo de trabalho utilizado por padr„o. Aplic·vel somente para novos projetos.</Message>
-    <Message Id="-7112" Name="PCWManageWorkspaceChoice1StatusCurrent">O espaÁo de trabalho padr„o atual È %1.</Message>
-    <Message Id="-7113" Name="PCWManageWorkspaceChoice1StatusNow">O espaÁo de trabalho padr„o agora È %1.</Message>
-    <Message Id="-7120" Name="PCWManageWorkspaceChoice2">2. Gerencia espaÁos de trabalho existentes.</Message>
-    <Message Id="-7121" Name="PCWManageWorkspaceChoice2Description">Gerencia espaÁos de trabalhos vinculados a projetos j· existentes ou de antem„o.</Message>
-    <Message Id="-7122" Name="PCWManageWorkspaceChoice2Description2">Esta configuraÁ„o sobreescrever· o espaÁo de trabalho padr„o para o projeto escolhido.</Message>
+    <Message Id="-7007" Name="PCWBye">At√© mais.</Message>
+    <Message Id="-7100" Name="PCWManageWorkspaceChoice">1. Gerenciar espa√ßos de trabalho.</Message>
+    <Message Id="-7101" Name="PCWManageWorkspaceDescription">Gerencia espa√ßos de trabalho que ir√£o conter o c√≥digo-fonte.</Message>
+    <Message Id="-7110" Name="PCWManageWorkspaceChoice1">1. Alterar espa√ßo de trabalho padr√£o.</Message>
+    <Message Id="-7111" Name="PCWManageWorkspaceChoice1Description">Altera o espa√ßo de trabalho utilizado por padr√£o. Aplic√°vel somente para novos projetos.</Message>
+    <Message Id="-7112" Name="PCWManageWorkspaceChoice1StatusCurrent">O espa√ßo de trabalho padr√£o atual √© %1.</Message>
+    <Message Id="-7113" Name="PCWManageWorkspaceChoice1StatusNow">O espa√ßo de trabalho padr√£o agora √© %1.</Message>
+    <Message Id="-7120" Name="PCWManageWorkspaceChoice2">2. Gerencia espa√ßos de trabalho existentes.</Message>
+    <Message Id="-7121" Name="PCWManageWorkspaceChoice2Description">Gerencia espa√ßos de trabalhos vinculados a projetos j√° existentes ou de antem√£o.</Message>
+    <Message Id="-7122" Name="PCWManageWorkspaceChoice2Description2">Esta configura√ß√£o sobrescrever√° o espa√ßo de trabalho padr√£o para o projeto escolhido.</Message>
     <Message Id="-7123" Name="PCWManageWorkspaceChoice2Prompt">Digite o nome do projeto (ou deixe vazio para abortar):</Message>
-    <Message Id="-7124" Name="PCWManageWorkspaceChoice2Warning">AVISO: O projeto %1 ainda n„o existe."</Message>
-    <Message Id="-7125" Name="PCWManageWorkspaceChoice2StatusCurrent">EspaÁo de trabalho atual para este projeto: %1.</Message>
-    <Message Id="-7126" Name="PCWManageWorkspaceChoice2CurrentWorskpaceWarn">Ser· requisitado um novo espaÁo de trabalho a seguir.</Message>
-    <Message Id="-7127" Name="PCWManageWorkspaceChoice2Prompt2">Digite o caminho do espaÁo de trabalho (ou deixe vazio para abortar):</Message>
-    <Message Id="-7128" Name="PCWManageWorkspaceChoice2StatusNow">O projeto %1 agora est· configurado para ser exportado no caminho: %2.</Message>
-    <Message Id="-7200" Name="PCWManageChangeTestSettingsChoice">2. Alterar configuraÁıes de teste.</Message>
-    <Message Id="-7201" Name="PCWManageChangeTestSettingsDescription">Altera configuraÁıes relacionadas ‡ integraÁ„o do Studio com a API de testes.</Message>
+    <Message Id="-7124" Name="PCWManageWorkspaceChoice2Warning">AVISO: O projeto %1 ainda n√£o existe."</Message>
+    <Message Id="-7125" Name="PCWManageWorkspaceChoice2StatusCurrent">Espa√ßo de trabalho atual para este projeto: %1.</Message>
+    <Message Id="-7126" Name="PCWManageWorkspaceChoice2CurrentWorskpaceWarn">Ser√° requisitado um novo espa√ßo de trabalho a seguir.</Message>
+    <Message Id="-7127" Name="PCWManageWorkspaceChoice2Prompt2">Digite o caminho do espa√ßo de trabalho (ou deixe vazio para abortar):</Message>
+    <Message Id="-7128" Name="PCWManageWorkspaceChoice2StatusNow">O projeto %1 agora est√° configurado para ser exportado no caminho: %2.</Message>    
+    <Message Id="-7200" Name="PCWManageChangeTestSettingsChoice">2. Alterar configura√ß√µes de teste.</Message>
+    <Message Id="-7201" Name="PCWManageChangeTestSettingsDescription">Altera configura√ß√µes relacionadas √† integra√ß√£o do Studio com a API de testes.</Message>
     <Message Id="-7210" Name="PCWManageChangeTestSettingsChoice1">1. Ativar ou desativar testes por demanda.</Message>
-    <Message Id="-7211" Name="PCWManageChangeTestSettingsChoice1Description">Quando esta configuraÁ„o estivar ativa, Port ir· tentar encontrar a classe de teste da classe em ediÁ„o e executar seus testes apÛs sua compilaÁ„o.</Message>
+    <Message Id="-7211" Name="PCWManageChangeTestSettingsChoice1Description">Quando esta configura√ß√£o estivar ativa, Port ir√° tentar encontrar a classe de teste da classe em edi√ß√£o e executar seus testes ap√≥s sua compila√ß√£o.</Message>
     <Message Id="-7212" Name="PCWManageChangeTestSettingsChoice1Choice1">1. Ativar testes por demanda.</Message>
     <Message Id="-7213" Name="PCWManageChangeTestSettingsChoice1Choice2">2. Desativar testes por demanda.</Message>
-    <Message Id="-7214" Name="PCWManageChangeTestSettingsChoice1StatusCurrent">Testes por demanda est· atualmente %1.</Message>
-    <Message Id="-7220" Name="PCWManageChangeTestSettingsChoice2">2. Definir um novo prefÌxo para classes de teste.</Message>
-    <Message Id="-7221" Name="PCWManageChangeTestSettingsChoice2Description">Um prefixo È requirido para informar ao Port qual pacote deve ser considerado como um pacote com classes de teste.</Message>
-    <Message Id="-7222" Name="PCWManageChangeTestSettingsChoice2Description2">Este prefÌxo È utilizado como uma forma de equivalÍncia.</Message>
+    <Message Id="-7214" Name="PCWManageChangeTestSettingsChoice1StatusCurrent">Testes por demanda est√° atualmente %1.</Message>
+    <Message Id="-7220" Name="PCWManageChangeTestSettingsChoice2">2. Definir um novo pref√≠xo para classes de teste.</Message>
+    <Message Id="-7221" Name="PCWManageChangeTestSettingsChoice2Description">Um prefixo √© requirido para informar ao Port qual pacote deve ser considerado como um pacote com classes de teste.</Message>
+    <Message Id="-7222" Name="PCWManageChangeTestSettingsChoice2Description2">Este pref√≠xo √© utilizado como uma forma de equival√™ncia.</Message>
     <Message Id="-7223" Name="PCWManageChangeTestSettingsChoice2Description3">Ex: UnitTest.MyPackage.MyClass -> MyPackage.MyClass.</Message>
-    <Message Id="-7224" Name="PCWManageChangeTestSettingsChoice2Prompt">Por favor digite o prefÌxo abaixo. Note que prefÌxos tambÈm pode ser compostos. Ex: Package.UnitTest.</Message>
-    <Message Id="-7225" Name="PCWManageChangeTestSettingsChoice2StatusNow">O prefÌxo agora È: %1.</Message>
+    <Message Id="-7224" Name="PCWManageChangeTestSettingsChoice2Prompt">Por favor digite o pref√≠xo abaixo. Note que pref√≠xos tamb√©m pode ser compostos. Ex: Package.UnitTest.</Message>
+    <Message Id="-7225" Name="PCWManageChangeTestSettingsChoice2StatusNow">O pref√≠xo agora √©: %1.</Message>
     <Message Id="-7230" Name="PCWManageChangeTestSettingsChoice3">3. Alterar caminho para classes de teste (XML).</Message>
-    <Message Id="-7231" Name="PCWManageChangeTestSettingsChoice3Description">Define o caminho raÌz aonde as classes de testes ser„o hierarquicamente exportadas.</Message>
-    <Message Id="-7232" Name="PCWManageChangeTestSettingsChoice3StatusNow">O caminho para classes de teste agora È: %1.</Message>
-    <Message Id="-7300" Name="PCWToggleAutoExportChoice">3. Ativar ou desativar a exportaÁ„o autom·tica do XML do projeto.</Message>
-    <Message Id="-7301" Name="PCWToggleAutoExportDescription">Exporta um arquivo XML quando o projeto ou um item dele È salvo.</Message>
-    <Message Id="-7302" Name="PCWToggleAutoExportChoice1StatusCurrent">ExportaÁ„o autom·tica est· atualmente como %1.</Message>
-    <Message Id="-7303" Name="PCWToggleAutoExportChoice1StatusNow">ExportaÁ„o autom·tica agora est· como %1.</Message>
-    <Message Id="-7310" Name="PCWToggleAutoExportChoice1">1. Ativar exportaÁ„o auto·tica do XML.</Message>
-    <Message Id="-7320" Name="PCWToggleAutoExportChoice2">2. Desativar exportaÁ„o auto·tica do XML.</Message>
-    <Message Id="-7400" Name="PCWSetLogLevelChoice">4. Definir nÌvel de log.</Message>
-    <Message Id="-7401" Name="PCWSetLogLevelDescription">Especifica o nÌvel de verbosidade utilizado no log de operaÁıes.</Message>
-    <Message Id="-7402" Name="PCWSetLogLevelStatusCurrent">NÌvel de verbosidade atual do log: %1.</Message>
-    <Message Id="-7403" Name="PCWSetLogLevelStatusNow">O nÌvel de verbosidade do log agora È: %1.</Message>
-    <Message Id="-7404" Name="PCWSetLogLevelStatusPrompt">Por favor escolha o nÌvel de verbosidade do log (digite o n˙mero): </Message>
-    <Message Id="-7410" Name="PCWSetLogLevelStatusChoice1">1. NÌvel 1: Exibe enfileiramento, categorias de importaÁ„o/exportaÁ„o, notificaÁıes de backup, situaÁ„o do espaÁo de trabalho e mensagens de erro.</Message>
-    <Message Id="-7420" Name="PCWSetLogLevelStatusChoice2">2. NÌvel 2: Inclui toda a verbosidade do nÌvel 1, substituindo categorias por notificaÁıes por item.</Message>
-    <Message Id="-7500" Name="PCWSetSourceExtensionChoice">5. Definir extens„o do fonte.</Message>
-    <Message Id="-7501" Name="PCWSetSourceExtensionDescription">Define uma extens„o para ser inserida no final do arquivo.</Message>    
-    <Message Id="-7502" Name="PWCSetSourceExtensionPrompt">Por favor digite a extens„o abaixo:</Message>
-    <Message Id="-7503" Name="PWCSetSourceExtensionStatusNow">A extens„o agora È: %1</Message>
+    <Message Id="-7231" Name="PCWManageChangeTestSettingsChoice3Description">Define o caminho ra√≠z aonde as classes de testes ser√£o hierarquicamente exportadas.</Message>
+    <Message Id="-7232" Name="PCWManageChangeTestSettingsChoice3StatusNow">O caminho para classes de teste agora √©: %1.</Message>
+    <Message Id="-7300" Name="PCWToggleAutoExportChoice">3. Ativar ou desativar a exporta√ß√£o autom√°tica do XML do projeto.</Message>
+    <Message Id="-7301" Name="PCWToggleAutoExportDescription">Exporta um arquivo XML quando o projeto ou um item dele √© salvo.</Message>
+    <Message Id="-7302" Name="PCWToggleAutoExportChoice1StatusCurrent">Exporta√ß√£o autom√°tica est√° atualmente como %1.</Message>
+    <Message Id="-7303" Name="PCWToggleAutoExportChoice1StatusNow">Exporta√ß√£o autom√°tica agora est√° como %1.</Message>
+    <Message Id="-7310" Name="PCWToggleAutoExportChoice1">1. Ativar exporta√ß√£o autom√°tica do XML.</Message>
+    <Message Id="-7320" Name="PCWToggleAutoExportChoice2">2. Desativar exporta√ß√£o autom√°tica do XML.</Message>
+    <Message Id="-7400" Name="PCWSetLogLevelChoice">4. Definir n√≠vel de log.</Message>
+    <Message Id="-7401" Name="PCWSetLogLevelDescription">Especifica o n√≠vel de verbosidade utilizado no log de opera√ß√µes.</Message>
+    <Message Id="-7402" Name="PCWSetLogLevelStatusCurrent">N√≠vel de verbosidade atual do log: %1.</Message>
+    <Message Id="-7403" Name="PCWSetLogLevelStatusNow">O n√≠vel de verbosidade do log agora √©: %1.</Message>
+    <Message Id="-7404" Name="PCWSetLogLevelStatusPrompt">Por favor escolha o n√≠vel de verbosidade do log (digite o n√∫mero): </Message>
+    <Message Id="-7410" Name="PCWSetLogLevelStatusChoice1">1. N√≠vel 1: Exibe enfileiramento, categorias de importa√ß√£o/exporta√ß√£o, notifica√ß√µes de backup, situa√ß√£o do espa√ßo de trabalho e mensagens de erro.</Message>
+    <Message Id="-7420" Name="PCWSetLogLevelStatusChoice2">2. N√≠vel 2: Inclui toda a verbosidade do n√≠vel 1, substituindo categorias por notifica√ß√µes por item.</Message>    
     <Message Id="-7600" Name="PCWExit">6. Sair.</Message>
-    <Message Id="-7970" Name="PCWPlaceholdersAnnounce">VocÍ pode utilizar os seguinte marcadores:</Message>
+    <Message Id="-7970" Name="PCWPlaceholdersAnnounce">Voc√™ pode utilizar os seguinte marcadores:</Message>
     <Message Id="-7971" Name="PCWPlaceholdersProject">{PROJECT} - O nome do projeto ativo.</Message>
     <Message Id="-7972" Name="PCWPlaceholdersNamespace">{NAMESPACE} - O namespace ativo.</Message>
-    <Message Id="-7973" Name="PCWPlaceholdersUsername">{USERNAME} - O login do usu·rio que iniciou o processo.</Message>
-    <Message Id="-7974" Name="PCWPlaceholdersInstallDir">{INSTALLDIR} - O diretÛrio de instalaÁ„o.</Message>
-    <Message Id="-7980" Name="PCWPathRelative">Por favor digite o caminho RELATIVO a ser utilizado ao exportar os arquivos de teste. Os caminhos devem ser relativos ‡ raiz do projeto exportado. (Ou deixe vazio para usar o padr„o)</Message>
-    <Message Id="-7981" Name="PCWPathAbsolute">Por favor digite o caminho ABSOLUTO a ser utilizado ao exportar o cÛdigo-fonte. (Ou deixe vazio para usar o padr„o)</Message>
-    <Message Id="-7982" Name="PCWPathOSSchemes">VocÍ pode usar ambos: esquemas *NIX ou Windows.</Message>
-    <Message Id="-7983" Name="PCWPathDefault">Padr„o È:</Message>
-    <Message Id="-7984" Name="PCWPathCurrent">Atual È:</Message>
+    <Message Id="-7973" Name="PCWPlaceholdersUsername">{USERNAME} - O login do usu√°rio que iniciou o processo.</Message>
+    <Message Id="-7974" Name="PCWPlaceholdersInstallDir">{INSTALLDIR} - O diret√≥rio de instala√ß√£o.</Message>
+    <Message Id="-7980" Name="PCWPathRelative">Por favor digite o caminho RELATIVO a ser utilizado ao exportar os arquivos de teste. Os caminhos devem ser relativos √† raiz do projeto exportado. (Ou deixe vazio para usar o padr√£o)</Message>
+    <Message Id="-7981" Name="PCWPathAbsolute">Por favor digite o caminho ABSOLUTO a ser utilizado ao exportar o c√≥digo-fonte. (Ou deixe vazio para usar o padr√£o)</Message>
+    <Message Id="-7982" Name="PCWPathOSSchemes">Voc√™ pode usar ambos: esquemas *NIX ou Windows.</Message>
+    <Message Id="-7983" Name="PCWPathDefault">Padr√£o √©:</Message>
+    <Message Id="-7984" Name="PCWPathCurrent">Atual √©:</Message>
     <Message Id="-7985" Name="PCWPathNew">Novo: </Message>
-    <Message Id="-7999" Name="PCWGoBackChoice">%1. Go back.</Message>
+    <Message Id="-7999" Name="PCWGoBackChoice">%1. Retornar.</Message>
   </MsgDomain>  
 </MsgFile>
 }
@@ -394,18 +386,15 @@ ClassMethod Install(force As %Boolean = 0) As %Status
   }
   
   try {
-    write !, "Installing Port ... please wait a moment.", !
-    write $$$FormatText("> Retrieving physical path for %1's default web application ...", $namespace), !
-    $$$ThrowOnError(..GetWebAppPhysicalPath(.path))
-    set ^Port.Configuration("internals.webapp.path") = path
-    write "> Creating Message Dictionary ... ", !, ">"
+    write !, "Installing Port ... please wait a moment.", !    
+    write "> Creating Message Dictionary ... ", !
     $$$ThrowOnError(..CreateMessageDictionary())
     write "> Creating global mappings ...", !   
     $$$ThrowOnError(..CreateGlobalMapping())
     write "> Setting up workspace structure ... ", !
     do ##class(Port.Configuration).SetPrimaryWorkspace("/CacheProjects/{NAMESPACE}/{PROJECT}")
     write "> Setting up test files directory ...", !
-    do ##class(Port.Configuration).SetTestPath("tests/cls")
+    do ##class(Port.Configuration).SetTestPath("tests")
     write "> Defining default test class prefix ..", !
     do ##class(Port.Configuration).SetTestClassPrefix("UnitTest")
     write "> Configuring to run tests automatically ...", !
@@ -468,22 +457,6 @@ ClassMethod RemoveGlobalMapping() As %Status
   return $$$OK
 }
 
-ClassMethod GetWebAppPhysicalPath(Output path As %String = "") As %Status
-{
-  set sc = $$$OK
-  set currentNS = $namespace  
-  
-  try {
-    set $namespace = "%SYS"
-    $$$ThrowOnError(##class(Security.Applications).Get($System.CSP.GetDefaultApp(currentNS), .settings))
-  } catch ex {
-    set sc = ex.AsStatus()
-  }
-  set path = ##class(%File).NormalizeFilename(settings("Path"))
-  set $namespace = currentNS
-  return sc
-}
-
 ClassMethod CreateMessageDictionary() As %Status [ CodeMode = objectgenerator ]
 {
     
@@ -507,8 +480,11 @@ ClassMethod CreateMessageDictionary() As %Status [ CodeMode = objectgenerator ]
     do %code.WriteLine("  do ##class(%File).Delete(tmpFilename)")
     do %code.WriteLine("  set (localXData, tmpFilename, file) = """"")    
   }
-  do %code.WriteLine("  $$$QuitOnError(##class(%MessageDictionary).GenerateInclude(""portmd"",,,""Port Errors,Port Log Messages,Port Menu Labels,Port Context Menu Labels""))")
-  do %code.WriteLine("  return $$$OK")
+  do %code.WriteLine("  set io = $io")
+  do %code.WriteLine("  use $$$NULL")
+  do %code.WriteLine("  set sc = ##class(%MessageDictionary).GenerateInclude(""portmd"",,,""Port Errors,Port Log Messages,Port Menu Labels,Port Context Menu Labels"")")
+  do %code.WriteLine("  use io")
+  do %code.WriteLine("  quit sc")
 }
 
 }

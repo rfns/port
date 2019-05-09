@@ -6,10 +6,10 @@ Class Port.SourceControl.Hooks Extends %Studio.SourceControl.Base
 XData Menu
 {
 <MenuBase>
-<Menu Name="%SourceMenu" Type="0">
+<Menu Name="%SourceMenu" Type="0"> 
 <MenuItem Name="%MLExport"/>
 <MenuItem Name="%MLExportToXML"/>
-<MenuItem Name="%MLExportTests"/>
+<MenuItem Name="%MLExportTests"/> 
 <MenuItem Separator="1" />
 <MenuItem Name="%MLRemoveClasses"/>
 <MenuItem Name="%MLRemoveFiles"/>
@@ -36,54 +36,52 @@ XData Menu
 Method OnAfterSave(InternalName As %String) As %Status
 {
   #dim exporter As Port.Project.Exporter
-  if %importingFromXML return $$$OK 
+  if $get(%importingFromXML, 0) quit $$$OK 
   
   set sc = $$$OK
   set projectName = $get(^||Port.Project)
-  if projectName [ "Default" return sc  
+  if projectName [ "Default" || (projectName = "") quit sc  
   
-  if projectName '= "" {
-    set exportPath = ##class(Port.Configuration).GetWorkspace()
-    set type = ##class(Port.Util).ResolveItemExtension(InternalName)
+  if projectName '= "" { 
+    set exportPath = ##class(Port.Configuration).GetWorkspace()    
+    set type = ##class(Port.Util).GetItemType(InternalName)
     
     if '##class(%File).DirectoryExists($$$NFN(exportPath)) {
-     set logLevel = ##class(Port.Configuration).GetLogLevel()
-     set sourceExtension = ##class(Port.Configuration).GetSourceExtension()
+      set logLevel = ##class(Port.Configuration).GetLogLevel()
+           
+      write "[Port] "_$$$FormatMsg("Port Log Messages", $$$NewWorkspaceDetected, projectName), !
      
-     write "[Port] "_$$$FormatMsg("Port Log Messages", $$$NewWorkspaceDetected, projectName), !
-     
-     $$$QuitOnError(##class(Port.Project.Manager).Export(exportPath, logLevel, 1,, sourceExtension))
-     // Called with do, because we don't want to display errors from it.
-     do ##class(Port.Project.Manager).ExportTestSuiteToXML(exportPath) 
-     return $$$OK
+      $$$QuitOnError(##class(Port.Project.Manager).Export(exportPath, logLevel, 1))
+      // Called with do, because we don't want to display errors from it.
+      do ##class(Port.Project.Manager).ExportTestSuiteToXML(exportPath) 
+      
+      quit $$$OK
     }
     
     if type '= "PRJ" {
-      set sourceExtension = ##class(Port.Configuration).GetSourceExtension()
       set exporter = ##class(Port.Project.Exporter).%New(exportPath, 2)
-      set shouldExportAsXML = ##class(Port.Configuration).IsAutoExportXMLEnabled()
-      set ubiquitousList = ##class(Port.Util).UbiquitousInProject(projectName, InternalName)
-      
-      set exporter.SourceExtension = sourceExtension
+      set shouldExportAsXML = ##class(Port.Configuration).IsAutoExportXMLEnabled()      
+      set conflicts = ##class(Port.Util).ListConflicts(projectName, InternalName)
       
       if '##class(Port.Util).ExistsInProject(projectName, InternalName) {
-        return $$$OK
+        quit $$$OK
       }
       
-      if ubiquitousList '= "" {
-        write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected, InternalName, $lfs(ubiquitousList))
-        write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2)
+      if conflicts '= "" {
+        write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$ConflictingItemDetected, InternalName, $lfs(conflicts))
+        write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$ConflictingItemDetected2)
       }
       
-      if type = "CLS" {        
+      if type = "CLS" {
         set sc = exporter.ExportClass(InternalName)
-        if ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass) {
+        if ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass) {          
           set testPath = ##class(Port.Configuration).GetTestPath()
           set xmlExporter = ##class(Port.Project.XMLExporter).%New(exportPath, 2)
           do xmlExporter.ExportTest($$$NFN(exportPath_"/"_testPath), testableClass, .ssc)          
           set sc = $$$ADDSC(sc, ssc)
         }
       } elseif ##class(Port.Util).IsRoutine(InternalName) {
+        write InternalName, !
         set sc = exporter.ExportRoutine(InternalName)
       } elseif type = "PKG" {     
         set sc = exporter.ExportPackage(InternalName)     
@@ -95,18 +93,18 @@ Method OnAfterSave(InternalName As %String) As %Status
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(exportPath, 2))      
     }  
   }
-  if '##class(Port.Configuration).HasCustomWorkspace(projectName) { 
+  if '##class(Port.Configuration).HasCustomWorkspace(projectName) {
     do ##class(Port.Configuration).SetCustomWorkspace(projectName)
   }
   $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterSave", InternalName)) 
-  return sc
+  quit sc
 }
 
 Method OnBeforeSave(InternalName As %String, Location As %String = "", Object As %RegisteredObject = {$$$NULLOREF}) As %Status
 {
-  if %importingFromXML return $$$OK
+  if $get(%importingFromXML, 0) quit $$$OK
   set projectName = $get(^||Port.Project)  
-  set ext = ##class(Port.Util).ResolveItemExtension(InternalName)
+  set ext = ##class(Port.Util).GetItemType(InternalName)
   set isProject = (ext = "PRJ")  
   
   if isProject {
@@ -115,17 +113,17 @@ Method OnBeforeSave(InternalName As %String, Location As %String = "", Object As
     if projectName [ "Default" {
       write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault), !
       write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
-      return $$$ERROR($$$CanNotExportDefaultProject, projectName)
+      quit $$$ERROR($$$CanNotExportDefaultProject, projectName)
     }
   } else {
-    set projectsOwningItem = $lts(##class(Port.Util).UbiquitousInProject(projectName, InternalName), $char(10))
+    set projectsOwningItem = $lts(##class(Port.Util).ListConflicts(projectName, InternalName), $char(10))
     if projectsOwningItem '= "" {
-      return $$$PERROR($$$CannotSaveUbiquitousItem, InternalName, $char(10, 10)_projectsOwningItem, projectName)
+      quit $$$PERROR($$$CannotSaveConflictingItems, InternalName, $char(10, 10)_projectsOwningItem, projectName)
     }
   }    
 
   $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeSave", InternalName, Location, Object))
-  return $$$OK
+  quit $$$OK
 }
 
 Method UserAction(Type As %Integer, Name As %String, InternalName As %String, SelectedText As %String, ByRef Action As %String, ByRef Target As %String, ByRef Msg As %String, ByRef Reload As %Boolean) As %Status
@@ -136,58 +134,55 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
   // We must know if the user is importing from a XML and prevent it from realizing certain tasks automatically.
   set %importingFromXML = (Name = 6)
   
-  if $data(^||Port.Project) {
+  if $data(^||Port.Project) { 
     set projectName = ^||Port.Project
-    if projectName [ "Default" return $$$OK
-    set fullPath = ##class(Port.Util).GetItemSourcePathFromWorkspace(InternalName)
+    if projectName [ "Default" quit $$$OK
+    set workspace = ##class(Port.Configuration).GetWorkspace(projectName)
+    set fullPath = ##class(Port.Util).ItemToPath(InternalName, workspace)    
     set projectPath = ##class(Port.Configuration).GetWorkspace()
     set testPath = ##class(Port.Configuration).GetTestPath()
     set logLevel = ##class(Port.Configuration).GetLogLevel()
     set shouldExportAsXML = ##class(Port.Configuration).IsAutoExportXMLEnabled()
-    set sourceExtension = ##class(Port.Configuration).GetSourceExtension()
-    set ignoredPaths = ##class(Port.Util).GetIgnoredPaths(projectPath)
+    set ignoredPaths = ##class(Port.Util).GetIgnoredPaths(projectName)
     
-    if name = "%MLExport" {
-      set shouldOverwrite = '##class(Port.Configuration).IsSameSourceExtension()
-      if shouldOverwrite do ##class(Port.Configuration).TrackActiveExtension()      
-      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, shouldOverwrite, ignoredPaths, sourceExtension))
+    if name = "%MLExport" {   
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 0, ignoredPaths))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))      
-      return $$$OK
+      quit $$$OK
     }
     if name = "%MLExportToXML" {
-      return ##class(Port.Project.Manager).ExportToXML(projectPath)
+      quit ##class(Port.Project.Manager).ExportToXML(projectPath)
     }
     if name = "%MLExportTests" {
-      return ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath)
+      quit ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath)
     }
     if name = "%MLRunTests" && (projectPath '= "") {      
       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/run/noload/nodelete"))
     }       
     if name = "%MLImport" {
-      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0,,sourceExtension))
+      $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0))
     }
     if name = "%MLRemoveClasses" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CLS"))
-      return ##class(Log).Synchronize()
+      quit ##class(Log).Synchronize()
     }
     if name = "%MLRemoveFiles" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "CSP"))
-      return ##class(Log).Synchronize()
+      quit ##class(Log).Synchronize()
     }
     if name = "%MLRemoveRoutines" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveItemsByType(projectName, "MAC"))
-      return ##class(Log).Synchronize()
+      quit ##class(Log).Synchronize()
     }
     if name = "%MLScanAndFix" {
       $$$QuitOnError(##class(Port.Project.Manager).RemoveInvalidItems(projectName))
-      return ##class(Log).Synchronize()     
+      quit ##class(Log).Synchronize()     
     }
     
     if name = "%CMLExportActive" {
       if $$$ucase(InternalName) '= ($$$ucase(projectName_".PRJ")) {
         set exporter = ##class(Port.Project.Exporter).%New(projectPath)
         set exporter.Overwrite = 1
-        set exporter.SourceExtension = sourceExtension
         set internalName = InternalName
         if $extract(InternalName, 1) = "/" {
           set internalName = $extract(InternalName, 2, *)
@@ -197,15 +192,15 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
         if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
       } else {
         set ignoredPaths = ##class(Port.Util).GetIgnoredPaths(projectPath)
-        return ##class(Port.Project.Manager).Export(projectPath, logLevel, 1)
+        quit ##class(Port.Project.Manager).Export(projectPath, logLevel, 1)
       }
     }
     
     if name = "%CMLImportActive" {
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
-        return ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
+        quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths)
       } else {
-        return ##class(Port.Project.Manager).ImportPartial(projectPath, fullPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
+        quit $$$OK 
       }
     }
     
@@ -217,9 +212,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     }
     
     if name = "%MLForceExport" {
-      set shouldOverwrite = '##class(Port.Configuration).IsSameSourceExtension()
-      if shouldOverwrite do ##class(Port.Configuration).TrackActiveExtension()
-      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths, sourceExtension))
+      $$$QuitOnError(##class(Port.Project.Manager).Export(projectPath, logLevel, 1, ignoredPaths))
       if shouldExportAsXML $$$QuitOnError(##class(Port.Project.Manager).ExportToXML(projectPath))
       if '##class(Port.Configuration).HasCustomWorkspace(projectName) { 
         do ##class(Port.Configuration).SetCustomWorkspace(projectName)
@@ -227,16 +220,16 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     }
     
     if name = "%MLForceImport" {
-      return ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths, sourceExtension)
+      quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths)
     }    
   }
   $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "UserAction",  Type, Name, InternalName, SelectedText, .Action, .Target, .Msg, .Reload))
-  return $$$OK
+  quit $$$OK
 }
 
 Method AfterUserAction(Type As %Integer, Name As %String, InternalName As %String, Answer As %Integer, Msg As %String = "", ByRef Reload As %Boolean) As %Status
 {
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "AfterUserAction", Type, Name, InternalName, Answer, .Msg, .Reload)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "AfterUserAction", Type, Name, InternalName, Answer, .Msg, .Reload)
 }
 
 Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As %String, ByRef Enabled As %Boolean, ByRef DisplayName As %String) As %Status
@@ -293,13 +286,13 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
 /// Called after the compile of the item is done.
 Method OnAfterCompile(InternalName As %String) As %Status
 {
-  if %importingFromXML return $$$OK
+  if $get(%importingFromXML, 0) quit $$$OK
   set projectName = $get(^||Port.Project)
   set sc = $$$OK
   
   if projectName '= "" && (projectName '[ "Default") {
     set projectPath = ##class(Port.Configuration).GetWorkspace()
-    set type = ##class(Port.Util).ResolveItemExtension(InternalName)
+    set type = ##class(Port.Util).GetItemType(InternalName)
     set xmlExporter = ##class(Port.Project.XMLExporter).%New(projectPath)
     
     if type = "CLS" {     
@@ -316,7 +309,7 @@ Method OnAfterCompile(InternalName As %String) As %Status
     }
   }
   $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterCompile",  InternalName))
-  return $$$OK
+  quit $$$OK
 }
 
 Method OnBeforeDelete(InternalName As %String) As %Status
@@ -327,16 +320,20 @@ Method OnBeforeDelete(InternalName As %String) As %Status
     do ##class(Port.Configuration).RemoveCustomWorkspace(projectName)
   }
   $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeDelete",  InternalName))
-  return $$$OK
+  quit $$$OK
 }
 
 Method OnBeforeLoad(InternalName As %String) As %Status
 {
-  set isProject = (##class(Port.Util).ResolveItemExtension(InternalName) = "PRJ")  
+  set isProject = (##class(Port.Util).GetItemType(InternalName) = "PRJ")
   
-  // We need to use our own project global to prevent %Studio.Project from disrupting the current source control hooks.
-  // This also allows us to modify the project only if certain conditions are met.
-  if isProject set ^||Port.Project = $piece(InternalName, ".", 1, *-1)
+  // Port normally uses its own project global to track the opened project and stop %Studio.Project methods from disrupting the source control instance.
+  if isProject {
+    set ^||Port.Project = $piece(InternalName, ".", 1, *-1)  
+  } elseif '$data(^||Port.Project) {
+    set ^||Port.Project = $get(^||%Studio.Project)
+  }
+   
   set projectName = ^||Port.Project
       
   if projectName '= "" && (projectName [ "Default") {
@@ -344,61 +341,61 @@ Method OnBeforeLoad(InternalName As %String) As %Status
     write "[Port] "_$$$FormatMsg("Port Log Messages", $$$CannotUseDefault2), !
   }  
   
-  set ubiquitousList = ##class(Port.Util).UbiquitousInProject(projectName, InternalName)
-  if ubiquitousList '= "" {
-    write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected, InternalName, $lts(ubiquitousList, ", "))
-    write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$UbiquitousItemDetected2), !
+  set conflicts = ##class(Port.Util).ListConflicts(projectName, InternalName)
+  if conflicts '= "" {
+    write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$ConflictingItemDetected, InternalName, $lts(conflicts, ", "))
+    write !, "[Port] "_$$$FormatMsg("Port Log Messages", $$$ConflictingItemDetected2), !
   }
   $$$QuitOnError(##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeLoad",  InternalName))
-  return $$$OK
+  quit $$$OK
 }
 
 ClassMethod OnAfterAllClassCompile(List As %String, Level As %Integer, ByRef qstruct As %String, Status As %Status) As %Status
 {
   $$$QuitOnError(##super(.List, .Level, .qstruct, .Status))
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterAllClassCompile", .List, Level, .qstruct, Status)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterAllClassCompile", .List, Level, .qstruct, Status)
 }
 
 Method OnAfterClassCompile(List As %String, Level As %Integer, ByRef qstruct As %String, Status As %Status) As %Status
 {
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterClassCompile", .List, Level, qstruct, Status)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterClassCompile", .List, Level, qstruct, Status)
 }
 
 /// Called after an item is deleted.
 Method OnAfterDelete(InternalName As %String) As %Status
 {
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterDelete", InternalName)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterDelete", InternalName)
 }
 
 Method OnAfterLoad(InternalName As %String, Object As %RegisteredObject = {$$$NULLOREF}) As %Status
 {
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterLoad", InternalName)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterLoad", InternalName)
 }
 
 Method OnAfterStorage(InternalName As %String, Location As %String = "") As %Status
 {
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterStorage", InternalName, Location)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnAfterStorage", InternalName, Location)
 }
 
 ClassMethod OnBeforeAllClassCompile(List As %String, Level As %Integer, ByRef qstruct As %String) As %Status
 {
   $$$QuitOnError(##super(.List, Level, .qstruct))
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeAllClassCompile", .List, Level, qstruct)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeAllClassCompile", .List, Level, qstruct)
 }
 
 Method OnBeforeClassCompile(List As %String, Level As %Integer, ByRef qstruct As %String) As %Status
 {
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeClassCompile", .List, Level, qstruct)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeClassCompile", .List, Level, qstruct)
 }
 
 Method OnBeforeCompile(InternalName As %String, ByRef qstruct As %String) As %Status
 {
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeCompile", InternalName, qstruct)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeCompile", InternalName, qstruct)
 }
 
 Method OnBeforeTimestamp(InternalName As %String)
 {
-  return ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeTimestamp", InternalName)
+  quit ##class(Port.SourceControl.ExtendedHooks).Call($this, "OnBeforeTimestamp", InternalName)
 }
 
 }

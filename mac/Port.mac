@@ -3,5 +3,5 @@ Install
   quit
 
 Wizard
-  do ##class(Port.Wizard).Start()
-  quit
+  do ##class(Port.Wizard).Start()  
+  quit 

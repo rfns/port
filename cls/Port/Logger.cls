@@ -26,7 +26,7 @@ Method Log(messageCode As %String, messageLogLevel = 2, params... As %String) As
     set formattedParams(formattedParams) = $$$FormatMessage($$$SessionLanguage, "Port Log Messages", params(i), params(i))
   }
   set msg = $$$FormatMsg("Port Log Messages", messageCode, formattedParams...)
-  if messageCode '= $$$Done && (messageCode '= $$$Failed) set msg = "[Port] "_msg
+  if messageCode '= $$$Done && ((messageCode '= $$$Failed) && (messageCode '= $$$UpToDate)) set msg = "[Port] "_msg
   return msg
 }
 

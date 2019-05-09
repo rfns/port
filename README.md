@@ -4,7 +4,7 @@
 
 # Port
 
-Port is a VCS-agnostic Caché Studio source control utility to export or import Caché files based on projects instead of namespaces.
+Port is a VCS-agnostic Caché Studio utility to export or import Caché files based on projects instead of namespaces.
 
 ## The Five 'Why Projects?' Reasons
 
@@ -22,9 +22,16 @@ In order to install Port, you just need to import the file [port.xml](https://gi
 
 ## Configuration
 
-You can configure advanced settings using the class `Port.Configuration`. You can also check what you can configure by running `##class(Port.Configuration).Help()` or using the wizard: `Wizard^Port`.
+After installing Port, it'll define a set of default configurations. However sometimes these settings might not be adequate for you.
+
+You can re-configure these settings using the class `Port.Configuration`. You can also check what you can configure by running `##class(Port.Configuration).Help()` or using the wizard: `Wizard^Port`.
+
+It also includes settings that allow you more per-project customizations.
 
 ## How to use
+
+Port will act whenever a file is saved (not compiled), as long as you're working on some project that isn't the
+'Default'. You can see if Port is working correctly by checking the Studio's Output window.
 
 ### Source Control Menu
 
@@ -62,18 +69,19 @@ int/ignoreme <- This also ignores the folder called ignoreme but only if it's in
 
 ### Workspaces
 
-Using this feature provides you the capability to export projects to different paths according to their custom exporth path setting. When a project is exported for the first time, Port records the export path used in order to prevent multiple projects from overlapping their exported source base.
+When using Port, you'll notice the usage of the term _workspace_. This is basically the path where the project's source code is exported. There're two types of workspaces: _primary workspace_ and _custom workspaces_.
 
-Custom project export paths can be also set preemptively using the wizard.
+### Primary workspaces
 
-This feature can be accesed using the Wizard and navigating to `1. Manage workspace settings`.
+Whenever a new project is exported by Port it will use the primary workspace configuration pattern to 'seed' the path to the project. Which means that after the first export, it'll be used as the custom workspace as well. This allows the user to modify it instead, thus affecting only the desired project.
 
-Using project workspaces can become a powerful ally for keeping multiple source codes organized if used correctly. For example, you could group multiple projects within a single repository and take a monorepository approach. It's all up to your creativity.
+### Custom workspaces
+
+Since an existing project is seeded with the pattern from the _primary workspace_, future operations will always be affected by that workspace path. If you want to modify the path exclusively for that project, than you need to redefine the _custom workspace_ for that project.
 
 ## Extended Hooks
 
-Extended hooks allows another source control class to take over the Studio event (hook) cycle and execute specific tasks.
-In order to create extended hooks, you need to create a class that implements one or more of the following hooks:
+Extended hooks allows another source control class to take over the Studio event (hook) cycle and execute specific tasks. In order to create extended hooks, you need to create a class that implements one or more of the following hooks:
 
 * OnBeforeLoad
 * OnAfterLoad
@@ -93,9 +101,7 @@ In order to create extended hooks, you need to create a class that implements on
 
 You can check what each hook does by reading `%Studio.Extension.Base` [documentation](http://docs.intersystems.com/latest/csp/documatic/%25CSP.Documatic.cls?LIBRARY=%SYS&CLASSNAME=%25Studio.Extension.Base&MEMBER=&CSPCHD=000000000000oPMJCmLTaI$$s0x3lp1bujCh8EybMEuEEU5g8t&CSPSHARE=1).
 
-Unlike `%Studio.Extension.Base`, each hook should be implemented as class method and receive the `%Studio.Extension.Base` as the first parameter.
-
-Now let's make a little demo: consider a case where you need to do some validation before the file is saved, you would use _OnBeforeSave_.
+Unlike `%Studio.Extension.Base`, each hook should be implemented as class method and receive the `%Studio.Extension.Base` as the first parameter: consider a case where you need to do some validation before the file is saved, you would use _OnBeforeSave_.
 
 You must consider modifying the method signature from `%Studio.Extension.Base`:
 
@@ -111,50 +117,14 @@ Finally, after implementing your hooks you need to register the class with:
 
 If you want to remove it, just call the same method with an empty string.
 
-> __NOTE:__ Using extended hooks means that all output will be redirect to Port. Which means that you're responsible for organizing all your feedbacks.
-
+> __NOTE:__ Using extended hooks means that all output will be redirect to Port. That makes the class you specified responsible for whatever it writes. Port will attempt to capture its output and display it cleanly, but the class still must take care of messages that break into new lines.
 
 ## FAQ: Why not Atelier?
 
-Really, I started this project some few months before Atelier 1.0 was released, by that time Atelier hadn't support for static files.
-I also wanted to provide an alternative for those who like me prefer to use something less bloated than Eclipse or simply that doesn't need integration with multiple 3rd party tools.
+This project started before Atelier was released, and it's still useful for developers that prefer using the Studio instead of installing Eclipse. The original idea was to bring to the developers the capability to export the source code using a scaffolding that is easy to manage, which is pretty much what Atelier does today, however Atelier is not made for working with the Studio's projects. Leaving that task for the Eclipse platform.
 
-The deal is: you might want something simplier to do something simplier.
-
-## FAQ: So, does that mean you are ignoring Atelier?
-
-No, I've been [experimenting](https://github.com/rfns/port/blob/master/cls/Port/REST/API.cls) things out with it's REST API to provide integrations with [source code editors](https://en.wikipedia.org/wiki/Source_code_editor) like VSCode and Atom.
-
-There are already some few options like [cos-vscode](https://github.com/doublefint/cos-vscode). But since I wanted to focus on using projects, I decided to implement my own.
-
-## TODO
-
-Check the [Projects](https://github.com/rfns/port/projects).
+The deal is: you might want something simplier to do something simple.
 
 ## CONTRIBUTION
 
 [Here](https://github.com/rfns/port/blob/master/CONTRIBUTING.md).
-
-## LICENSE
-
-MIT License
-
-Copyright (c) 2017 Rubens F. N. da Silva
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.

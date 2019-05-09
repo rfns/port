@@ -5,7 +5,7 @@ Class Port.Wizard [ Abstract ]
 
 ClassMethod Start(hideIntroduction As %Boolean = 0)
 {
-  set validChoices = $listbuild(1,2,3,4,5,6)
+  set validChoices = $listbuild(1,2,3,4)
   set invalidChoice = 1
   set choice = ""  
   
@@ -22,8 +22,7 @@ ClassMethod Start(hideIntroduction As %Boolean = 0)
   if choice = 2 return ..StartTestConfigAssistant() quit
   if choice = 3 return ..StartAutoExportXMLConfigAssistant() quit
   if choice = 4 return ..StartLogLevelConfigAssistant() quit
-  if choice = 5 return ..StartSourceExtensionConfigAssistant() quit
-  if choice = 6 write !, $$$FormatWizardMsg($$$PCWBye) return $$$OK
+  if choice = 5 write !, $$$FormatWizardMsg($$$PCWBye) return $$$OK
          
 Menu
   set choice = ""
@@ -47,7 +46,7 @@ Menu
 ClassMethod StartWorkspaceConfigAssistant(hideIntroduction As %Boolean = 0)
 {
  
-  set validChoices = $listbuild(1,2,3)
+  set validChoices = $listbuild(1,2,3,4,5)
   set invalidChoice = 1
   set choice = ""    
   
@@ -62,7 +61,7 @@ ClassMethod StartWorkspaceConfigAssistant(hideIntroduction As %Boolean = 0)
   
   if choice = 1 return ..StartWorkspaceChoice1ConfigAssistant()
   if choice = 2 return ..StartWorkspaceChoice2ConfigAssistant()
-  if choice = 3 return ..Start(1) 
+  if choice = 3 return ..Start(1)
   
   return $$$OK
     
@@ -194,8 +193,8 @@ ClassMethod StartAutoExportXMLConfigAssistant()
   set choice = ""
   set invalidChoice = 1
   
-  set labels(0) = $$$FormatWizardMsg($$$PCWToggleEnabled)
-  set labels(1) = $$$FormatWizardMsg($$$PCWToggleDisabled)
+  set labels(0) = $$$FormatWizardMsg($$$PCWToggleDisabled)
+  set labels(1) = $$$FormatWizardMsg($$$PCWToggleEnabled)
   
   write !, $$$FormatWizardMsg($$$PCWToggleAutoExportDescription), !
 
@@ -204,10 +203,10 @@ ClassMethod StartAutoExportXMLConfigAssistant()
     do Menu
   }
   
-  if choice = 1 do ##class(Port.Configuration).EnableAutoExportXML()  
-  if choice = 2 do ##class(Port.Configuration).DisableAutoExportXML()
+  if choice = 1 do ##class(Port.Configuration).EnableAutoExportXML()
+  if choice = 2 do ##class(Port.Configuration).DisableAutoExportXML() set choice = 0
     
-  write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice1StatusCurrent, labels(choice - 1))
+  write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice1StatusCurrent, labels(choice))
   
   write !!
   return ..Start(1)

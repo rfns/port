@@ -3,7 +3,7 @@ Include portutils
 Class Port.Project.Manager
 {
 
-ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As %String, sourceExtension As %String, Output sc As %Status) As Port.Project.Base [ Private ]
+ClassMethod InstantiateTool(type As %String, path As %String, logLevel As %String, Output sc As %Status) As Port.Project.Base [ Private ]
 {
   set sc = $$$OK
   set utility = ""  
@@ -11,7 +11,7 @@ ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As 
   set utilityTypes("I") = "Port.Project.Importer"
   set utilityTypes("X") = "Port.Project.XMLExporter"
   try {
-    set utility = $classmethod(utilityTypes(type), "%New", path, logLevel, sourceExtension)
+    set utility = $classmethod(utilityTypes(type), "%New", path, logLevel)
     quit
   } catch ex {
     set sc = ex.AsStatus()
@@ -19,9 +19,9 @@ ClassMethod AssertUtilityCreation(type As %String, path As %String, logLevel As 
   return utility
 }
 
-ClassMethod Export(outputPath As %String, logLevel As %Integer = 2, force As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "", sourceExtension As %String = "") As %Status
+ClassMethod Export(outputPath As %String, logLevel As %Integer = 2, force As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "") As %Status
 {
-  set exporter = ..AssertUtilityCreation("E", outputPath, logLevel, sourceExtension, .sc)
+  set exporter = ..InstantiateTool("E", outputPath, logLevel, .sc)
   $$$QuitOnError(sc)
   set exporter.Overwrite = force    
   $$$QuitOnError(exporter.Ignore(ignoredPaths))
@@ -35,15 +35,15 @@ ClassMethod Export(outputPath As %String, logLevel As %Integer = 2, force As %Bo
 
 ClassMethod ExportToXML(outputPath As %String, logLevel As %Integer = 2, justProject As %Boolean = 0) As %Status
 {
-  set exporter = ..AssertUtilityCreation("X", outputPath, logLevel, "", .sc)
+  set exporter = ..InstantiateTool("X", outputPath, logLevel, .sc)
   $$$QuitOnError(sc)  
   return exporter.ExportToXML(justProject)
 }
 
-ClassMethod Import(inputPath As %String, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "", sourceExtension As %String = "") As %Status
+ClassMethod Import(inputPath As %String, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "") As %Status
 {
   set sc = $$$OK
-  set importer = ..AssertUtilityCreation("I", inputPath, logLevel, sourceExtension, .sc)
+  set importer = ..InstantiateTool("I", inputPath, logLevel, .sc)
   $$$QuitOnError(sc)
   $$$QuitOnError(importer.Ignore(ignoredPaths))
   
@@ -60,10 +60,10 @@ ClassMethod Import(inputPath As %String, logLevel As %Boolean = 2, skipBackup As
   return sc
 }
 
-ClassMethod ImportPartial(basePath As %String, target, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "", sourceExtension As %String = "") As %Status
+ClassMethod ImportPartial(basePath As %String, target, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "") As %Status
 {
   
-  set importer = ..AssertUtilityCreation("I", basePath, logLevel, sourceExtension, .sc)  
+  set importer = ..InstantiateTool("I", basePath, logLevel, .sc)  
   $$$QuitOnError(sc)
   $$$QuitOnError(importer.Ignore(ignoredPaths))
   
@@ -109,7 +109,7 @@ ClassMethod RemoveItemsByType(projectName As %String, type As %String, Output it
 ClassMethod ExportTestSuiteToXML(outputPath As %String) As %Status
 {
   set testPath = ##class(Port.Configuration).GetTestPath()
-  set exporter = ..AssertUtilityCreation("X", .outputPath, 2, "", .sc)
+  set exporter = ..InstantiateTool("X", outputPath, 2, .sc)
   $$$QuitOnError(sc)
   return exporter.ExportTests(outputPath_"/"_testPath)
 }
@@ -122,7 +122,7 @@ ClassMethod LogFromImportList(projectName As %String, ByRef importList As %Strin
     do LoopThroughType(projectName, importList, i)
   }  
   
-LoopThroughType(projectName, importedList, group)
+LoopThroughType(projectName, importedList, group) 
   set itemName = "" 
   
   for {

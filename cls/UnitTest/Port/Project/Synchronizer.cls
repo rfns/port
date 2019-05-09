@@ -27,7 +27,7 @@ Method TestPurge() As %Status
   do synchronizer.AddToWhitelist("dummy.INC")
   do synchronizer.AddToWhitelist("dummy.MVB")
   do synchronizer.AddToWhitelist($System.CSP.GetDefaultApp($namespace)_"/index.html")
-  do synchronizer.AddToWhitelist("mvb.4.MVI")
+  do synchronizer.AddToWhitelist("MVB.4.MVI")
   do synchronizer.AddToWhitelist("dummy.DFI")
   
   set sc = synchronizer.Purge()
@@ -38,10 +38,23 @@ Method TestPurge() As %Status
   for i=1:1:items.Count() {
     set itemName = items.Next(itemName)
     set itemLocation = items.GetAt(itemName)
-    set flag = $lf($lb("dummy.MAC", "dummy.INC", "dummy.MVB", "dummy.DFI", $e($System.CSP.GetDefaultApp($namespace)_"/index.html", 2, *), "mvb.4.MVI", "Dummy.Package.Class.CLS"), itemName) > 0
+    set flag = $lf($lb("dummy.MAC", "dummy.INC", "dummy.MVB", "dummy.DFI", $e($System.CSP.GetDefaultApp($namespace)_"/index.html", 2, *), "MVB.4.MVI", "Dummy.Package.Class.CLS"), itemName) > 0
     set assertion = $$$FormatText(templateAssertion, itemLocation, $case(flag, 1: "KEPT", : "PURGED"))
     do $$$AssertEquals(##class(%File).Exists(itemLocation), flag, assertion)
   }
+}
+
+ClassMethod T()
+{
+   
+  set ^||Port.Project = "port"
+  set t = ..%New(##class(Port.UnitTest.Manager).%New())
+  
+  do ##class(Port.Configuration).SetCustomWorkspace("dummy-project", t.GetTestDirectory("fixtures/dummy-project"))
+  
+  $$$QuitOnError(t.OnBeforeOneTest())
+  $$$QuitOnError(t.TestPurge())
+  $$$QuitOnError(t.OnAfterAllTests())
 }
 
 }

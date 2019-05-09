@@ -3,59 +3,145 @@ Include portutils
 Class Port.Util [ Abstract ]
 {
 
-ClassMethod ResolveItemExtension(itemName As %String) As %String
+ClassMethod GetWorkspaceNameFromAbsoluteItemPath(absolutePath As %String) As %String
+{
+  set pathParts = $lfs(absolutePath, $$$Slash(absolutePath))
+  set workspaceName = ""
+
+  for i=1:1:$ll(pathParts) {
+    set part = $lg(pathParts, i)
+    if $lf($$$PathTypes, part) set workspaceName = $lg(pathParts, i - 1) quit
+  }
+  quit workspaceName
+}
+
+ClassMethod GetWorkspaceFromItemPath(itemPath As %String) As %String
+{
+  set slash = $$$Slash(itemPath)
+  set workspaceName = ""
+
+  for i=1:1:$length(itemPath, slash) {
+    set part = $piece(itemPath, slash, i)
+    if $lf($$$PathTypes, part) {
+      set workspace = $piece(itemPath, slash, 1, i - 1)
+      quit
+    }
+  }
+  quit workspace
+}
+
+/// Retrieves the extension from the itemName. If the extension matches none, then attempt to find out if the extension is actually a package.
+/// Otherwise assume that the extension is defined from a custom file.
+ClassMethod GetItemType(itemName As %String) As %String
 {
   set ext = $$$ucase($piece(itemName, ".", *))
-  if $lf($$$RoutineExtensions, "."_ext) || (itemName [ "/") || (ext = "CLS") || (ext = "PRJ") return ext
-  return "PKG"
+  set slash = $$$PathSlash(itemName)
+
+  if itemName [ slash quit "CSP"
+  if $lf($$$RoutineExtensions, "."_ext) || (ext = "CLS") || (ext = "PRJ") return ext
+  if ..IsPackage(itemName) quit "PKG"
+
+  quit ext
 }
 
-ClassMethod GetItemSourcePathFromWorkspace(itemName As %String, projectName As %String = {$get(^||Port.Project)}, sourceExtension = {##class(Port.Configuration).GetSourceExtension()}) As %String
+/// Checks if the itemName is actually a package. Returns 1 if yes otherwise 0.
+ClassMethod IsPackage(itemName) As %Boolean
 {
-  set defaultPath = $$$NFN(##class(Port.Configuration).GetWorkspace(projectName)) 
-  return ..MountItemSourcePath(itemName, defaultPath, sourceExtension)
+  if itemName = "" return 0
+  if $get(^oddPKG($$$ucase(itemName))) '= "" quit 1
+  do $System.OBJ.GetPackageList(.l, itemName)
+  if $data(l) quit 1
+
+  quit 0
 }
 
-ClassMethod MountItemSourcePath(itemName As %String, workspacePath As %String, sourceExtension = {##class(Port.Configuration).GetSourceExtension()}) As %String [ Internal ]
+/// Translates an item name into a workspace path.
+ClassMethod GetWorkspaceBasedItemPath(itemName As %String, project As %String = {$get(^||Port.Project)}) As %String
 {
+
+  quit ..ItemToPath(itemName, $$$NFN(##class(Port.Configuration).GetWorkspace(project)))
+}
+
+/// Translates the item name into an item path which represents the location to where the file source is located.
+ClassMethod ItemToPath(itemName As %String, workspace As %String = "") As %String
+{
+  #define WithAbsolute(%s) $select(workspace '= "" : $$$NFN(workspace_%s), 1: %s)
+
   set fullPath = ""
-  set type = ..ResolveItemExtension(itemName)
-  
+  set type = ..GetItemType(itemName)
+  set slash = $$$Slash(itemName)
+  set workspace = $select(workspace '= "" : $$$RPadProvidedSlash(workspace, slash), 1: "")
+
   if type = "CLS" {
-    set fullPath = ..ClassToFile(workspacePath_"/cls", $piece(itemName, ".", 1, *-1))
-  } elseif ..IsRoutine(itemName) {
+    set classWithoutTheExtension = $piece(itemName, ".", 1, *-1)
+    set fullPath = $$$WithAbsolute("cls"_$$$OSSlash_..ClassToFile(classWithoutTheExtension))
+  } elseif $lf($$$RoutineExtensions, "."_$$$ucase(type)) {
+    set itemName = $piece(itemName, slash, *)
     set ext = $$$lcase(type)
-    set fileName = $$$lcase(itemName)_"."_##class(Port.Configuration).GetSourceExtension()
-    set fullPath = $$$NFN(workspacePath_"/"_ext_"/"_fileName) 
+    set fileName = itemName
+    set $piece(fileName, ".", *) = ext
+    set fullPath = $$$WithAbsolute(ext_"/"_fileName)
   } elseif type = "PKG" {
     // Deep package?
-    set name = $replace(itemName, ".PKG", "")
-    set fullPath = ..ClassToFile(workspacePath_"/cls", name, sourceExtension, 0)   
+    set name = $select(itemName [ "." : $piece(itemName, ".", 1, *-1), 1: itemName)
+    set fullPath = $$$WithAbsolute("cls/"_..ClassToFile(name, 0))
   } else {
-    if $extract(itemName, 1) = "/" set itemName = $extract(itemName, 2, *)
-    set sourceFilePath = $replace(itemName, $System.CSP.GetAppName(itemName), "/web/")    
-    set fullPath = $$$NFN(workspacePath_sourceFilePath) 
-  } 
-  return fullPath
+    set itemName = $$$LTrimProvidedSlash(itemName, "/")
+    set webApplication = $System.CSP.GetAppName(itemName)
+    set remainingPath = $piece(itemName, "/", $length(webApplication, "/"), *)
+    set sourceFilePath = "public/"_webApplication_remainingPath
+    set fullPath = $$$WithAbsolute(sourceFilePath)
+  }
+  quit $replace(fullPath, "/", $$$Slash(fullPath))
 }
 
-ClassMethod ExtractType(absolutePath As %String, workspace As %String = {##class(Port.Configuration).GetWorkspace()}) As %String
+/// Translates an absolute item path into its item format.
+ClassMethod PathToItem(sourcePath As %String, namespace As %String = {$namespace}) As %Status
 {
-  set absoluteWorkspacePath = $$$NFN(workspace)
-  if absolutePath '[ absoluteWorkspacePath return $$$PERROR($$$CouldNotDetermineWorkspace)
-  // + 1 considering the type directory.
-  return $$$ucase($piece(absolutePath, $$$Slash, ##class(%File).GetDirectoryLength(absoluteWorkspacePath) + 1))
+  set isPackage = 0
+  if sourcePath [ "." set type = $piece(sourcePath, ".", *)
+  else  set type = "cls" set isPackage = 1
+
+  set uppercaseType = $$$ucase(type)
+
+  set sourcePath = $$$NFN(sourcePath)
+  set slash = $$$Slash(sourcePath)
+
+  if $lf($$$RoutineExtensions, "."_uppercaseType) || (uppercaseType = "CLS") {
+    set item = $replace($piece($$$LPadProvidedSlash(sourcePath, slash), slash_type_slash, 2, *), slash, ".")
+    if isPackage set $piece(item, ".", *+1) = "pkg"
+    quit item
+  }
+
+  set item = ..GetItemFromCSPPath(sourcePath, namespace)
+  quit item
 }
 
-ClassMethod MountIdFromName(name As %String, projectName As %String = {$get(^||Port.Project)}) As %String
+/// Extracts the portion of the folder that represents the source type.
+ClassMethod GetPathType(absolutePath As %String) As %String
+{
+  set part = ""
+  set slash = $$$PathSlash(absolutePath)
+  set partsLength = $length(absolutePath, $$$PathSlash(absolutePath))
+
+  for i=1:1:partsLength {
+    set part = $$$lcase($piece(absolutePath, slash, i))
+    if $lf($$$PathTypes, part) quit
+  }
+
+  quit $$$ucase(part)
+}
+
+/// Resolves item name into a qualified id that can be manipulated by the %Studio.Project API.
+ClassMethod ResolveItemId(name As %String, projectName As %String = {$get(^||Port.Project)}) As %String
 {
   set nameOnly = $piece(name, ".", 1, *-1)
   set maskedMacs = $lb("BAS", "INT", "INC", "MVI")
   set itemName = name
   set id = ""
-  
-  set extension = ..ResolveItemExtension(name)
-  
+
+  set extension = ..GetItemType(name)
+
   if ..IsRoutine(name) {
     set itemType = extension
     if $lf(maskedMacs, itemType) set itemType = "MAC"
@@ -68,119 +154,115 @@ ClassMethod MountIdFromName(name As %String, projectName As %String = {$get(^||P
     set itemType = "PKG"
   } else {
     // Ensures that CSP items starts with normalized path.
-    if $extract(name, 1) = "/" {
-      set itemName = $replace(name, "/", "", 1, 1)
-    }
+    set itemName = $$$LTrimSlash(name)
     set itemType = "CSP"
   }
   return projectName_"||"_itemName_"||"_itemType
 }
 
-ClassMethod CSPLogicalToPhysicalPath(cspItem As %String, Output absolutePath As %String = "") As %Status
+ClassMethod GetItemFromCSPPath(physicalPath As %String, namespace As %String = {$namespace}) As %String [ Private ]
 {
-  if $extract(cspItem, 1) = "/" set cspItem = $extract(cspItem, 2, *)
-  set cspAppDirectory = $System.CSP.GetAppName(cspItem)
-  if cspAppDirectory = "" return $$$PERROR($$$NamespaceAppPathDoesnExists, $namespace)
-  set cspAppDirectory = $extract(cspAppDirectory, 1, *-1)
-  set absolutePath = $$$NFN($replace(cspItem, cspAppDirectory, ##class(Port.Configuration).GetWebAppPath()))
-  return $$$OK
-}
-
-ClassMethod CSPPhysicalToLogicalPath(physicalPath As %String, Output logicalPath As %String, namespace As %String = {$namespace}) As %Status
-{
-  set slash = $$$Slash
-  set webFilePath = $extract(physicalPath, $find(physicalPath, slash_"web"_slash), *)
-  if '$find($$$NFN(physicalPath), slash_"web"_slash) {
-    return $$$PERROR($$$InvalidPhysicalPath)
-  }
-  // TODO: Implement a strategy to support web apps that aren't default.
-  // It seems to require implementing a manifest file to describe this project's web app.
-  set cspAppPath = $System.CSP.GetDefaultApp(namespace)  
-  if cspAppPath = "" return $$$PERROR($$$NamespaceAppPathDoesnExists, $namespace)
-  if $extract(cspAppPath, *) '[ "/" set cspAppPath = cspAppPath_"/"
-  set logicalPath = $extract(cspAppPath, 2, *)_$replace(webFilePath, "\", "/")
-  return $$$OK
+  set slash = $$$Slash(physicalPath)
+  quit $replace($extract(physicalPath, $find(physicalPath, slash_"public"_slash), *), "\", "/")
 }
 
 ClassMethod IsRoutine(itemName As %String) As %Boolean
 {
-  set extension = ..ResolveItemExtension(itemName)
-  
+  set extension = ..GetItemType(itemName)
+
   if extension = "MAC"  || (extension = "INT") ||
-    (extension = "MVB") || (extension = "MVI") || 
+    (extension = "MVB") || (extension = "MVI") ||
     (extension = "BAS") || (extension = "INC") ||
     (extension = "DFI") {
     return 1
-  }  
+  }
   return 0
 }
 
-ClassMethod ClassToFile(basePath As %String, className As %String, extension As %String = {##class(Port.Configuration).GetSourceExtension()}, appendCLS As %Boolean = 1)
+ClassMethod ClassToFile(className As %String, appendCLS As %Boolean = 1) As %String [ Private ]
 {
-  if extension '= "" set extension = "."_extension
   set cls = $case(appendCLS, 1: ".cls", : "")
-  return $$$NFN(basePath_"/"_$replace(className, ".", $$$Slash)_cls_extension)
+  quit $replace(className, ".", $$$OSSlash)_cls
 }
 
-ClassMethod FileToClass(path As %String, extension As %String = {##class(Port.Configuration).GetSourceExtension()}) As %String
+ClassMethod FileToClass(path As %String) As %String [ Private ]
 {
-  set slash = $$$Slash
-  set normalizedPath = $$$NFN(path)
-  set fileName = ##class(%File).GetFilename(normalizedPath)
-  set extSize = $length($select(extension = "" : $piece(fileName, ".", *), 1: ".cls"_extension)) 
-  set contextPath = $extract(normalizedPath, $find(normalizedPath, slash_"cls") + 1, ($length(normalizedPath) - 1) - extSize)  
+  set slash = $$$Slash(path)
+  set path = $$$NFN(path)
+  set fileName = ##class(%File).GetFilename(path)
+  set contextPath = $extract(path, $find(path, slash_"cls") + 1, ($length(path) - 1) - 3)
   return $replace(contextPath, slash, ".")
 }
 
-ClassMethod ExistsInProject(projectName As %String, name As %String, type As %String = "") As %Boolean [ Internal ]
+ClassMethod ExistsInProject(projectName As %String, name As %String, type As %String = "", namespace As %String = {$namespace}) As %Boolean [ Internal ]
 {
-  $$$QuitOnError(##class(%Studio.Project).NormalizeName(.name, .type))
-  set id = projectName_"||"_name_"||"_type
-  &sql(SELECT TOP 1 COUNT(ID) INTO :exists FROM %STUDIO.PROJECTITEM WHERE ID = :id)
-  return exists
+
+  new $namespace
+  set $namespace = namespace
+
+  try {
+    do ##class(%Studio.Project).NormalizeName(.name, .type)
+
+    set s = ##class(%SQL.Statement).%New()
+    do s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList")
+    set r = s.%Execute(projectName)
+
+    while r.%Next(.sc) {
+      set itemName = r.%Get("Name")
+      set itemType = r.%Get("Type")
+      if itemType = type && ($$$lcase(itemName) = $$$lcase(name)) {
+        do ##class(%Studio.Project).NormalizeName(.itemName, .itemType)
+        if itemName = name return 1
+      }
+    }
+  } catch ex {
+    return 0
+  }
+
+  return 0
 }
 
-ClassMethod UbiquitousInProject(projectName As %String, name As %String, type As %String = "") As %List
+ClassMethod ListConflicts(projectName As %String, name As %String, type As %String = "") As %List
 {
   do ##class(%Studio.Project).NormalizeName(.name, .type)
   if type = "CLS" set packages = $$SplitPackages(name)
   &sql(
-    SELECT 
-      LIST(DISTINCT P.NAME) INTO :ubiquitousEntries
+    SELECT
+      LIST(DISTINCT P.NAME) INTO :conflicts
     FROM
       %STUDIO.PROJECTITEM PI
-    LEFT OUTER JOIN 
+    LEFT OUTER JOIN
       %STUDIO.PROJECT P ON P.ID = PI.Project
-    WHERE 
-      P.NAME <> :projectName AND (       
+    WHERE
+      P.NAME <> :projectName AND (
        -- This deals with common cases.
        (:type NOT IN ('PKG', 'CLS') AND PI.NAME = :name) OR
        -- This deals with cases where a project is trying to add a package that is
        -- depended by another class in another project.
        (:type = 'PKG' AND PI.NAME %STARTSWITH :name) OR
        -- This deals with attempts to add classes that are owned by another project's
-       -- package.
+       -- package.z
        (:type = 'CLS' AND PI.NAME %INLIST(:packages))
       )
   )
-  return $lfs(ubiquitousEntries)
+  return $lfs(conflicts)
 
 SplitPackages(className)
   set splittedPackages = ""
   set packageLength = $length(className, ".")
   for i=packageLength:-1:2 {
-    set $list(splittedPackages, *+1) = $piece(className, ".", 1, i) 
-  }   
+    set $list(splittedPackages, *+1) = $piece(className, ".", 1, i)
+  }
   quit splittedPackages
 }
 
-ClassMethod CreateMissingPath(path As %String) As %Status
+ClassMethod EnsurePathExists(path As %String) As %Status
 {
   set absolutePath = $$$NFN(path)
   set isCreated = 1
   if '##class(%File).DirectoryExists(absolutePath)  {
     set isCreated = ##class(%File).CreateDirectoryChain(absolutePath)
-    if isCreated = 0 {      
+    if isCreated = 0 {
       return $$$PERROR($$$CannotCreateDirectory, absolutePath)
     }
   }
@@ -191,16 +273,109 @@ ClassMethod GetIgnoredPaths(projectName As %String = {$get(^||Port.Project)}) As
 {
   set workspaceDir = ##class(Port.Configuration).GetWorkspace(projectName)
   set ignoredPaths = ##class(%ListOfDataTypes).%New()
-  
+
   set f = ##class(%FileCharacterStream).%New()
   set f.Filename = workspaceDir_"/.portignore"
-  
-  if f.Size > 0 {    
-    while 'f.AtEnd {      
+
+  if f.Size > 0 {
+    while 'f.AtEnd {
       do ignoredPaths.Insert(f.ReadLine())
     }
   }
   return ignoredPaths
+}
+
+ClassMethod TranslatePath(path As %String, OSFormat As %Integer = {$zversion(1)}) As %String
+{
+  // Unix
+  if OSFormat = 3 {
+    if $extract(path, 1, 2)?1A1":" {
+      set path = $extract(path, 3, *)
+    }
+    return $replace(path, "\", "/")
+  // Windows
+  } elseif OSFormat = 2 {
+    set path = $replace(path, "/", "\")
+    if $extract(path) = "\" {
+      set path = ##class(%File).NormalizeFilename("\")_path
+    }
+  }
+  return path
+}
+
+ClassMethod IsOutdated(project As %String, current As %String, external As %String, isImport As %Boolean = 0) As %Boolean
+{
+  if '##class(%File).Exists(external) quit 1
+  set externalTS = $zdt(##class(%File).GetFileDateModified(##class(%File).NormalizeFilename(external)), 3,,,,,,,,,0)
+  set workspace = ..GetWorkspaceFromItemPath(external)
+
+  if externalTS < 0 quit 1
+  set lastModified = 0
+
+  set projectTS = ##class(Port.SourceControl.Log).GetLastChange(project, project_".PRJ")
+  set currentDate = ##class(Port.SourceControl.Log).GetLastChange(project, current)
+
+  if currentDate = 0 set lastModified = projectTS
+  else  set lastModified = $select(currentDate ] projectTS : currentDate, 1: projectTS)
+
+  if ..IsRoutine(current) || (..GetItemType(current) = "CLS") {
+    set currentTS = $piece(##class(%RoutineMgr).TS(current, .compileTime), ".")
+  } else {
+    set fullSourcePath = ""
+    if 'isImport {
+      set target = ..ItemToPath(current, workspace)
+    } else {
+      set target = ..PathToItem(current)
+    }
+    set currentTS = $zdatetime(##class(%File).GetFileDateModified(target), 3,,,,,,,,,0)
+  }
+
+  // If the file or the item is missing it's considered outdated as well.
+  if currentTS = 0 return 1
+
+  // Same date for both entries? Then consider updated.
+  if currentTS = externalTS return 0
+  if 'isImport {
+    if currentTS = "" return 1
+    // As currentTS is referring to the existing source code, this condition checks if
+    // it is newer than the external source code.
+    return (
+      (currentTS ] externalTS) &&
+      (currentTS ] lastModified)
+    )
+  }
+  // Otherwise everything is inverted:
+  // External files must be newer than the imported source code and newer than their last
+  // registry as well.
+  return (
+    (externalTS ] currentTS) &&
+    (externalTS ] lastModified)
+  )
+}
+
+ClassMethod DiscoverQualifiedWebApplication(namespace As %String, Output name As %String = "", Output path As %String = "") As %Status
+{
+
+  new $namespace
+  set $namespace = "%SYS"
+
+  set statement = ##class(%SQL.Statement).%New()
+  do statement.%PrepareClassQuery("Security.Applications", "NamespaceList")
+  set cursor = statement.%Execute(namespace)
+
+  set appName = ""
+  set path = ""
+
+  while cursor.%Next() {
+    set p = cursor.%Get("Path")
+    if p '= "" {
+      if name = cursor.%Get("Name") { set path = p quit }
+      elseif name = "" { set name = cursor.%Get("Name") set path = p }
+    }
+  }
+
+  if path '= "" quit $$$OK
+  quit $$$ERROR($$$ApplicationInvalidName, name)
 }
 
 }
