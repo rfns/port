@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF8"?>
 <Export generator="Cache" version="25">
 <Class name="Port.AutoInstall">
 <Super>%Projection.AbstractProjection</Super>
@@ -214,30 +214,6 @@ Removes the custom workspace from the project provided, which also resets it bac
 <ClassMethod>1</ClassMethod>
 <FormalSpec>projectName:%String</FormalSpec>
 <Implementation><![CDATA[  kill ^Port.Configuration("workspace.project", projectName)
-]]></Implementation>
-</Method>
-
-<Method name="SetPrimaryWebApplication">
-<ClassMethod>1</ClassMethod>
-<FormalSpec>webApp:%String,namespace:%String=$namespace</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  $$$QuitOnError(##class(Port.Util2).DiscoverQualifiedWebApplication(namespace, .webApp, .path))
-  set ^Port.Configuration("webApplication.path") = path
-  set ^Port.Configuration("webApplication.name") = webApp
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="SetCustomWebApplication">
-<ClassMethod>1</ClassMethod>
-<FormalSpec>projectName:%String,webApp:%String,namespace:%String=$namespace</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  $$$QuitOnError(##class(Port.Util2).DiscoverQualifiedWebApplication(namespace, .webApp, .path))
-  set ^Port.Configuration("workspace.webApplication.path", projectName) = path
-  set ^Port.Configuration("workspace.webApplication.name", projectName) = webApp
-  quit $$$OK
 ]]></Implementation>
 </Method>
 

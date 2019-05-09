@@ -122,22 +122,6 @@ ClassMethod RemoveCustomWorkspace(projectName As %String)
   kill ^Port.Configuration("workspace.project", projectName)
 }
 
-ClassMethod SetPrimaryWebApplication(webApp As %String, namespace As %String = {$namespace}) As %Status
-{
-  $$$QuitOnError(##class(Port.Util2).DiscoverQualifiedWebApplication(namespace, .webApp, .path))
-  set ^Port.Configuration("webApplication.path") = path
-  set ^Port.Configuration("webApplication.name") = webApp
-  quit $$$OK
-}
-
-ClassMethod SetCustomWebApplication(projectName As %String, webApp As %String, namespace As %String = {$namespace}) As %Status
-{
-  $$$QuitOnError(##class(Port.Util2).DiscoverQualifiedWebApplication(namespace, .webApp, .path))
-  set ^Port.Configuration("workspace.webApplication.path", projectName) = path
-  set ^Port.Configuration("workspace.webApplication.name", projectName) = webApp
-  quit $$$OK
-}
-
 /// Remove all Port configurations. This will not erase project logs.
 ClassMethod Uninstall() As %Status
 {

@@ -217,30 +217,6 @@ Removes the custom workspace from the project provided, which also resets it bac
 ]]></Implementation>
 </Method>
 
-<Method name="SetPrimaryWebApplication">
-<ClassMethod>1</ClassMethod>
-<FormalSpec>webApp:%String,namespace:%String=$namespace</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  $$$QuitOnError(##class(Port.Util2).DiscoverQualifiedWebApplication(namespace, .webApp, .path))
-  set ^Port.Configuration("webApplication.path") = path
-  set ^Port.Configuration("webApplication.name") = webApp
-  quit $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="SetCustomWebApplication">
-<ClassMethod>1</ClassMethod>
-<FormalSpec>projectName:%String,webApp:%String,namespace:%String=$namespace</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  $$$QuitOnError(##class(Port.Util2).DiscoverQualifiedWebApplication(namespace, .webApp, .path))
-  set ^Port.Configuration("workspace.webApplication.path", projectName) = path
-  set ^Port.Configuration("workspace.webApplication.name", projectName) = webApp
-  quit $$$OK
-]]></Implementation>
-</Method>
-
 <Method name="Uninstall">
 <Description>
 Remove all Port configurations. This will not erase project logs.</Description>
@@ -1339,8 +1315,8 @@ A reference for the sychronizer, which keeps the workspace directory sync'ed wit
 <FormalSpec>path:%String,logLevel:%Integer=2</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  $$$QuitOnError(##super(path, logLevel))  
-       
+  $$$QuitOnError(##super(path, logLevel))
+
   if '$isobject(..Project) {
     set ..Project.Name = "null"
     throw ##class(%Exception.StatusException).CreateFromStatus($$$PERROR($$$ExportingProjectNotFound, ..Project.Name))
@@ -1351,24 +1327,26 @@ A reference for the sychronizer, which keeps the workspace directory sync'ed wit
 </Method>
 
 <Method name="Export">
+<Description>
+Exports the project to the provided workspace.</Description>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  
+
   set ..IsBatch = 1
   do ..Reset()
-  
+
   write ..LogLine($$$ExportingProject, 0, ..Project.Name)
-  
+
   $$$QuitOnError(..ExportProjectItems())
-  
+
   if ..AffectedCount > 0 {
     write ..LogLine($$$SourceExportedToPath, 0, ..BasePath)
-    write ..LogLine($$$SynchronizingProject, 0, ..Project.Name)      
+    write ..LogLine($$$SynchronizingProject, 0, ..Project.Name)
     write ..LogLine($$$AllDone, 0)
   } else {
     write ..LogLine($$$NoItemsToExport, 0, ..Project.Name)
-  }   
-  
+  }
+
   $$$QuitOnError(..Synchronizer.Purge())
   return $$$OK
 ]]></Implementation>
@@ -1381,7 +1359,7 @@ A reference for the sychronizer, which keeps the workspace directory sync'ed wit
   set sc = $$$OK
   set s = ##class(%SQL.Statement).%New()
   $$$QuitOnError(s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList"))
-  set r = s.%Execute(..Project.Name, 1) 
+  set r = s.%Execute(..Project.Name, 1)
   while r.%Next(.sc) {
     if $$$ISERR(sc) quit
     set itemName = r.%Get("Name")
@@ -1393,30 +1371,34 @@ A reference for the sychronizer, which keeps the workspace directory sync'ed wit
 </Method>
 
 <Method name="ExportItem">
+<Description>
+Exports a single item from the project to the workspace.</Description>
 <FormalSpec>itemName:%String,type:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   if ##class(Port.Util).IsRoutine(itemName) return ..ExportRoutine(itemName)
-  
+
   set itemType = $case(type, "": ##class(Port.Util).GetItemType(itemName), : type)
   if itemType = "PKG" return ..ExportPackage(itemName)
   if itemType = "CLS" return ..ExportClass(itemName)
-  
-  return ..ExportWebFile(itemName)
+
+  return ..ExportPublicFile(itemName)
 ]]></Implementation>
 </Method>
 
 <Method name="ExportPackage">
+<Description>
+Exports a class package and all its classes added by the project.</Description>
 <FormalSpec>packageName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set id = ##class(Port.Util).ResolveItemId(packageName_".PKG", ..Project.Name)
-  // Cannot assume that the package is always present in the project, 
+  // Cannot assume that the package is always present in the project,
   // even if the project has some classes from it.
   if '##class(%Studio.ProjectItem).%ExistsId(id) return $$$OK
-  
-  if $listfind(i%ExportedPackages, packageName) return $$$OK  
-  
+
+  if $listfind(i%ExportedPackages, packageName) return $$$OK
+
   set classList = $System.OBJ.GetPackageList(.classList, packageName)
   set className = ""
   set sc = $$$OK
@@ -1434,93 +1416,98 @@ A reference for the sychronizer, which keeps the workspace directory sync'ed wit
 ]]></Implementation>
 </Method>
 
-<Method name="ExportWebFile">
+<Method name="ExportPublicFile">
+<Description>
+Export a CSP-like file to the workspace's public folder.
+The CSP application name is mirrored into subfolders inside the public folder.</Description>
 <FormalSpec>itemName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
   set id = ##class(Port.Util).ResolveItemId(itemName, ..Project.Name)
   set exported = 0
-  
+
   if '##class(%Studio.ProjectItem).%ExistsId(id) {
     return $$$PERROR($$$UnableToExportInvalidItem, itemName)
-  }  
-  
+  }
+
   set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
-  
-  try {        
+
+  try {
     set csp = ##class(%RoutineMgr).%New(itemName)
     set destination = ##class(Port.Util).ItemToPath(itemName, workspace)
-    set destinationLocation = ##class(%File).GetDirectory(destination)   
-    
-    write ..Log($$$ExportingType, 1, $$$FileType, destination)    
-    
-    $$$ThrowOnError(##class(Port.Util).EnsurePathExists(destinationLocation)) 
-    $$$ThrowOnError(..Synchronizer.AddToWhitelist(itemName)) 
-    
+    set destinationLocation = ##class(%File).GetDirectory(destination)
+
+    write ..Log($$$ExportingType, 1, $$$FileType, destination)
+
+    $$$ThrowOnError(##class(Port.Util).EnsurePathExists(destinationLocation))
+    $$$ThrowOnError(..Synchronizer.AddToWhitelist(itemName))
+
     if ..Overwrite = 0 && '..IsOutdated(itemName, destination) {
       write ..LogLine($$$UpToDate)
       quit
-    }    
-    
+    }
+
     set exported = ##class(%File).CopyFile(csp.Code.Filename, destination, 1)
-    
+
     write ..LogLine($$$Done)
-    set ..AffectedCount = ..AffectedCount + 1    
+    set ..AffectedCount = ..AffectedCount + 1
   } catch ex {
     set sc = ex.AsStatus()
-    if exported = 0 {      
+    if exported = 0 {
       if $$$ISOK(sc) set sc = $$$PERROR($$$UnableToCopySource, source, dest)
     }
     write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
-  }           
+  }
   quit $$$OK
 ]]></Implementation>
 </Method>
 
 <Method name="ExportRoutine">
+<Description>
+Export a routine to the workspace, the path inside the workspace is taken from the type of routine to be exported.</Description>
 <FormalSpec>name:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set sc = $$$OK    
-  
+  set sc = $$$OK
+
   try {
     write ..Log($$$ExportingType, 1, $$$RoutineType, name)
-    
+
     set id = ##class(Port.Util).ResolveItemId(name, ..Project.Name)
-    
+
     if '##class(%Studio.ProjectItem).%ExistsId(id) {
       return $$$PERROR($$$UnableToExportInvalidItem, name)
     }
-    
+
     set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
     set destination = ##class(Port.Util).ItemToPath(name, workspace)
     set destinationLocation = ##class(%File).GetDirectory(destination)
-    
+
     $$$ThrowOnError(..Synchronizer.AddToWhitelist(name))
-    
+
     if '##class(%RoutineMgr).Exists(name) $$$ThrowStatus($$$PERROR($$$UnableToExportInvalidItem, name))
     $$$ThrowOnError(##class(Port.Util).EnsurePathExists(destinationLocation))
-    
+
     if ..Overwrite = 0 && '..IsOutdated(name, destination) {
       write ..LogLine($$$UpToDate)
       quit
-    }  
-    
+    }
+
     set file = ##class(%Stream.FileCharacter).%New()
     set file.TranslateTable = "UTF8"
     do file.LinkToFile(destination)
-    
-    set routine = ##class(%RoutineMgr).%OpenId(name)  
-    set sc = file.CopyFrom(routine.Code) 
-    
+
+    set routine = ##class(%RoutineMgr).%OpenId(name)
+    set sc = file.CopyFrom(routine.Code)
+
     $$$ThrowOnError(file.%Save())
     write ..LogLine($$$Done)
-    
+
     set ..AffectedCount = ..AffectedCount + 1
   } catch ex {
-    set sc = ex.AsStatus()    
-    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc)) 
+    set sc = ex.AsStatus()
+    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
   }
 
   quit sc
@@ -1528,68 +1515,71 @@ A reference for the sychronizer, which keeps the workspace directory sync'ed wit
 </Method>
 
 <Method name="ExportClass">
+<Description>
+Export a class to the workspace's 'cls' folder. Each class package is treated like a subfolder.</Description>
 <FormalSpec>className:%String,fromPackage:%Boolean=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
-  
+
   set itemName = className
-  
+
   // If the call is from the source control remove the suffix.
-  if ##class(Port.Util).GetItemType(className) = "CLS" {    
-    set className = $piece(className, ".", 1, *-1)    
+  if ##class(Port.Util).GetItemType(className) = "CLS" {
+    set className = $piece(className, ".", 1, *-1)
   } else {
     // But we still must ensure that a qualified item name is available.
     set itemName = itemName_".CLS"
   }
-  
+
   try {
     write ..Log($$$ExportingType, 1, $$$ClassType, className)
-    
+
     // We can rely on the id if the call is delegated by ExportPackages, so we only check it if the class is exported single-handedly.
     if 'fromPackage && '##class(Port.Util).ExistsInProject(..Project.Name, itemName) {
       $$$ThrowStatus($$$PERROR($$$UnableToExportInvalidItem, itemName))
     }
-    
+
     set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
     set package = $piece(itemName, ".", 1, *-1)
     set destination = ##class(Port.Util).ItemToPath(itemName, workspace)
     set destinationLocation = ##class(%File).GetDirectory(destination)
-    
+
     $$$ThrowOnError(..Synchronizer.AddToWhitelist(itemName))
     if $listfind(..ExportedPackages, package) quit
-    
-    $$$ThrowOnError(##class(Port.Util).EnsurePathExists(destinationLocation))    
-    
+
+    $$$ThrowOnError(##class(Port.Util).EnsurePathExists(destinationLocation))
+
     if ..Overwrite = 0 && '..IsOutdated(itemName, destination) {
       write ..LogLine($$$UpToDate)
       quit
     }
-    
-    if '##class(%ClassDefinition).%ExistsId(className) {      
+
+    if '##class(%ClassDefinition).%ExistsId(className) {
       $$$ThrowStatus($$$PERROR($$$UnableToExportInvalidItem, className))
     }
-    
+
     $$$ThrowOnError(##class(%Compiler.UDL.TextServices).GetTextAsStream($namespace, itemName, .stream))
-  
+
     set file = ##class(%Stream.FileCharacter).%New()
     set file.TranslateTable = "UTF8"
     do file.LinkToFile(destination)
-  
-    $$$ThrowOnError(file.CopyFromAndSave(stream))    
+
+    $$$ThrowOnError(file.CopyFromAndSave(stream))
     write ..LogLine($$$Done, 1)
-  
+
     set ..AffectedCount = ..AffectedCount + 1
   } catch ex {
-    set sc = ex.AsStatus()   
+    set sc = ex.AsStatus()
     write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
   }
-  
+
   quit sc
 ]]></Implementation>
 </Method>
 
 <Method name="Reset">
+<Internal>1</Internal>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set i%ExportedPackages = ""
@@ -2244,7 +2234,7 @@ LoopThroughType(projectName, importedList, group)
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set ..Tool = tool
-  set ..Simulated = simulated  
+  set ..Simulated = simulated
   do ..BuildTypePaths()
   return $$$OK
 ]]></Implementation>
@@ -2260,28 +2250,29 @@ LoopThroughType(projectName, importedList, group)
 <FormalSpec>itemName:%String,sourceLocation:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-   
+
   set sc = $$$OK
   set type = ##class(Port.Util).GetItemType(itemName)
   set typePath = ..Tool.GetTypePath(type)
-  set slash = $$$Slash(typePath)   
-  
+  set slash = $$$Slash(typePath)
+
   if sourceLocation = "" {
     set workspacePath = $piece(typePath, slash, 1, *-1)
     set sourceLocation = ##class(Port.Util).ItemToPath(itemName, workspacePath)
   }
-  
+
   set typePath = $$$LTrimProvidedSlash(typePath, "/")
-    
+
   set absoluteBasePath = ##class(%File).NormalizeFilename(typePath, slash)
   set dirLength = $length(sourceLocation, slash)
   set dirLengthLimit = dirLength - (dirLength - $length(absoluteBasePath, slash))
-  
-  // Slices the path for every iteration. Ex: /a/b/c -> /a/b -> /a
+
+  // Slices the path at every iteration. Ex: /a/b/c -> /a/b -> /a
+  // We do this to create a dependency chain based on those directories.
   for i=dirLength:-1:dirLengthLimit+1 {
     set dir = $piece(sourceLocation, slash, 1, i)
-    if ..Whitelist.IsDefined(dir) return $$$OK    
-    set sc = ..Whitelist.SetAt(itemName, dir)    
+    if ..Whitelist.IsDefined(dir) return $$$OK
+    set sc = ..Whitelist.SetAt(itemName, dir)
     if $$$ISERR(sc) quit
   }
   return sc
@@ -2291,28 +2282,28 @@ LoopThroughType(projectName, importedList, group)
 <Method name="Purge">
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-   
+
   set sc = $$$OK
-  set s = ##class(%SQL.Statement).%New()  
-  
+  set s = ##class(%SQL.Statement).%New()
+
   $$$QuitOnError(s.%PrepareClassQuery("%File", "FileSet"))
-  
+
   set removedDirectories = ""
   set lastParent = ""
-  set parentDirectory = ""  
-  
+  set parentDirectory = ""
+
   write ..Tool.LogLine($$$CheckingExtraneousItems, 1)
-  
+
   for i=1:1:$listlength(i%TypePaths) {
     set pathToSearch = $listget(i%TypePaths, i)
     set sc = ..Scan(s, pathToSearch)
     if $$$ISERR(sc) return sc
   }
-  
+
   set length = $listlength(i%ExtraneousEntries)
   if length > 0 write ..Tool.LogLine($$$TotalExtraneousItems, 1, length)
   else  write ..Tool.LogLine($$$NoExtraneousItems, 1)
-  
+
   for i=1:1:length {
     set possiblyDeleted = 0
     set extraneousItem = $listget(i%ExtraneousEntries, i)
@@ -2323,8 +2314,8 @@ LoopThroughType(projectName, importedList, group)
     if type = "F" && ##class(%File).Exists(path) {
       set fileName = ##class(%File).GetFilename(path)
       set lastNode = ##class(%File).GetDirectoryPiece(parentDirectory, $length(parentDirectory, slash))
-      set fileName = $piece(fileName, ".", 1)           
-      if fileName = lastNode set possiblyDeleted = 0 
+      set fileName = $piece(fileName, ".", 1)
+      if fileName = lastNode set possiblyDeleted = 0
       if possiblyDeleted = 1 continue
       write ..Tool.LogLine($$$RemovingFile, 2, path)
       if ..Simulated = 0 do ##class(%File).Delete(path)
@@ -2338,7 +2329,7 @@ LoopThroughType(projectName, importedList, group)
       write ..Tool.LogLine($$$RemovingDirectory, 2, path)
       if ..Simulated = 0 do ##class(%File).RemoveDirectoryTree(path)
     }
-  } 
+  }
   if length > 0 {
     write ..Tool.LogLine($$$TotalExtraneousItemsRemoved, 1, length)
   }
@@ -2351,33 +2342,33 @@ LoopThroughType(projectName, importedList, group)
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-   
+
   set dir = $$$NFN(path)
   set dirType = ##class(Port.Util).GetPathType(path)
   // Need to convert from Port format to CSP legacy format.
   if dirType = "PUBLIC" set dirType = "CSP"
-  
+
   set slash = $$$Slash(path)
   set row = statement.%Execute(dir)
-  set sc = $$$OK     
-         
+  set sc = $$$OK
+
   while row.%Next(.sc) {
     if $$$ISERR(sc) quit
-    set type = row.%Get("Type")    
+    set type = row.%Get("Type")
     set fullPath = row.%Get("Name")
-    
+
     if ..Tool.IsIgnored(fullPath) continue
-            
+
     if type = "D" {
-      set filesCount = 0      
+      set filesCount = 0
       set sc = ..Scan(statement, fullPath, .filesCount)
       if $$$ISERR(sc) return sc
     } else {
       set filesCount =  filesCount + 1
-    }       
-     
+    }
+
     if 'filesCount && $lf($$$ImportTypes, dirType) || ($lf($$$ImportTypes, dirType) && '..Whitelist.IsDefined(fullPath) && '$listfind(i%ExtraneousEntries, fullPath)) {
-      set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = $listbuild(fullPath, type)            
+      set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = $listbuild(fullPath, type)
     }
   }
   return sc
