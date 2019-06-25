@@ -45,18 +45,18 @@ ClassMethod MockItems(projectName As %String, Output items As %List = "", Output
     "Dummy.Another.Package.Here.cls",
     "Dummy.And.Here.We.Shall.Test.Packages.pkg",
     "Dummy.And.Here.We.Shall.Test.Packages.Without.Extension.pkg",
-    "dummy.inc",
-    "dummy.mac",
-    "dummy.dfi",
-    "dummy.bas",
-    "dummy.mvb",
-    "dummy.mvi",
-    $$$FormatText("csp/dev/dummy/index.csp", currentApp), 
-    $$$FormatText("csp/dev/dummy/index.html", currentApp),
-    $$$FormatText("csp/dev/dummy/composite.name.should.still.resolve.html", currentApp),
-    $$$FormatText("csp/dev/dummy/js/some/deep/file.js", currentApp),
-    $$$FormatText("csp/dev/dummy/js/some/deep/file.html", currentApp),
-    $$$FormatText("csp/dev/dummy/js/some/deep/.onlyextension", currentApp)
+    "dummy.INC",
+    "dummy.MAC",
+    "dummy.DFI",
+    "dummy.BAS",
+    "dummy.MVB",
+    "dummy.MVI",
+    "csp/dev/dummy/index.csp",
+    "csp/dev/dummy/index.html",
+    "csp/dev/dummy/composite.name.should.still.resolve.html",
+    "csp/dev/dummy/js/some/deep/file.js",
+    "csp/dev/dummy/js/some/deep/file.html",
+    "csp/dev/dummy/js/some/deep/.onlyextension"
   )
   
   set outputs = $lb(

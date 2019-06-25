@@ -3,6 +3,9 @@ Include portutils
 Class Port.Util [ Abstract ]
 {
 
+/// Returns the workspace folder name according to an absolute path. The name is matched
+/// from the directory part that is before the item type folder. E.g.: <workspace_name>/<item_type>/<item_filename>.
+/// If item_type is a known type, then it will be used as a pointer to find the workspace_name.
 ClassMethod GetWorkspaceNameFromAbsoluteItemPath(absolutePath As %String) As %String
 {
   set pathParts = $lfs(absolutePath, $$$Slash(absolutePath))
@@ -15,6 +18,7 @@ ClassMethod GetWorkspaceNameFromAbsoluteItemPath(absolutePath As %String) As %St
   quit workspaceName
 }
 
+/// Returns the path that leads to the workspace folder, excluding any folder that is part of it.
 ClassMethod GetWorkspaceFromItemPath(itemPath As %String) As %String
 {
   set slash = $$$Slash(itemPath)
@@ -32,15 +36,15 @@ ClassMethod GetWorkspaceFromItemPath(itemPath As %String) As %String
 
 /// Retrieves the extension from the itemName. If the extension matches none, then attempt to find out if the extension is actually a package.
 /// Otherwise assume that the extension is defined from a custom file.
-ClassMethod GetItemType(itemName As %String) As %String
+ClassMethod GetItemType(itemName As %String, checkPackageExists As %Boolean = 1) As %String
 {
   set ext = $$$ucase($piece(itemName, ".", *))
   set slash = $$$PathSlash(itemName)
 
   if itemName [ slash quit "CSP"
   if $lf($$$RoutineExtensions, "."_ext) || (ext = "CLS") || (ext = "PRJ") return ext
-  if ..IsPackage(itemName) quit "PKG"
-
+  
+  if 'checkPackageExists || (checkPackageExists && ..IsPackage(itemName)) { quit "PKG" }
   quit ext
 }
 
@@ -68,11 +72,11 @@ ClassMethod ItemToPath(itemName As %String, workspace As %String = "") As %Strin
   #define WithAbsolute(%s) $select(workspace '= "" : $$$NFN(workspace_%s), 1: %s)
 
   set fullPath = ""
-  set type = ..GetItemType(itemName)
+  set type = ..GetItemType(itemName, 0)
   set slash = $$$Slash(itemName)
   set workspace = $select(workspace '= "" : $$$RPadProvidedSlash(workspace, slash), 1: "")
 
-  if type = "CLS" {
+  if type = "CLS" {    
     set classWithoutTheExtension = $piece(itemName, ".", 1, *-1)
     set fullPath = $$$WithAbsolute("cls"_$$$OSSlash_..ClassToFile(classWithoutTheExtension))
   } elseif $lf($$$RoutineExtensions, "."_$$$ucase(type)) {
@@ -83,6 +87,7 @@ ClassMethod ItemToPath(itemName As %String, workspace As %String = "") As %Strin
     set fullPath = $$$WithAbsolute(ext_"/"_fileName)
   } elseif type = "PKG" {
     // Deep package?
+    if $$$ucase(itemName) '[ ".PKG" set itemName = itemName_".PKG"
     set name = $select(itemName [ "." : $piece(itemName, ".", 1, *-1), 1: itemName)
     set fullPath = $$$WithAbsolute("cls/"_..ClassToFile(name, 0))
   } else {
@@ -154,7 +159,7 @@ ClassMethod ResolveItemId(name As %String, projectName As %String = {$get(^||Por
     set itemType = "PKG"
   } else {
     // Ensures that CSP items starts with normalized path.
-    set itemName = $$$LTrimSlash(name)
+    set itemName = $$$LTrimProvidedSlash(name, "/")
     set itemType = "CSP"
   }
   return projectName_"||"_itemName_"||"_itemType
@@ -322,11 +327,7 @@ ClassMethod IsOutdated(project As %String, current As %String, external As %Stri
     set currentTS = $piece(##class(%RoutineMgr).TS(current, .compileTime), ".")
   } else {
     set fullSourcePath = ""
-    if 'isImport {
-      set target = ..ItemToPath(current, workspace)
-    } else {
-      set target = ..PathToItem(current)
-    }
+    set target = ##class(%CSP.Routine).%New(current).Filename
     set currentTS = $zdatetime(##class(%File).GetFileDateModified(target), 3,,,,,,,,,0)
   }
 

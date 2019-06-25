@@ -1,20 +1,22 @@
+Include portutils
+
 Class UnitTest.Port.Util Extends (Port.UnitTest.TestCase, UnitTest.Port.Helper)
 {
 
-Method TestResolveItemExtension()
+Method TestGetItemType()
 {
   set projectName = "mock"
   do ..MockItems(projectName, .entries)
   set $list(entries, $ll(entries) + 1) = "mock.PRJ"
-  set expectations = $lb("PKG", "CLS", "CLS", "PKG", "PKG", "INC", "MAC", "DFI", "BAS", "MVB", "MVI", "CSP", "HTML", "HTML", "JS", "HTML", "ONLYEXTENSION", "PRJ")
+  set expectations = $lb("PKG", "CLS", "CLS", "PKG", "PKG", "INC", "MAC", "DFI", "BAS", "MVB", "MVI", "CSP", "CSP", "CSP", "CSP", "CSP", "CSP", "PRJ")
   for i=1:1:$ll(expectations) {
     set expectation = $lg(expectations, i)
     set entry = $lg(entries, i)
-    do $$$AssertEquals(expectation, ##class(Port.Util).ResolveItemExtension(entry), $$$FormatText("resolves %1 -> %2", entry, expectation))
+    do $$$AssertEquals(expectation, ##class(Port.Util).GetItemType(entry), $$$FormatText("resolves %1 -> %2", entry, expectation))
   }
 }
 
-Method TestExtractType()
+Method TestGetPathType()
 {
   set projectName = "mock"
   do ..MockItems(projectName, "", .entries)
@@ -36,13 +38,11 @@ Method TestResolveItemId()
 
   for i=1:1:$listlength(entries) {
     set entry = $listget(entries, i)
-    set entry = $replace(entry, "/", "", 1, 1)
+    set entry = $$$LTrimProvidedSlash(entry, "/")
     set expectation = entry
     set extension = ##class(Port.Util).GetItemType(entry)
 
     if extension = "PKG" {
-      // Even though it's not need since ResolveItemExtension always defaults to PKG if no extension is found,
-      // We'll still enforce it because the idea is to test a behavior similar to AddItem/RemoveItem, which requires an extension.
       if entry '[ ".PKG" set entry = entry_".PKG"
       set expectation = $replace(entry, ".PKG", "")_"||PKG"
     } elseif $lf(macs, extension) {
@@ -66,22 +66,6 @@ Method TestExistsInProject()
 
   do $$$AssertEquals(##class(Port.Util).ExistsInProject("port", "portmd.INC"), 1, "true if include exists")
   do $$$AssertEquals(##class(Port.Util).ExistsInProject("port", "whatever.INC"), 0, "false if include does not exist")
-}
-
-Method TestListConflicts()
-{
-
-  do ..CreateDummyProject()
-
-  do $$$AssertEquals($lb("dummy-project"), ##class(Port.Util).ListConflicts("port", "Port.SourceControl.AutoInstall.CLS"), "returns a list that contains 'dummy-project'")
-  do $$$LogMessage("Removing the added item ...")
-
-  do ..RemoveDummyProjectItem()
-
-  do $$$AssertEquals("", ##class(Port.Util).ListConflicts("port", "Port.SourceControl.AutoInstall.CLS"), "returns an empty list")
-
-  set project = ""
-  do ##class(%Studio.Project).Delete("dummy-project")
 }
 
 Method TestCreateMissingPath()
@@ -123,3 +107,4 @@ Method TestTranslatePath() As %String
 }
 
 }
+
