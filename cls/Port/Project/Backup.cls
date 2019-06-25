@@ -40,7 +40,6 @@ Method Create(ByRef list As %String = 0) As %Status
   write ..Logger.Log($$$BackupAlert), !
   write ..Logger.Log($$$BackupMirror, 1)
 
-  do Scan(9,  "CSR", .created)
   do Scan(10, "CSP", .created)
 
   if $$$ISOK(sc) write ..Logger.Log($$$Done, 1), !
