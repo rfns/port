@@ -539,7 +539,7 @@ Defines a class used to handle source control hooks after Port execution.</Descr
     <Message Id="-104" Name="UnableToCopySource">Não foi possível copiar o arquivo de %1 para %2.</Message> 
     <Message Id="-105" Name="UnableToExportInvalidItem">Não foi possível exportar o item %1 pois ele não existe.</Message>
     <Message Id="-106" Name="ErrorsWhileImporting">Houveram erros ao importar %1.</Message>
-    <Message Id="-107" Name="AmbiguousPartialToWorkspace">O caminho partial %1 obtido é ambíguo ao caminho deste projeto. Se você deseja exportar o projeto, utilize o método 'Import'.</Message>
+    <Message Id="-107" Name="AmbiguousPartialToWorkspace">O caminho parcial %1 obtido é ambíguo ao caminho deste projeto. Se você deseja exportar o projeto, utilize o método 'Import'.</Message>
     <Message Id="-108" Name="SupressedAttemptToExportFromOutside">Não é possível importar um arquivo que esteja fora do espaço de trabalho deste projeto.</Message>
     <Message Id="-109" Name="UnableToRemoveDirectory">Não foi possível remover o diretório %1.</Message>
     <Message Id="-110" Name="UnableToDescribeItem">Não foi possível descrever o item o %1 devido à uma violação no extensão esperada: este item deve %2</Message>
@@ -1880,15 +1880,17 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 <Implementation><![CDATA[
  
   set sc = $$$OK
-  
+    
   set resolvedTarget = ##class(Port.Util).ItemToPath(target, ..BasePath)  
+  write resolvedTarget
+  write ..BasePath
 
-  if (resolvedTarget = ..BasePath) {
+  if resolvedTarget '[ ..BasePath {
     quit $$$PERROR($$$AmbiguousPartialToWorkspace, resolvedTarget)
   }
 
   if '(resolvedTarget [ ..ClassPath || (resolvedTarget [ ..IncPath) ||
-      (resolvedTarget [ ..IncPath)  || (resolvedTarget [ ..MacPath) ||
+      (resolvedTarget [ ..IntPath)  || (resolvedTarget [ ..MacPath) ||
       (resolvedTarget [ ..PublicPath)
   ) {
     quit $$$PERROR($$$SupressedAttemptToExportFromOutside)
@@ -4854,7 +4856,7 @@ Menu
 </Class>
 
 
-<Project name="port" LastModified="2019-06-05 09:21:10.048165" Target="##class(Port.Project.Importer).T()" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2019-06-25 11:34:26.431883" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.AutoInstall" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Configuration" type="CLS"></ProjectItem>

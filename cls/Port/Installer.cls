@@ -191,7 +191,7 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-104" Name="UnableToCopySource">Não foi possível copiar o arquivo de %1 para %2.</Message> 
     <Message Id="-105" Name="UnableToExportInvalidItem">Não foi possível exportar o item %1 pois ele não existe.</Message>
     <Message Id="-106" Name="ErrorsWhileImporting">Houveram erros ao importar %1.</Message>
-    <Message Id="-107" Name="AmbiguousPartialToWorkspace">O caminho partial %1 obtido é ambíguo ao caminho deste projeto. Se você deseja exportar o projeto, utilize o método 'Import'.</Message>
+    <Message Id="-107" Name="AmbiguousPartialToWorkspace">O caminho parcial %1 obtido é ambíguo ao caminho deste projeto. Se você deseja exportar o projeto, utilize o método 'Import'.</Message>
     <Message Id="-108" Name="SupressedAttemptToExportFromOutside">Não é possível importar um arquivo que esteja fora do espaço de trabalho deste projeto.</Message>
     <Message Id="-109" Name="UnableToRemoveDirectory">Não foi possível remover o diretório %1.</Message>
     <Message Id="-110" Name="UnableToDescribeItem">Não foi possível descrever o item o %1 devido à uma violação no extensão esperada: este item deve %2</Message>
