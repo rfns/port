@@ -143,6 +143,46 @@ ClassMethod GetExtendedHooksImplementer() As %String
   return $get(^Port.Configuration("source.hooks.custom"))
 }
 
+ClassMethod SetRoutineInputTranslateTable(charset As %String) As %Status
+{
+  set ^Port.Configuration("io.routine.in") = charset
+}
+
+ClassMethod SetRoutineOutoutTranslateTable(charset As %String) As %Status
+{
+  set ^Port.Configuration("io.public.out") = charset
+}
+
+ClassMethod SetPublicFileInputTranslateTable(charset As %String) As %Status
+{
+  set ^Port.Configuration("io.public.in") = charset
+}
+
+ClassMethod SetPublicFileOutputTranslateTable(charset As %String) As %Status
+{
+  set ^Port.Configuration("io.public.out") = charset
+}
+
+ClassMethod GetRoutineInputTranslateTable(charset As %String) As %Status
+{
+  return $get(^Port.Configuration("io.routine.in"), "UTF8")
+}
+
+ClassMethod GetRoutineOutputTranslateTable(charset As %String) As %Status
+{
+  return $get(^Port.Configuration("io.public.out"), "UTF8")
+}
+
+ClassMethod GetPublicFileInputTranslateTable(charset As %String) As %Status
+{
+  return $get(^Port.Configuration("io.public.in"), "UTF8")
+}
+
+ClassMethod GetPublicFileOutputTranslateTable(charset As %String) As %Status
+{
+  return $get(^Port.Configuration("io.public.out"), "UTF8")
+}
+
 ClassMethod RewritePlaceHolders(basePath As %String, projectName As %String = {$get(^||Port.Project)}, allowedPlaceholders = "*", params... As %String) As %String [ Internal ]
 {
 
