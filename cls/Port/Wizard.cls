@@ -32,7 +32,6 @@ Menu
   write $$$FormatWizardMsg($$$PCWManageChangeTestSettingsChoice), !
   write $$$FormatWizardMsg($$$PCWToggleAutoExportChoice), !
   write $$$FormatWizardMsg($$$PCWSetLogLevelChoice), !
-  write $$$FormatWizardMsg($$$PCWSetSourceExtensionChoice), !
   write $$$FormatWizardMsg($$$PCWExit), !!
   
   write $$$FormatWizardMsg($$$PCWChoicePrompt)
@@ -261,23 +260,6 @@ Menu
   set invalidChoice = ($listfind(validChoices, choice) = 0)
   write !
   quit
-}
-
-ClassMethod StartSourceExtensionConfigAssistant()
-{
-  set currentExtension = $get(^Port.Configuration("source.extension"))
-  write !, $$$FormatWizardMsg($$$PCWSetSourceExtensionDescription), !
-  
-  write $$$FormatWizardMsg($$$PWCSetSourceExtensionPrompt), !!
-  write $$$FormatWizardMsg($$$PCWPathDefault), !
-  write $select(currentExtension = "" : "none.", 1: "."_currentExtension), !
-  write $$$FormatWizardMsg($$$PCWPathNew)
-  read extension   
-  
-  do ##class(Port.Configuration).SetSourceExtension(extension)
-  set savedExtension = $get(^Port.Configuration("source.extension"))
-  write !!, $$$FormatWizardMsg($$$PWCSetSourceExtensionStatusNow, $select(savedExtension = "" : "none.", 1: "."_savedExtension))
-  return ..Start(1)
 }
 
 ClassMethod StartTestChoice1ConfigAssistant()
