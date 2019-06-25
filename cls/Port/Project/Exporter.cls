@@ -98,17 +98,17 @@ Method ExportPackage(packageName As %String) As %Status
   return sc
 }
 
-/// Export a CSP-like file to the workspace's public folder.
+/// Exports a CSP-like file to the workspace's public folder.
 /// The CSP application name is mirrored into subfolders inside the public folder.
 Method ExportPublicFile(itemName As %String) As %Status
 {
   set sc = $$$OK
   set id = ##class(Port.Util).ResolveItemId(itemName, ..Project.Name)
-  set exported = 0
+  set exported = 0  
 
   if '##class(%Studio.ProjectItem).%ExistsId(id) {
     return $$$PERROR($$$UnableToExportInvalidItem, itemName)
-  }
+  }  
 
   set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
 
@@ -170,7 +170,7 @@ Method ExportRoutine(name As %String) As %Status
     }
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = "UTF8"
+    set file.TranslateTable = ##class(Port.Configuration).GetRoutineOutputTranslateTable()
     do file.LinkToFile(destination)
 
     set routine = ##class(%RoutineMgr).%OpenId(name)
@@ -255,3 +255,4 @@ Method Reset() As %Status [ Internal ]
 }
 
 }
+
