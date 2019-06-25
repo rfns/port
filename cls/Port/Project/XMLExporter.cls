@@ -77,19 +77,13 @@ Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Stat
     set className = $listget(test, 1)
     set classPath = $listget(test, 2)
     write ..Log($$$ExportingTestClassToXML, 0, $replace(className, ".CLS", ""))
-    set cSC = $System.OBJ.Export(className, classPath,qspec,, "UTF-8")
+    set cSC = $System.OBJ.Export(className, classPath,qspec,, ##class(Port.Configuration).GetRoutineOutputTranslateTable())
     set sc = $$$ADDSC(sc, cSC)
     if $$$ISOK(cSC) write ..LogLine($$$Done, 0)
     else  write ..LogLine($$$Failed, 0)
     set exported = 1
   }
   quit exported
-}
-
-ClassMethod T()
-{
-  set xml = ##class(Port.Project.XMLExporter).%New("/CacheProjects/DEV/frontier")
-  do xml.ExportToXML()
 }
 
 }

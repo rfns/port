@@ -1,10 +1,13 @@
+Include portutils
+
 Class Port.UnitTest.Util [ Abstract ]
 {
 
-ClassMethod ResolveTestLocation(workspace As %String, className As %String) As %Status [ Final, Internal ]
+ClassMethod ResolveTestLocation(workspace As %String, className As %String) As %List [ Final, Internal ]
 {
   set className = className_".CLS"
-  return $listbuild(className, $replace(##class(Port.Util).ItemToPath(className, workspace), ".cls", ".xml"))
+  set path = $replace(##class(Port.Util).ItemToPath(className, workspace),  ".cls", ".xml")
+  return $listbuild(className, path)
 }
 
 ClassMethod IsUnitTestClass(className As %String) As %Boolean
@@ -14,17 +17,18 @@ ClassMethod IsUnitTestClass(className As %String) As %Boolean
   set descriptor = ##class(%Dictionary.CompiledClass).%OpenId(className)
   if '$isobject(descriptor) || ($isobject(descriptor) && (descriptor.Super = "")) return 0
   
-  if descriptor.Super [ "Port.UnitTest.TestCase" return 1  
+  // Target class is direct descendant.
+  if descriptor.Super [ "Port.UnitTest.TestCase" return 1
   
-  // If the target class have some super class defined, we must consider that it could be
-  // extending from multiple super classes. So we need to check each of them.
+  // Target class is not a direct descendant, so we go deep down till we find which parent class
+  /// is actually extending from Port.UnitTest.TestCase.
   for i=1:1:$length(descriptor.Super, ",") {
     set extension = $piece(descriptor.Super, ",", i)
     if ..IsUnitTestClass(extension) {
       set isUnitTest = 1
       quit
     }   
-  }
+  }  
   return isUnitTest
 }
 
@@ -53,8 +57,8 @@ ClassMethod AssertTestableClass(className, Output testableClass As %String = "",
 
 ClassMethod GetTestPathForClass(testableClass As %String, baseTestPath As %String = {##class(Port.Configuration).GetTestPath()})
 {
-  if $extract(baseTestPath, *) = "/" set baseTestPath = $extract(baseTestPath, 1, *-1)
-  return baseTestPath_"/"_$piece($replace(testableClass, ".", "/"), "/", 1, *-1)_":"_testableClass
+  set baseTestPath = $$$RTrimProvidedSlash(baseTestPath, "/")
+  return baseTestPath_"/cls/"_$piece($replace(testableClass, ".", "/"), "/", 1, *-1)_":"_testableClass
 }
 
 }
