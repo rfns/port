@@ -62,7 +62,6 @@ ClassMethod Import(inputPath As %String, logLevel As %Boolean = 2, skipBackup As
 
 ClassMethod ImportPartial(basePath As %String, target, logLevel As %Boolean = 2, skipBackup As %Boolean = 0, overwrite As %Boolean = 0, ignoredPaths As %ListOfDataTypes = "") As %Status
 {
-  
   set importer = ..InstantiateTool("I", basePath, logLevel, .sc)  
   $$$QuitOnError(sc)
   $$$QuitOnError(importer.Ignore(ignoredPaths))
@@ -123,13 +122,13 @@ ClassMethod LogFromImportList(projectName As %String, ByRef importList As %Strin
   }  
   
 LoopThroughType(projectName, importedList, group) 
-  set itemName = "" 
+  set itemName = ""
+  quit:($order(importList(group)) = "")
   
   for {
     set itemName = $order(importList(group, $listget($$$ImportTypes, group), itemName))
     quit:itemName=""
-    
-    if group = 2 set itemName = itemName_".CLS"   
+      
     do ##class(Port.SourceControl.Log).LogChange(projectName, itemName)
   }
   return 1
