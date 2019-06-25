@@ -394,7 +394,7 @@ ClassMethod Install(force As %Boolean = 0) As %Status
     write "> Setting up workspace structure ... ", !
     do ##class(Port.Configuration).SetPrimaryWorkspace("/CacheProjects/{NAMESPACE}/{PROJECT}")
     write "> Setting up test files directory ...", !
-    do ##class(Port.Configuration).SetTestPath("tests")
+    do ##class(Port.Configuration).SetTestPath("tests/cls")
     write "> Defining default test class prefix ..", !
     do ##class(Port.Configuration).SetTestClassPrefix("UnitTest")
     write "> Configuring to run tests automatically ...", !
