@@ -105,16 +105,15 @@ Method EnqueueDirectory(searchPath As %String, fs As %SQL.Statement = {$$$NULLOR
 
 Method GetTypePriority(type As %String) As %Integer [ Internal, Private ]
 {
-  if type = ".INC" quit 1
-  if type = ".INT" quit 2
-  if type = ".CLS" quit 3
-  if type = ".MAC" quit 4
-  if type = ".MVI" quit 5
-  if type = ".MVB" quit 6
-  if type = ".BAS" quit 7
-  if type = ".DFI" quit 8
-  if type = ".CSR" quit 9
-  quit 10
+  if type = "INC" quit 1
+  if type = "INT" quit 2
+  if type = "CLS" quit 3
+  if type = "MAC" quit 4
+  if type = "MVI" quit 5
+  if type = "MVB" quit 6
+  if type = "BAS" quit 7
+  if type = "DFI" quit 8
+  quit 9
 }
 
 Method DescribeItem(origin As %String, Output isOutdated As %Boolean = 0, Output itemName As %String, Output itemType As %String, Output priority As %String) As %Status [ Internal, Private ]
@@ -152,7 +151,7 @@ Method ImportType(group As %Integer) As %Status [ Internal, Private ]
   if '$data(i%ImportList(group)) quit sc
   set itemType = $listget($$$ImportTypes, group, "CSP")
 
-  write ..LogExclusive($$$ImportingType, 1, $$$GetGroupTypeDescription(itemType))
+  write ..LogExclusiveLine($$$ImportingType, 1, $$$GetGroupTypeDescription(itemType))
 
   set itemName = ""
   for {
@@ -166,16 +165,15 @@ Method ImportType(group As %Integer) As %Status [ Internal, Private ]
     if $$$ISERR(sc)  write ..LogExclusiveLine($$$Failed, 2) quit
     else  write ..LogExclusiveLine($$$Done, 2)
   }
-  write ..LogExclusiveLine($$$Done, 1)
   quit sc
 }
 
-Method ImportPartial(target As %String, importedList As %String = 0) As %Status
+Method ImportPartial(target As %String, Output importedList As %String = 0) As %Status
 {
-
+ 
   set sc = $$$OK
-
-  set resolvedTarget = ##class(%File).NormalizeFilename(target, ..BasePath)
+  
+  set resolvedTarget = ##class(Port.Util).ItemToPath(target, ..BasePath)  
 
   if (resolvedTarget = ..BasePath) {
     quit $$$PERROR($$$AmbiguousPartialToWorkspace, resolvedTarget)
@@ -186,7 +184,7 @@ Method ImportPartial(target As %String, importedList As %String = 0) As %Status
       (resolvedTarget [ ..PublicPath)
   ) {
     quit $$$PERROR($$$SupressedAttemptToExportFromOutside)
-  }
+  }   
 
   if ##class(%File).DirectoryExists(resolvedTarget) {
     write ..Log($$$EnqueingType, 1, $$$DirectoryType)
@@ -279,6 +277,8 @@ Method Import() As %Status
       if $$$ISERR(backupSC) {
         write ..LogLine($$$FatalFailedToRestoreBackup, 0)
         set sc = $$$ADDSC(sc, backupSC)
+      } else {
+        do ##class(%File).RemoveDirectoryTree(..BackupDirectory)
       }
     }
   }
@@ -288,15 +288,27 @@ Method Import() As %Status
 ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, itemType As %String) As %Status [ Final, Internal, Private ]
 {
   if (itemType = "CLS") {
-    $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromFile($namespace, itemName, origin))
-  } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {    
-    set routine = ""
     set fs = ##class(%Stream.FileCharacter).%New()
     set fs.TranslateTable = "UTF8"
-    set fs.Filename = origin
+    $$$QuitOnError(fs.LinkToFile(origin))
+    $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromStream($namespace, itemName, fs))
+  } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {
+    set routine = ""
+    set fs = ##class(%Stream.FileCharacter).%New()
+    set fs.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()
+    
+    if itemType = "CSP" {
+      set extension = $$$ucase($piece(origin, ".", *))
+      if extension = "" set extension = "TXT"
+      do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
+      if bin set fs = ##class(%Stream.FileBinary).%New()
+      else  set fs.TranslateTable = ##class(Port.Configuration).GetPublicFileInputTranslateTable()
+    }
+    
+    $$$QuitOnError(fs.LinkToFile(origin))
 
     if ##class(%RoutineMgr).Exists(itemName) {
-      set routine = ##class(%RoutineMgr).%OpenId(itemName)
+      set routine = ##class(%RoutineMgr).%OpenId(itemName)     
     } else {
       set routine = ##class(%RoutineMgr).%New(itemName)
     }
@@ -349,12 +361,6 @@ Method ResetLists()
 
   kill i%ImportList, i%ItemsList
   set (i%ImportList, i%ItemsList) = 0
-}
-
-ClassMethod T()
-{
-  set sc = ##class(Port.Project.Manager).Import("C:\CacheProjects\DEV\dummy-project")
-  quit sc
 }
 
 }
