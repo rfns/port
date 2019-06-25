@@ -86,7 +86,7 @@ Method OnAfterSave(InternalName As %String) As %Status
       } elseif type = "PKG" {     
         set sc = exporter.ExportPackage(InternalName)     
       } elseif type '= "" {
-        set sc = exporter.ExportWebFile(InternalName)     
+        set sc = exporter.ExportPublicFile(InternalName) 
       }   
       
       $$$QuitOnError(##class(Log).LogChange(projectName, InternalName))
@@ -137,8 +137,6 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
   if $data(^||Port.Project) { 
     set projectName = ^||Port.Project
     if projectName [ "Default" quit $$$OK
-    set workspace = ##class(Port.Configuration).GetWorkspace(projectName)
-    set fullPath = ##class(Port.Util).ItemToPath(InternalName, workspace)    
     set projectPath = ##class(Port.Configuration).GetWorkspace()
     set testPath = ##class(Port.Configuration).GetTestPath()
     set logLevel = ##class(Port.Configuration).GetLogLevel()
@@ -200,7 +198,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
       if $$$ucase(InternalName) = ($$$ucase(projectName_".PRJ")) {
         quit ##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 1, ignoredPaths)
       } else {
-        quit $$$OK 
+        quit ##class(Port.Project.Manager).ImportPartial(projectPath, InternalName, logLevel,,,ignoredPaths)
       }
     }
     
