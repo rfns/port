@@ -291,7 +291,7 @@ ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, ite
 {
   if (itemType = "CLS") {
     set fs = ##class(%Stream.FileCharacter).%New()
-    set fs.TranslateTable = "UTF8"
+    set fs.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()
     $$$QuitOnError(fs.LinkToFile(origin))
     $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromStream($namespace, itemName, fs))
   } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {
