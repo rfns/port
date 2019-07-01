@@ -66,6 +66,7 @@
 #define CMLRunActiveTest                                -6002
 #define CMLImportActive                                 -6001
 #define CMLExportActive                                 -6000
+#define NoCompatibleApplicationForPublicFile            -119
 #define FailedWhileRunningExtendedHook                  -118
 #define CannotSaveConflictingItems                      -117
 #define CouldNotDetermineWorkspace                      -116
