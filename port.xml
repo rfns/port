@@ -250,6 +250,8 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 </Method>
 
 <Method name="SetRoutineInputTranslateTable">
+<Description>
+Defines the encoding used to save the routine items, this includes class items. Pass RAW to preserve the content as-is.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -258,6 +260,8 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 </Method>
 
 <Method name="SetRoutineOutoutTranslateTable">
+<Description>
+Defines the encoding used to save the exported files originated from routines, this includes class items. Pass RAW to preserve the content as-is.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -266,6 +270,8 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 </Method>
 
 <Method name="SetPublicFileInputTranslateTable">
+<Description>
+Defines the encoding used to save CSP items. Pass RAW to preserve the content as-is.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -274,6 +280,8 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 </Method>
 
 <Method name="SetPublicFileOutputTranslateTable">
+<Description>
+Defines the encoding used to save public files originated from CSP items. Pass RAW to preserve the content as-is.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -282,6 +290,8 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 </Method>
 
 <Method name="GetRoutineInputTranslateTable">
+<Description>
+Retrieves the current configured routine translate table for inputs. Defaults to UTF-8.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -290,6 +300,8 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 </Method>
 
 <Method name="GetRoutineOutputTranslateTable">
+<Description>
+Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -298,6 +310,8 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 </Method>
 
 <Method name="GetPublicFileInputTranslateTable">
+<Description>
+Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -306,6 +320,8 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 </Method>
 
 <Method name="GetPublicFileOutputTranslateTable">
+<Description>
+Retrieves the current configured public file translate table for outputs. Defaults to UTF-8.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -352,7 +368,7 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 <XMLNamespace>https://github.com/rfns/port</XMLNamespace>
 <Data><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
-<MsgFile Language="en">
+<MsgFile Language="en-us">
   <MsgDomain Domain="Port Errors">
     <Message Id="-100" Name="InvalidPhysicalPath">The provided physical path '%1' is not part of the static files directory.</Message>
     <Message Id="-101" Name="NamespaceDoesntHaveAppWithPath">There is not an application with a physical path for the namespace %1.</Message>
@@ -373,6 +389,7 @@ Defines a class used to handle source control hooks after Port execution.</Descr
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Could not determine the correct workspace from the provided path.</Message>
     <Message Id="-117" Name="CannotSaveConflictingItems">Cannot save items that belongs to other projects. Please remove '%1' from the projects listed below if you want to save it into '%3': %2</Message>
     <Message Id="-118" Name="FailedWhileRunningExtendedHook">Failed while running extended hook '%1'.</Message>
+    <Message Id="-119" Name="NoCompatibleApplicationForPublicFile">There is no compatible web application for the public file located at %1.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Starting backup ...</Message>
@@ -551,6 +568,7 @@ Defines a class used to handle source control hooks after Port execution.</Descr
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Não foi possível determinar o espaço de trabalho correto a patir do caminho fornecido.</Message>
     <Message Id="-117" Name="CannotSaveConflictingItems">Não é possível salvar itens que pertençam a outros projetos. Por favor remova o item %1 dos projetos abaixo se você deseja salvá-lo em '%3': %2</Message>
     <Message Id="-118" Name="FailedWhileRunningExtendedHook">Falha ao rodar extensão do evento '%1'.</Message>
+    <Message Id="-119" Name="NoCompatibleApplicationForPublicFile">Não existe uma aplicação web compatível com o arquivo público localizado em %1.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>
@@ -780,19 +798,20 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
-  set thisNamespace = $namespace     
+  set storage = $get(^Port.Envs("DATABASE"), $namespace)
+  set thisNamespace = $namespace
   new $namespace
   
   set $namespace = "%SYS"
   
-  if ##class(Config.MapGlobals).Exists(thisNamespace, "Port.SourceControl*") {
+  if ##class(Config.MapGlobals).Exists(storage, "Port.SourceControl*") {
     write "> Global is already mapped. Skipping ...", !
     return $$$OK
   }
   
   try {
-    $$$ThrowOnError(##class(Config.Namespaces).Get(thisNamespace, .nsProperties))
-    set glProperties("Database") = thisNamespace
+    $$$ThrowOnError(##class(Config.Namespaces).Get($namespace, .nsProperties))
+    set glProperties("Database") = storage
     $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl*", .glProperties))    
   } catch ex {
     set sc = ex.AsStatus()
@@ -807,13 +826,14 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
-  set thisNamespace = $namespace     
+  set storage = $get(^Port.Envs("DATABASE"), $namespace)
+  set thisNamespace = $namespace    
   new $namespace
   
   set $namespace = "%SYS"  
   
-  if ##class(Config.MapGlobals).Exists(thisNamespace, "Port.SourceControl*") {
-    return ##class(Config.MapGlobals).Delete(thisNamespace, "Port.SourceControl*")
+  if ##class(Config.MapGlobals).Exists(storage, "Port.SourceControl*") {
+    return ##class(Config.MapGlobals).Delete(storage, "Port.SourceControl*")
   }
   return $$$OK
 ]]></Implementation>
@@ -2008,7 +2028,7 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 <Implementation><![CDATA[
   if (itemType = "CLS") {
     set fs = ##class(%Stream.FileCharacter).%New()
-    set fs.TranslateTable = "UTF8"
+    set fs.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()
     $$$QuitOnError(fs.LinkToFile(origin))
     $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromStream($namespace, itemName, fs))
   } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {
@@ -2512,6 +2532,7 @@ RemoveTestClasses(items="")
   set exported = 0
   
   set absoluteBasePath = ##class(%File).NormalizeFilename(path)
+  do ##class(%File).RemoveDirectoryTree(absoluteBasePath)
   $$$QuitOnError(##class(Port.Util).EnsurePathExists(absoluteBasePath))
   
   set s = ##class(%SQL.Statement).%New()
@@ -3971,8 +3992,10 @@ SplitPackages(className)
     set currentTS = $piece(##class(%RoutineMgr).TS(current, .compileTime), ".")
   } else {
     set fullSourcePath = ""
-    set target = ##class(%CSP.Routine).%New(current).Filename
-    set currentTS = $zdatetime(##class(%File).GetFileDateModified(target), 3,,,,,,,,,0)
+    set target = ##class(%CSP.Routine).%New(current)
+    /// Skip what we can't import.
+    if '$isobject(target) return 0
+    set currentTS = $zdatetime(##class(%File).GetFileDateModified(target.Filename), 3,,,,,,,,,0)
   }
 
   // If the file or the item is missing it's considered outdated as well.
@@ -4963,6 +4986,7 @@ Menu
 #define CMLRunActiveTest                                -6002
 #define CMLImportActive                                 -6001
 #define CMLExportActive                                 -6000
+#define NoCompatibleApplicationForPublicFile            -119
 #define FailedWhileRunningExtendedHook                  -118
 #define CannotSaveConflictingItems                      -117
 #define CouldNotDetermineWorkspace                      -116
