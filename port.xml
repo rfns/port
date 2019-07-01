@@ -1901,9 +1901,7 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
  
   set sc = $$$OK
     
-  set resolvedTarget = ##class(Port.Util).ItemToPath(target, ..BasePath)  
-  write resolvedTarget
-  write ..BasePath
+  set resolvedTarget = ##class(Port.Util).ItemToPath(target, ..BasePath)
 
   if resolvedTarget '[ ..BasePath {
     quit $$$PERROR($$$AmbiguousPartialToWorkspace, resolvedTarget)

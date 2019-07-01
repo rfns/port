@@ -173,9 +173,7 @@ Method ImportPartial(target As %String, Output importedList As %String = 0) As %
  
   set sc = $$$OK
     
-  set resolvedTarget = ##class(Port.Util).ItemToPath(target, ..BasePath)  
-  write resolvedTarget
-  write ..BasePath
+  set resolvedTarget = ##class(Port.Util).ItemToPath(target, ..BasePath)
 
   if resolvedTarget '[ ..BasePath {
     quit $$$PERROR($$$AmbiguousPartialToWorkspace, resolvedTarget)
