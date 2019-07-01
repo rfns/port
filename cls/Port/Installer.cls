@@ -6,7 +6,7 @@ Class Port.Installer [ Abstract ]
 XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
 {
 <?xml version="1.0" encoding="UTF-8"?>
-<MsgFile Language="en">
+<MsgFile Language="en-us">
   <MsgDomain Domain="Port Errors">
     <Message Id="-100" Name="InvalidPhysicalPath">The provided physical path '%1' is not part of the static files directory.</Message>
     <Message Id="-101" Name="NamespaceDoesntHaveAppWithPath">There is not an application with a physical path for the namespace %1.</Message>
@@ -27,6 +27,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Could not determine the correct workspace from the provided path.</Message>
     <Message Id="-117" Name="CannotSaveConflictingItems">Cannot save items that belongs to other projects. Please remove '%1' from the projects listed below if you want to save it into '%3': %2</Message>
     <Message Id="-118" Name="FailedWhileRunningExtendedHook">Failed while running extended hook '%1'.</Message>
+    <Message Id="-119" Name="NoCompatibleApplicationForPublicFile">There is no compatible web application for the public file located at %1.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Starting backup ...</Message>
@@ -203,6 +204,7 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-116" Name="CouldNotDetermineWorkspace">Não foi possível determinar o espaço de trabalho correto a patir do caminho fornecido.</Message>
     <Message Id="-117" Name="CannotSaveConflictingItems">Não é possível salvar itens que pertençam a outros projetos. Por favor remova o item %1 dos projetos abaixo se você deseja salvá-lo em '%3': %2</Message>
     <Message Id="-118" Name="FailedWhileRunningExtendedHook">Falha ao rodar extensão do evento '%1'.</Message>
+    <Message Id="-119" Name="NoCompatibleApplicationForPublicFile">Não existe uma aplicação web compatível com o arquivo público localizado em %1.</Message>
   </MsgDomain>
   <MsgDomain Domain="Port Log Messages">
     <Message Id="-200" Name="BackupStart">Iniciando backup...</Message>
@@ -422,19 +424,20 @@ ClassMethod Install(force As %Boolean = 0) As %Status
 ClassMethod CreateGlobalMapping() As %Status
 {
   set sc = $$$OK
-  set thisNamespace = $namespace     
+  set storage = $get(^Port.Envs("DATABASE"), $namespace)
+  set thisNamespace = $namespace
   new $namespace
   
   set $namespace = "%SYS"
   
-  if ##class(Config.MapGlobals).Exists(thisNamespace, "Port.SourceControl*") {
+  if ##class(Config.MapGlobals).Exists(storage, "Port.SourceControl*") {
     write "> Global is already mapped. Skipping ...", !
     return $$$OK
   }
   
   try {
-    $$$ThrowOnError(##class(Config.Namespaces).Get(thisNamespace, .nsProperties))
-    set glProperties("Database") = thisNamespace
+    $$$ThrowOnError(##class(Config.Namespaces).Get($namespace, .nsProperties))
+    set glProperties("Database") = storage
     $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl*", .glProperties))    
   } catch ex {
     set sc = ex.AsStatus()
@@ -446,13 +449,14 @@ ClassMethod CreateGlobalMapping() As %Status
 ClassMethod RemoveGlobalMapping() As %Status
 {
   set sc = $$$OK
-  set thisNamespace = $namespace     
+  set storage = $get(^Port.Envs("DATABASE"), $namespace)
+  set thisNamespace = $namespace    
   new $namespace
   
   set $namespace = "%SYS"  
   
-  if ##class(Config.MapGlobals).Exists(thisNamespace, "Port.SourceControl*") {
-    return ##class(Config.MapGlobals).Delete(thisNamespace, "Port.SourceControl*")
+  if ##class(Config.MapGlobals).Exists(storage, "Port.SourceControl*") {
+    return ##class(Config.MapGlobals).Delete(storage, "Port.SourceControl*")
   }
   return $$$OK
 }
