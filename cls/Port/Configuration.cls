@@ -143,41 +143,49 @@ ClassMethod GetExtendedHooksImplementer() As %String
   return $get(^Port.Configuration("source.hooks.custom"))
 }
 
+/// Defines the encoding used to save the routine items, this includes class items. Pass RAW to preserve the content as-is.
 ClassMethod SetRoutineInputTranslateTable(charset As %String) As %Status
 {
   set ^Port.Configuration("io.routine.in") = charset
 }
 
+/// Defines the encoding used to save the exported files originated from routines, this includes class items. Pass RAW to preserve the content as-is.
 ClassMethod SetRoutineOutoutTranslateTable(charset As %String) As %Status
 {
   set ^Port.Configuration("io.public.out") = charset
 }
 
+/// Defines the encoding used to save CSP items. Pass RAW to preserve the content as-is.
 ClassMethod SetPublicFileInputTranslateTable(charset As %String) As %Status
 {
   set ^Port.Configuration("io.public.in") = charset
 }
 
+/// Defines the encoding used to save public files originated from CSP items. Pass RAW to preserve the content as-is.
 ClassMethod SetPublicFileOutputTranslateTable(charset As %String) As %Status
 {
   set ^Port.Configuration("io.public.out") = charset
 }
 
+/// Retrieves the current configured routine translate table for inputs. Defaults to UTF-8.
 ClassMethod GetRoutineInputTranslateTable(charset As %String) As %Status
 {
   return $get(^Port.Configuration("io.routine.in"), "UTF8")
 }
 
+/// Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.
 ClassMethod GetRoutineOutputTranslateTable(charset As %String) As %Status
 {
   return $get(^Port.Configuration("io.public.out"), "UTF8")
 }
 
+/// Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.
 ClassMethod GetPublicFileInputTranslateTable(charset As %String) As %Status
 {
   return $get(^Port.Configuration("io.public.in"), "UTF8")
 }
 
+/// Retrieves the current configured public file translate table for outputs. Defaults to UTF-8.
 ClassMethod GetPublicFileOutputTranslateTable(charset As %String) As %Status
 {
   return $get(^Port.Configuration("io.public.out"), "UTF8")
