@@ -327,8 +327,10 @@ ClassMethod IsOutdated(project As %String, current As %String, external As %Stri
     set currentTS = $piece(##class(%RoutineMgr).TS(current, .compileTime), ".")
   } else {
     set fullSourcePath = ""
-    set target = ##class(%CSP.Routine).%New(current).Filename
-    set currentTS = $zdatetime(##class(%File).GetFileDateModified(target), 3,,,,,,,,,0)
+    set target = ##class(%CSP.Routine).%New(current)
+    /// Skip what we can't import.
+    if '$isobject(target) return 0
+    set currentTS = $zdatetime(##class(%File).GetFileDateModified(target.Filename), 3,,,,,,,,,0)
   }
 
   // If the file or the item is missing it's considered outdated as well.
