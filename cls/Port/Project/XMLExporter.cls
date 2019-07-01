@@ -43,6 +43,7 @@ Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay"
   set exported = 0
   
   set absoluteBasePath = ##class(%File).NormalizeFilename(path)
+  do ##class(%File).RemoveDirectoryTree(absoluteBasePath)
   $$$QuitOnError(##class(Port.Util).EnsurePathExists(absoluteBasePath))
   
   set s = ##class(%SQL.Statement).%New()
