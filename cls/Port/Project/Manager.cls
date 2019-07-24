@@ -107,10 +107,9 @@ ClassMethod RemoveItemsByType(projectName As %String, type As %String, Output it
 
 ClassMethod ExportTestSuiteToXML(outputPath As %String) As %Status
 {
-  set testPath = ##class(Port.Configuration).GetTestPath()
   set exporter = ..InstantiateTool("X", outputPath, 2, .sc)
   $$$QuitOnError(sc)
-  return exporter.ExportTests(outputPath_"/"_testPath)
+  return exporter.ExportTests()
 }
 
 ClassMethod LogFromImportList(projectName As %String, ByRef importList As %String) [ Final, Internal, Private ]

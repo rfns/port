@@ -1,15 +1,22 @@
 Include portutils
 
+/// This class presents a list of methods used to resolve qualified test files locations.
 Class Port.UnitTest.Util [ Abstract ]
 {
 
-ClassMethod ResolveTestLocation(workspace As %String, className As %String) As %List [ Final, Internal ]
+ClassMethod GetTestClassPath(className As %String, workspace As %String = {##class(Port.Configuration).GetWorkspace()}) As %String [ Final, Internal ]
 {
   set className = className_".CLS"
-  set path = $replace(##class(Port.Util).ItemToPath(className, workspace),  ".cls", ".xml")
-  return $listbuild(className, path)
+  set isUsingXML = (##class(Port.Configuration).GetTestFormat() = "XML")
+  
+  if isUsingXML set workspace = workspace_"/"_##class(Port.Configuration).GetTestPath()
+  set path = ##class(Port.Util).ItemToPath(className, workspace)  
+  if isUsingXML set path = $replace(path, ".cls", ".xml")
+  
+  return path
 }
 
+/// Returns if the className is a qualified test case class.
 ClassMethod IsUnitTestClass(className As %String) As %Boolean
 {
   
@@ -35,29 +42,32 @@ ClassMethod IsUnitTestClass(className As %String) As %Boolean
 ClassMethod AssertTestableClass(className, Output testableClass As %String = "", projectName As %String = {$get(^||Port.Project)}) As %Boolean
 {
   if $piece(className, ".", *) = "CLS" set className = $piece(className, ".", 1, *-1)
-  set prefix = ##class(Port.Configuration).GetTestClassPrefix()  
-  set rootPackage = $piece(className, ".")  
   
-  if rootPackage = prefix {
-    if '..IsUnitTestClass(className) return 0
-    set testableClass = className
-  } elseif ##class(%Dictionary.ClassDefinition).%ExistsId(prefix_"."_className) {
+  set prefix = ##class(Port.Configuration).GetTestClassPrefix()
+  set rootPackage = $piece(className, ".")
+  
+  if ##class(%Dictionary.ClassDefinition).%ExistsId(prefix_"."_className) {
     set maybeTestableClass = prefix_"."_className
     if ..IsUnitTestClass(maybeTestableClass) {
       set testableClass = prefix_"."_className
       if '##class(Port.Util).ExistsInProject(projectName, testableClass_".CLS") {
         // Cannot export Unit Test classes that aren't in the project.
         set testableClass = ""
-        return 0
       }
     }
+  } elseif ..IsUnitTestClass(className) {
+    set testableClass = className
   }
+  
   return (testableClass '= "")
 }
 
-ClassMethod GetTestPathForClass(testableClass As %String, baseTestPath As %String = {##class(Port.Configuration).GetTestPath()})
+ClassMethod GetClassTestSpec(testableClass As %String, baseTestPath As %String = {##class(Port.Configuration).GetTestPath()})
 {
+  set isUsingUDL = (##class(Port.Configuration).GetTestFormat() = "UDL")
   set baseTestPath = $$$RTrimProvidedSlash(baseTestPath, "/")
+  
+  if isUsingUDL set baseTestPath = ""
   return baseTestPath_"/cls/"_$piece($replace(testableClass, ".", "/"), "/", 1, *-1)_":"_testableClass
 }
 

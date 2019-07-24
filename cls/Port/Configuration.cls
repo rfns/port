@@ -54,13 +54,14 @@ ClassMethod IsAutoExportXMLEnabled() As %Status
 /// Relative to it's project. Sets the path where test cases should be exported.
 ClassMethod SetTestPath(newPath As %String = "")
 {
-
   set ^Port.Configuration("test.path") = $select(newPath = "" : "tests/cls", 1: newPath)
 }
 
 /// Retrives the resolved path where tests are being exported.
 ClassMethod GetTestPath() As %String
 {
+  set isUsingUDL = (..GetTestFormat() = "UDL")
+  if isUsingUDL return "cls"
   return ..RewritePlaceHolders($get(^Port.Configuration("test.path")),,$lb("{NAMESPACE}","{PROJECT}","{USERNAME}"))
 }
 
@@ -91,7 +92,6 @@ ClassMethod SetTestClassPrefix(newPrefix As %String = "")
 /// Gets the associated test prefix.
 ClassMethod GetTestClassPrefix() As %String
 {
-
   return $get(^Port.Configuration("test.prefix"))
 }
 
@@ -147,24 +147,28 @@ ClassMethod GetExtendedHooksImplementer() As %String
 ClassMethod SetRoutineInputTranslateTable(charset As %String) As %Status
 {
   set ^Port.Configuration("io.routine.in") = charset
+  return $$$OK
 }
 
 /// Defines the encoding used to save the exported files originated from routines, this includes class items. Pass RAW to preserve the content as-is.
-ClassMethod SetRoutineOutoutTranslateTable(charset As %String) As %Status
+ClassMethod SetRoutineOutputTranslateTable(charset As %String) As %Status
 {
-  set ^Port.Configuration("io.public.out") = charset
+  set ^Port.Configuration("io.routine.out") = charset
+  return $$$OK
 }
 
 /// Defines the encoding used to save CSP items. Pass RAW to preserve the content as-is.
 ClassMethod SetPublicFileInputTranslateTable(charset As %String) As %Status
 {
   set ^Port.Configuration("io.public.in") = charset
+  return $$$OK
 }
 
 /// Defines the encoding used to save public files originated from CSP items. Pass RAW to preserve the content as-is.
 ClassMethod SetPublicFileOutputTranslateTable(charset As %String) As %Status
 {
   set ^Port.Configuration("io.public.out") = charset
+  return $$$OK
 }
 
 /// Retrieves the current configured routine translate table for inputs. Defaults to UTF-8.
@@ -176,7 +180,7 @@ ClassMethod GetRoutineInputTranslateTable(charset As %String) As %Status
 /// Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.
 ClassMethod GetRoutineOutputTranslateTable(charset As %String) As %Status
 {
-  return $get(^Port.Configuration("io.public.out"), "UTF8")
+  return $get(^Port.Configuration("io.routine.out"), "UTF8")
 }
 
 /// Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.
@@ -189,6 +193,18 @@ ClassMethod GetPublicFileInputTranslateTable(charset As %String) As %Status
 ClassMethod GetPublicFileOutputTranslateTable(charset As %String) As %Status
 {
   return $get(^Port.Configuration("io.public.out"), "UTF8")
+}
+
+ClassMethod SetTestFormat(type As %String)
+{
+  set type = $$$ucase(type)
+  if '$lf($lb("UDL", "XML"), type) quit
+  set ^Port.Configuration("test.format") = type
+}
+
+ClassMethod GetTestFormat(type As %String)
+{
+  return $get(^Port.Configuration("test.format"), "XML")
 }
 
 ClassMethod RewritePlaceHolders(basePath As %String, projectName As %String = {$get(^||Port.Project)}, allowedPlaceholders = "*", params... As %String) As %String [ Internal ]

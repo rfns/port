@@ -14,7 +14,7 @@ ClassMethod RunTestsFromWorkspace(projectName As %String, targetClass As %String
   set activeProject = $get(^||Port.Project)
   set ^||Port.Project = projectName
   
-  if targetClass '= "" set target = ##class(Port.UnitTest.Util).GetTestPathForClass(targetClass)
+  if targetClass '= "" set target = ##class(Port.UnitTest.Util).GetClassTestSpec(targetClass)
   else  set target = ##class(Port.Configuration).GetTestPath()
   
   if targetMethod '= "" {

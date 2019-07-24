@@ -53,6 +53,7 @@ ClassMethod IsPackage(itemName) As %Boolean
 {
   if itemName = "" return 0
   if $get(^oddPKG($$$ucase(itemName))) '= "" quit 1
+  if ##class(%Dictionary.PackageDefinition).%ExistsId(itemName) quit 1
   do $System.OBJ.GetPackageList(.l, itemName)
   if $data(l) quit 1
 
@@ -62,7 +63,6 @@ ClassMethod IsPackage(itemName) As %Boolean
 /// Translates an item name into a workspace path.
 ClassMethod GetWorkspaceBasedItemPath(itemName As %String, project As %String = {$get(^||Port.Project)}) As %String
 {
-
   quit ..ItemToPath(itemName, $$$NFN(##class(Port.Configuration).GetWorkspace(project)))
 }
 
@@ -308,6 +308,8 @@ ClassMethod TranslatePath(path As %String, OSFormat As %Integer = {$zversion(1)}
   return path
 }
 
+/// Checks if an an item is outdated to their counterpart (the local source file).
+/// Use the isImport flag to invert the condition.
 ClassMethod IsOutdated(project As %String, current As %String, external As %String, isImport As %Boolean = 0) As %Boolean
 {
   if '##class(%File).Exists(external) quit 1
@@ -354,31 +356,6 @@ ClassMethod IsOutdated(project As %String, current As %String, external As %Stri
     (externalTS ] currentTS) &&
     (externalTS ] lastModified)
   )
-}
-
-ClassMethod DiscoverQualifiedWebApplication(namespace As %String, Output name As %String = "", Output path As %String = "") As %Status
-{
-
-  new $namespace
-  set $namespace = "%SYS"
-
-  set statement = ##class(%SQL.Statement).%New()
-  do statement.%PrepareClassQuery("Security.Applications", "NamespaceList")
-  set cursor = statement.%Execute(namespace)
-
-  set appName = ""
-  set path = ""
-
-  while cursor.%Next() {
-    set p = cursor.%Get("Path")
-    if p '= "" {
-      if name = cursor.%Get("Name") { set path = p quit }
-      elseif name = "" { set name = cursor.%Get("Name") set path = p }
-    }
-  }
-
-  if path '= "" quit $$$OK
-  quit $$$ERROR($$$ApplicationInvalidName, name)
 }
 
 }

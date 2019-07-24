@@ -49,6 +49,9 @@ Method EnqueueAll() As %Status
 Method EnqueueItem(origin As %String) As %Status
 {
   $$$QuitOnError(..DescribeItem(origin, .isOutdated, .itemName, .itemType, .group))
+  
+  // Skip this item because it's invalid.
+  if group = -1 return $$$OK
 
   if '$data(i%ItemsList(itemName)) {
     if '..Backup.IsRequired && '..SkipBackup && ((itemType = "CSP") && isOutdated) {
@@ -118,12 +121,22 @@ Method GetTypePriority(type As %String) As %Integer [ Internal, Private ]
 
 Method DescribeItem(origin As %String, Output isOutdated As %Boolean = 0, Output itemName As %String, Output itemType As %String, Output priority As %String) As %Status [ Internal, Private ]
 {
+ 
+  set fileName = ##class(%File).GetFilename(origin)     
+  set emptyName = ($piece(fileName, ".") = "")
+  set pathType = ##class(Port.Util).GetPathType(origin)
+  
   set isOutdated = 1
   set itemName = ##class(Port.Util).PathToItem(origin)
   set itemType = ##class(Port.Util).GetItemType(itemName)  
-  set priority = ..GetTypePriority(itemType) 
+  set priority = ..GetTypePriority(itemType)
   
-  if '..Overwrite {
+  if emptyName || (pathType '= itemType && (pathType '= "PUBLIC")) {
+    set itemName = ""
+    set itemType = ""
+    set priority = -1
+    set isOutdated = 0
+  } elseif '..Overwrite {
     set isOutdated = ..IsOutdated(itemName, origin, 1)
   }
   
@@ -234,7 +247,7 @@ Method Import() As %Status
       write ..LogLine($$$NoPendingItemsToImport, 0)
     }
 
-    if ..IsNewProject {
+    if ..IsNewProject {      
       write ..LogLine($$$NewProject, 0, ..Project.Name)
     }
 
@@ -255,9 +268,10 @@ Method Import() As %Status
         set ..Backup.IsRequired = 0
       } else  {
         write ..LogLine($$$Failed, 0)
-        $$$ThrowOnError($$$PERROR(UnableToRemoveDirectory, ..BackupDirectory))
+        $$$ThrowOnError($$$PERROR($$$UnableToRemoveDirectory, ..BackupDirectory))
       }
     }
+    $$$ThrowOnError(..Project.%Save())
     tcommit
   } catch ex {
     set sc = ex.AsStatus()
@@ -293,29 +307,44 @@ ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, ite
     $$$QuitOnError(fs.LinkToFile(origin))
     $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromStream($namespace, itemName, fs))
   } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {
-    set routine = ""
-    set fs = ##class(%Stream.FileCharacter).%New()
-    set fs.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()
+    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")
     
-    if itemType = "CSP" {
-      set extension = $$$ucase($piece(origin, ".", *))
-      if extension = "" set extension = "TXT"
-      do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
-      if bin set fs = ##class(%Stream.FileBinary).%New()
-      else  set fs.TranslateTable = ##class(Port.Configuration).GetPublicFileInputTranslateTable()
-    }
-    
-    $$$QuitOnError(fs.LinkToFile(origin))
-
     if ##class(%RoutineMgr).Exists(itemName) {
-      set routine = ##class(%RoutineMgr).%OpenId(itemName)     
+      set routine = ##class(%RoutineMgr).%OpenId(itemName)
     } else {
       set routine = ##class(%RoutineMgr).%New(itemName)
     }
-
+    
+    set localSource = ##class(%Stream.FileCharacter).%New()
+    set localSource.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()    
+    
+    if itemType = "CSP" {  
+      if routine = "" return $$$PERROR($$$NoCompatibleApplicationForPublicFile, origin)
+      set extension = $$$ucase($piece(origin, ".", *))
+      if extension = "" set extension = "TXT"
+      do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
+      
+      /// We can't use any translation table when importing a binary, so we do a bit-to-bit copy.
+      if bin {
+        set destination = routine.Code.Filename
+        set path = ##class(%File).GetDirectory(routine.Code.Filename)        
+        set routine = ""
+        set localSource = ""
+        $$$QuitOnError(##class(Port.Util).EnsurePathExists(path))
+        $$$QuitOnError(##class(%File).CopyFile(origin, destination))
+        return $$$OK
+      } else {
+        set tt = ##class(Port.Configuration).GetPublicFileInputTranslateTable()
+        set localSource.TranslateTable = tt
+        set routine.Code.TranslateTable = tt
+      }
+    }    
+            
     set code = routine.Code
     do code.Clear()
-    $$$QuitOnError(code.CopyFrom(fs))
+    
+    $$$QuitOnError(localSource.LinkToFile(origin))
+    $$$QuitOnError(code.CopyFrom(localSource))
     $$$QuitOnError(routine.%Save())
   }
   quit $$$OK

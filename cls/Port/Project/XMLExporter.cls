@@ -9,7 +9,7 @@ Method ExportToXML(justProject As %Boolean = 0, qspec As %String = "/diffexport=
   $$$QuitOnError(..Project.Export(developmentXML, qspec, justProject, errorlog, charset))
   write ..LogLine($$$XMLExportedTo, 0, ..Project.Name, developmentXML)  
   
-  do RemoveTestClasses(.items)  
+  do SanitizePackages(.items)  
   
   if $order(items("")) '= "" {  
     $$$QuitOnError($System.OBJ.Export(.items, productionXML, qspec, errorlog, charset))
@@ -18,7 +18,7 @@ Method ExportToXML(justProject As %Boolean = 0, qspec As %String = "/diffexport=
     
   quit $$$OK    
   
-RemoveTestClasses(items="")
+SanitizePackages(items="")
   set sc = $$$OK 
   set testPrefix = ##class(Port.Configuration).GetTestClassPrefix()
   if testPrefix '= "" {
@@ -36,15 +36,14 @@ RemoveTestClasses(items="")
   quit
 }
 
-Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay", ByRef tests As %String = "", ByRef errors = "") As %Status
+Method ExportTests(qspec As %String = "/diffexport=1/nodisplay", ByRef tests As %String = "", ByRef errors = "") As %Status
 {
-    
   set sc = $$$OK
   set exported = 0
   
-  set absoluteBasePath = ##class(%File).NormalizeFilename(path)
-  do ##class(%File).RemoveDirectoryTree(absoluteBasePath)
-  $$$QuitOnError(##class(Port.Util).EnsurePathExists(absoluteBasePath))
+  // We don't actually export any XML if UDL is enabled.
+  set isUsingUDL = (##class(Port.Configuration).GetTestFormat() = "UDL")   
+  if isUsingUDL return $$$OK  
   
   set s = ##class(%SQL.Statement).%New()
   $$$QuitOnError(s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList"))
@@ -54,8 +53,8 @@ Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay"
     set type = r.%Get("Type")
     if type = "CLS" {     
       set class = r.%Get("Name")      
-      if 'exported set exported = ..ExportTest(absoluteBasePath, class, .esc, qspec)
-      else  do ..ExportTest(absoluteBasePath, class, .esc)          
+      if 'exported set exported = ..ExportTest(class, .esc, qspec)
+      else  do ..ExportTest(class, .esc)          
       set sc = $$$ADDSC(sc, esc)
     }
   } 
@@ -65,20 +64,18 @@ Method ExportTests(path As %String, qspec As %String = "/diffexport=1/nodisplay"
   quit sc
 }
 
-Method ExportTest(absoluteBasePath As %String, className As %String, sc As %Status = {$$$OK}, qspec = "/diffexport=1/nodisplay") As %Boolean
+Method ExportTest(className As %String, sc As %Status = {$$$OK}, qspec = "/diffexport=1/nodisplay") As %Boolean
 {
   set sc = $$$OK
   set exported  = 0
   
   if '##class(Port.UnitTest.Util).IsUnitTestClass(className) quit exported  
   
-  set test = ##class(Port.UnitTest.Util).ResolveTestLocation(absoluteBasePath, className)
+  set classPath = ##class(Port.UnitTest.Util).GetTestClassPath(className, ..BasePath)
   
-  if $listvalid(test) && (test '= "") {
-    set className = $listget(test, 1)
-    set classPath = $listget(test, 2)
+  if classPath '= "" {
     write ..Log($$$ExportingTestClassToXML, 0, $replace(className, ".CLS", ""))
-    set cSC = $System.OBJ.Export(className, classPath,qspec,, ##class(Port.Configuration).GetRoutineOutputTranslateTable())
+    set cSC = $System.OBJ.Export(className_".CLS", classPath,qspec)
     set sc = $$$ADDSC(sc, cSC)
     if $$$ISOK(cSC) write ..LogLine($$$Done, 0)
     else  write ..LogLine($$$Failed, 0)

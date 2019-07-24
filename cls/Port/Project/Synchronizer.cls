@@ -81,35 +81,40 @@ Method Purge() As %Status
   else  write ..Tool.LogLine($$$NoExtraneousItems, 1)
 
   for i=1:1:length {
-    set possiblyDeleted = 0
-    set extraneousItem = $listget(i%ExtraneousEntries, i)
-    set path = $listget(extraneousItem, 1)
-    set slash = $$$Slash(path)
-    set type = $listget(extraneousItem, 2)
-    if parentDirectory '= "" && (path [ parentDirectory) set possiblyDeleted = 1
-    if type = "F" && ##class(%File).Exists(path) {
-      set fileName = ##class(%File).GetFilename(path)
-      set lastNode = ##class(%File).GetDirectoryPiece(parentDirectory, $length(parentDirectory, slash))
-      set fileName = $piece(fileName, ".", 1)
-      if fileName = lastNode set possiblyDeleted = 0
-      if possiblyDeleted = 1 continue
-      write ..Tool.LogLine($$$RemovingFile, 2, path)
-      if ..Simulated = 0 do ##class(%File).Delete(path)
-    } elseif type = "D" {
-      if parentDirectory = "" || (path '[ parentDirectory) {
-        set lastParent = parentDirectory
-        set parentDirectory = $replace(path, ##class(%File).GetDirectoryPiece(path, $length(path, slash))_slash, "")
-        if lastParent = "" set lastParent = parentDirectory
-      }
-      if possiblyDeleted = 1 continue
-      write ..Tool.LogLine($$$RemovingDirectory, 2, path)
-      if ..Simulated = 0 do ##class(%File).RemoveDirectoryTree(path)
-    }
+    set path = $listget(i%ExtraneousEntries, i)
+    do ..TreeDelete(s, path)
   }
+  
   if length > 0 {
     write ..Tool.LogLine($$$TotalExtraneousItemsRemoved, 1, length)
   }
+  
   return sc
+}
+
+Method TreeDelete(statement As %SQL.Statement, path As %String, hasContent As %Boolean = 0) [ Private ]
+{
+  if path = ..Tool.BasePath return $$$OK 
+  
+  // There's a bug when using Exists for directories, it seems to assume that a directory is also a file.
+  // To workaround this, DirectoryExists is also applied because it WILL return 0.
+  if '##class(%File).DirectoryExists(path) && ##class(%File).Exists(path) { 
+    write ..Tool.LogLine($$$RemovingFile, 2, path)
+    do ##class(%File).Delete(path) 
+  } elseif hasContent = 0 { 
+    else  write ..Tool.LogLine($$$RemovingDirectory, 2, path)
+    do ##class(%File).RemoveDirectory(path)
+  }
+    
+  set path = $piece(path, $$$OSSlash, 1, *-1)
+  set r = statement.%Execute(path)
+  set hasContent = 0
+    
+  if r.%Next(.sc) {
+    if $$$ISERR(sc) return sc
+    set hasContent = 1
+  }  
+  return ..TreeDelete(statement, path, hasContent)
 }
 
 Method Scan(statement As %SQL.Statement, path As %String, filesCount As %Integer = 0) As %Status [ Private ]
@@ -139,8 +144,20 @@ Method Scan(statement As %SQL.Statement, path As %String, filesCount As %Integer
       set filesCount =  filesCount + 1
     }
 
-    if 'filesCount && $lf($$$ImportTypes, dirType) || ($lf($$$ImportTypes, dirType) && '..Whitelist.IsDefined(fullPath) && '$listfind(i%ExtraneousEntries, fullPath)) {
-      set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = $listbuild(fullPath, type)
+    if 'filesCount && $lf($$$ImportTypes, dirType) || ($lf($$$ImportTypes, dirType) && '..Whitelist.IsDefined(fullPath) && '$listfind(i%ExtraneousEntries, fullPath)) {      
+      set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = fullPath
+      
+      // Handle test files created for classes.      
+      if dirType = "CLS" {
+        set className = $replace(##class(Port.Util).PathToItem(fullPath_".cls"), ".cls", "")        
+        
+        // Attempt to find the equivalent test class.
+        if ##class(Port.UnitTest.Util).AssertTestableClass(className, .testableClass) {
+          set fullPath = ##class(Port.UnitTest.Util).GetTestClassPath(testableClass, ..Tool.BasePath)
+          // Only mark to remove if the test suite was exported as XML, regardless of what type of test format has been selected.                    
+           set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = fullPath
+        }
+      }
     }
   }
   return sc
@@ -152,10 +169,5 @@ Method Reset() As %Status
   return ..Whitelist.Clear()
 }
 
-ClassMethod T()
-{
-  do ##class(Port.Project.Manager).ExportTestSuiteToXML("/CacheProjects/DEV/port")
-  do ##class(Port.Project.Manager).Export("/CacheProjects/DEV/port")
 }
 
-}

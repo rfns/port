@@ -233,13 +233,20 @@ Method ExportClass(className As %String, fromPackage As %Boolean = 0) As %Status
     $$$ThrowOnError(##class(%Compiler.UDL.TextServices).GetTextAsStream($namespace, itemName, .stream))
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = "UTF8"
+    set file.TranslateTable = ##class(Port.Configuration).GetRoutineOutputTranslateTable()
     do file.LinkToFile(destination)
 
     $$$ThrowOnError(file.CopyFromAndSave(stream))
     write ..LogLine($$$Done, 1)
 
     set ..AffectedCount = ..AffectedCount + 1
+    set isUsingXML = (##class(Port.Configuration).GetTestFormat() = "XML")
+    
+    if ##class(Port.UnitTest.Util).AssertTestableClass(className, .testableClass) && isUsingXML {
+      set xmlExporter = ##class(Port.Project.XMLExporter).%New(..BasePath, ..LogLevel)
+      do xmlExporter.ExportTest(testableClass, .sc)
+      $$$ThrowOnError(sc)
+    }
   } catch ex {
     set sc = ex.AsStatus()
     write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))

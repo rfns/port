@@ -40,12 +40,12 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-303" Name="ExportingType">Exporting %1 %2 ...</Message>
     <Message Id="-304" Name="NewWorkspaceDetected">A new workspace has been detected for %1. The project will be exported as a whole.</Message>
     <Message Id="-400" Name="SynchronizingProject">Synchronizing the project %1.</Message>
-    <Message Id="-401" Name="CheckingExtraneousItems">Checking for the presence of orphan items in the project.</Message>
-    <Message Id="-402" Name="TotalExtraneousItems">Total orphan items detected: %1.</Message>
-    <Message Id="-403" Name="NoExtraneousItems">No orphan items were found.</Message>
+    <Message Id="-401" Name="CheckingExtraneousItems">Checking the project for extraneous items ...</Message>
+    <Message Id="-402" Name="TotalExtraneousItems">Total extraneous items found: %1.</Message>
+    <Message Id="-403" Name="NoExtraneousItems">No extraneous items were found.</Message>
     <Message Id="-404" Name="RemovingFile">Removing %1 (file).</Message>
-    <Message Id="-405" Name="RemovingDirectory">Removing item %1 (directory).</Message>
-    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total of removed orphan items: %1</Message>
+    <Message Id="-405" Name="RemovingDirectory">Removing %1 (directory).</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total of extraneous items removed: %1</Message>
     <Message Id="-500" Name="Done"> done.</Message>
     <Message Id="-501" Name="DoneWithErrors"> done, but with errors.</Message>
     <Message Id="-501" Name="Failed"> failed. Reason: %1.</Message>
@@ -217,12 +217,12 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-303" Name="ExportingType">Exportando %1 %2 ...</Message>
     <Message Id="-304" Name="NewWorkspaceDetected">Um novo espaço de trabalho foi detectado para %1. O projeto será exportado como um todo.</Message>
     <Message Id="-400" Name="SynchronizingProject">Sincronizando o projeto %1.</Message>
-    <Message Id="-401" Name="CheckingExtraneousItems">Verificando presença de itens órfãos no projeto.</Message>
-    <Message Id="-402" Name="TotalExtraneousItems">Total de itens órfãos detectados: %1.</Message>
-    <Message Id="-403" Name="NoExtraneousItems">Nenhum item órfão encontrado.</Message>
-    <Message Id="-404" Name="RemovingFile">Removendo item %1 (arquivo).</Message>
-    <Message Id="-405" Name="RemovingDirectory">Removendo item %1 (diretório).</Message>
-    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total de itens órfãos removidos: %1.</Message>
+    <Message Id="-401" Name="CheckingExtraneousItems">Verificando o projeto em busca de itens desconhecidos ... </Message>
+    <Message Id="-402" Name="TotalExtraneousItems">Total de items desconhecidos encontrados: %1.</Message>
+    <Message Id="-403" Name="NoExtraneousItems">Não há itens para eliminar.</Message>
+    <Message Id="-404" Name="RemovingFile">Removendo %1 (arquivo).</Message>
+    <Message Id="-405" Name="RemovingDirectory">Removendo %1 (diretório).</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total de itens desconhecidos removidos: %1.</Message>
     <Message Id="-500" Name="Done"> feito.</Message>
     <Message Id="-501" Name="DoneWithErrors"> feito, mas com erros.</Message>
     <Message Id="-501" Name="Failed"> falhou.</Message>
@@ -375,7 +375,7 @@ ClassMethod Uninstall() As %Status
   return $$$OK
 }
 
-ClassMethod Install(force As %Boolean = 0) As %Status
+ClassMethod Install(force As %Boolean = {$get(^||Port.Envs("FORCE_INSTALL"), 0)}) As %Status
 {
   set sc = $$$OK
   
@@ -424,13 +424,13 @@ ClassMethod Install(force As %Boolean = 0) As %Status
 ClassMethod CreateGlobalMapping() As %Status
 {
   set sc = $$$OK
-  set storage = $get(^Port.Envs("DATABASE"), $namespace)
+  set storage = $get(^||Port.Envs("DATABASE"), $namespace)
   set thisNamespace = $namespace
   new $namespace
   
   set $namespace = "%SYS"
   
-  if ##class(Config.MapGlobals).Exists(storage, "Port.SourceControl*") {
+  if ##class(Config.MapGlobals).Exists(storage, "Port.*") {
     write "> Global is already mapped. Skipping ...", !
     return $$$OK
   }
@@ -438,7 +438,7 @@ ClassMethod CreateGlobalMapping() As %Status
   try {
     $$$ThrowOnError(##class(Config.Namespaces).Get($namespace, .nsProperties))
     set glProperties("Database") = storage
-    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl*", .glProperties))    
+    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.*", .glProperties))    
   } catch ex {
     set sc = ex.AsStatus()
   }
@@ -449,7 +449,7 @@ ClassMethod CreateGlobalMapping() As %Status
 ClassMethod RemoveGlobalMapping() As %Status
 {
   set sc = $$$OK
-  set storage = $get(^Port.Envs("DATABASE"), $namespace)
+  set storage = $get(^||Port.Envs("DATABASE"), $namespace)
   set thisNamespace = $namespace    
   new $namespace
   

@@ -81,7 +81,6 @@ Method OnAfterSave(InternalName As %String) As %Status
           set sc = $$$ADDSC(sc, ssc)
         }
       } elseif ##class(Port.Util).IsRoutine(InternalName) {
-        write InternalName, !
         set sc = exporter.ExportRoutine(InternalName)
       } elseif type = "PKG" {     
         set sc = exporter.ExportPackage(InternalName)     
@@ -154,8 +153,9 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     if name = "%MLExportTests" {
       quit ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath)
     }
-    if name = "%MLRunTests" && (projectPath '= "") {      
-      $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/run/noload/nodelete"))
+    if name = "%MLRunTests" && (projectPath '= "") {
+      set loadType = "/load"_$$$ucase(##class(Port.Configuration).GetTestFormat())
+      $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/run/noload/nodelete"_loadType))
     }       
     if name = "%MLImport" {
       $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0))
@@ -205,7 +205,7 @@ Method UserAction(Type As %Integer, Name As %String, InternalName As %String, Se
     if name = "%CMLRunActiveTest" {
       set testable = ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass)
       if testable {
-        $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetTestPathForClass(testableClass), "/norecursive/run/noload/nodelete"))
+        $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetClassTestSpec(testableClass), "/norecursive/run/noload/nodelete"))
       }
     }
     
@@ -272,6 +272,10 @@ Method OnMenuItem(MenuName As %String, InternalName As %String, SelectedText As 
     set Enabled = 
       ##class(Port.Util).ExistsInProject(^||Port.Project, InternalName) &&
       ##class(Port.UnitTest.Util).AssertTestableClass(InternalName)
+  }
+  
+  if name = "%MLExportTests" {
+    set Enabled = (##class(Port.Configuration).GetTestFormat() = "XML")
   } 
   
   set isProjectOpened = ($get(^||Port.Project, "Default") '[ "Default")
@@ -301,8 +305,8 @@ Method OnAfterCompile(InternalName As %String) As %Status
         ##class(%File).DirectoryExists(projectPath_"/"_testPath)        
       )
       if shouldRunTest {
-       $$$QuitOnError(xmlExporter.ExportTest(projectPath, testableClass))
-       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetTestPathForClass(testableClass), "/norecursive/run/noload/nodelete"))
+       $$$QuitOnError(xmlExporter.ExportTest(testableClass))
+       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetClassTestSpec(testableClass), "/norecursive/run/noload/nodelete"))
       } 
     }
   }

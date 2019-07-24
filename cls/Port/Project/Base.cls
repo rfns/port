@@ -55,6 +55,8 @@ Property LogLevel As %Integer [ InitialExpression = 2 ];
 /// A list of files that are ignored by the synchronizer utility.
 Property IgnoredPaths As list Of %String;
 
+Property ProjectName As %String [ Private ];
+
 Method %OnNew(target As %String, logLevel As %Integer = 2) As %Status
 {
   if target = "" {
@@ -63,10 +65,15 @@ Method %OnNew(target As %String, logLevel As %Integer = 2) As %Status
 
   if (target [ "/") || (target [ "\") {
     set workspaceName = $piece(target, $$$PathSlash(target), *)
+    
     set project = ##class(%Studio.Project).%OpenId(workspaceName)
+    if '$isobject(project) set project = ##class(%Studio.Project).%New()
+    
+    set project.Name = workspaceName
     set fullProjectPath = ##class(%File).NormalizeFilename(target)
     set ..BasePath = ##class(%File).NormalizeFilename(fullProjectPath)
-    set ..Project = project
+    set ..Project = project    
+    set ..ProjectName = workspaceName
     set ..Logger = ##class(Port.Logger).%New(logLevel)
     do ..BuildTypePaths(..BasePath)
     quit $$$OK
@@ -105,7 +112,7 @@ Method LogExclusiveLine(message As %Boolean, logLevel As %Integer = 1, params...
 /// Returns the name of the project that is being used by the utility.
 Method GetProjectName() As %String
 {
-  quit ..Project.Name
+  quit ..ProjectName
 }
 
 /// Adds a path to the IgnoredPaths list. Which is used by the Synchronizer to skip files.

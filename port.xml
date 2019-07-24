@@ -110,9 +110,7 @@ Returns if project XML generation is enabled.</Description>
 Relative to it's project. Sets the path where test cases should be exported.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>newPath:%String=""</FormalSpec>
-<Implementation><![CDATA[
-
-  set ^Port.Configuration("test.path") = $select(newPath = "" : "tests/cls", 1: newPath)
+<Implementation><![CDATA[  set ^Port.Configuration("test.path") = $select(newPath = "" : "tests/cls", 1: newPath)
 ]]></Implementation>
 </Method>
 
@@ -121,7 +119,10 @@ Relative to it's project. Sets the path where test cases should be exported.</De
 Retrives the resolved path where tests are being exported.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  return ..RewritePlaceHolders($get(^Port.Configuration("test.path")),,$lb("{NAMESPACE}","{PROJECT}","{USERNAME}"))
+<Implementation><![CDATA[
+  set isUsingUDL = (..GetTestFormat() = "UDL")
+  if isUsingUDL return "cls"
+  return ..RewritePlaceHolders($get(^Port.Configuration("test.path")),,$lb("{NAMESPACE}","{PROJECT}","{USERNAME}"))
 ]]></Implementation>
 </Method>
 
@@ -164,9 +165,7 @@ Sets the prefix used to match against the implementation classe.</Description>
 Gets the associated test prefix.</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[
-
-  return $get(^Port.Configuration("test.prefix"))
+<Implementation><![CDATA[  return $get(^Port.Configuration("test.prefix"))
 ]]></Implementation>
 </Method>
 
@@ -255,17 +254,21 @@ Defines the encoding used to save the routine items, this includes class items. 
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  set ^Port.Configuration("io.routine.in") = charset
+<Implementation><![CDATA[
+  set ^Port.Configuration("io.routine.in") = charset
+  return $$$OK
 ]]></Implementation>
 </Method>
 
-<Method name="SetRoutineOutoutTranslateTable">
+<Method name="SetRoutineOutputTranslateTable">
 <Description>
 Defines the encoding used to save the exported files originated from routines, this includes class items. Pass RAW to preserve the content as-is.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  set ^Port.Configuration("io.public.out") = charset
+<Implementation><![CDATA[
+  set ^Port.Configuration("io.routine.out") = charset
+  return $$$OK
 ]]></Implementation>
 </Method>
 
@@ -275,7 +278,9 @@ Defines the encoding used to save CSP items. Pass RAW to preserve the content as
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  set ^Port.Configuration("io.public.in") = charset
+<Implementation><![CDATA[
+  set ^Port.Configuration("io.public.in") = charset
+  return $$$OK
 ]]></Implementation>
 </Method>
 
@@ -285,7 +290,9 @@ Defines the encoding used to save public files originated from CSP items. Pass R
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  set ^Port.Configuration("io.public.out") = charset
+<Implementation><![CDATA[
+  set ^Port.Configuration("io.public.out") = charset
+  return $$$OK
 ]]></Implementation>
 </Method>
 
@@ -305,7 +312,7 @@ Retrieves the current configured routine translate table for outputs. Defaults t
 <ClassMethod>1</ClassMethod>
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  return $get(^Port.Configuration("io.public.out"), "UTF8")
+<Implementation><![CDATA[  return $get(^Port.Configuration("io.routine.out"), "UTF8")
 ]]></Implementation>
 </Method>
 
@@ -326,6 +333,23 @@ Retrieves the current configured public file translate table for outputs. Defaul
 <FormalSpec>charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[  return $get(^Port.Configuration("io.public.out"), "UTF8")
+]]></Implementation>
+</Method>
+
+<Method name="SetTestFormat">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>type:%String</FormalSpec>
+<Implementation><![CDATA[
+  set type = $$$ucase(type)
+  if '$lf($lb("UDL", "XML"), type) quit
+  set ^Port.Configuration("test.format") = type
+]]></Implementation>
+</Method>
+
+<Method name="GetTestFormat">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>type:%String</FormalSpec>
+<Implementation><![CDATA[  return $get(^Port.Configuration("test.format"), "XML")
 ]]></Implementation>
 </Method>
 
@@ -402,12 +426,12 @@ Retrieves the current configured public file translate table for outputs. Defaul
     <Message Id="-303" Name="ExportingType">Exporting %1 %2 ...</Message>
     <Message Id="-304" Name="NewWorkspaceDetected">A new workspace has been detected for %1. The project will be exported as a whole.</Message>
     <Message Id="-400" Name="SynchronizingProject">Synchronizing the project %1.</Message>
-    <Message Id="-401" Name="CheckingExtraneousItems">Checking for the presence of orphan items in the project.</Message>
-    <Message Id="-402" Name="TotalExtraneousItems">Total orphan items detected: %1.</Message>
-    <Message Id="-403" Name="NoExtraneousItems">No orphan items were found.</Message>
+    <Message Id="-401" Name="CheckingExtraneousItems">Checking the project for extraneous items ...</Message>
+    <Message Id="-402" Name="TotalExtraneousItems">Total extraneous items found: %1.</Message>
+    <Message Id="-403" Name="NoExtraneousItems">No extraneous items were found.</Message>
     <Message Id="-404" Name="RemovingFile">Removing %1 (file).</Message>
-    <Message Id="-405" Name="RemovingDirectory">Removing item %1 (directory).</Message>
-    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total of removed orphan items: %1</Message>
+    <Message Id="-405" Name="RemovingDirectory">Removing %1 (directory).</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total of extraneous items removed: %1</Message>
     <Message Id="-500" Name="Done"> done.</Message>
     <Message Id="-501" Name="DoneWithErrors"> done, but with errors.</Message>
     <Message Id="-501" Name="Failed"> failed. Reason: %1.</Message>
@@ -581,12 +605,12 @@ Retrieves the current configured public file translate table for outputs. Defaul
     <Message Id="-303" Name="ExportingType">Exportando %1 %2 ...</Message>
     <Message Id="-304" Name="NewWorkspaceDetected">Um novo espaço de trabalho foi detectado para %1. O projeto será exportado como um todo.</Message>
     <Message Id="-400" Name="SynchronizingProject">Sincronizando o projeto %1.</Message>
-    <Message Id="-401" Name="CheckingExtraneousItems">Verificando presença de itens órfãos no projeto.</Message>
-    <Message Id="-402" Name="TotalExtraneousItems">Total de itens órfãos detectados: %1.</Message>
-    <Message Id="-403" Name="NoExtraneousItems">Nenhum item órfão encontrado.</Message>
-    <Message Id="-404" Name="RemovingFile">Removendo item %1 (arquivo).</Message>
-    <Message Id="-405" Name="RemovingDirectory">Removendo item %1 (diretório).</Message>
-    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total de itens órfãos removidos: %1.</Message>
+    <Message Id="-401" Name="CheckingExtraneousItems">Verificando o projeto em busca de itens desconhecidos ... </Message>
+    <Message Id="-402" Name="TotalExtraneousItems">Total de items desconhecidos encontrados: %1.</Message>
+    <Message Id="-403" Name="NoExtraneousItems">Não há itens para eliminar.</Message>
+    <Message Id="-404" Name="RemovingFile">Removendo %1 (arquivo).</Message>
+    <Message Id="-405" Name="RemovingDirectory">Removendo %1 (diretório).</Message>
+    <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total de itens desconhecidos removidos: %1.</Message>
     <Message Id="-500" Name="Done"> feito.</Message>
     <Message Id="-501" Name="DoneWithErrors"> feito, mas com erros.</Message>
     <Message Id="-501" Name="Failed"> falhou.</Message>
@@ -745,7 +769,7 @@ Retrieves the current configured public file translate table for outputs. Defaul
 
 <Method name="Install">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>force:%Boolean=0</FormalSpec>
+<FormalSpec>force:%Boolean={$get(^||Port.Envs("FORCE_INSTALL"), 0)}</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
@@ -798,13 +822,13 @@ Retrieves the current configured public file translate table for outputs. Defaul
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
-  set storage = $get(^Port.Envs("DATABASE"), $namespace)
+  set storage = $get(^||Port.Envs("DATABASE"), $namespace)
   set thisNamespace = $namespace
   new $namespace
   
   set $namespace = "%SYS"
   
-  if ##class(Config.MapGlobals).Exists(storage, "Port.SourceControl*") {
+  if ##class(Config.MapGlobals).Exists(storage, "Port.*") {
     write "> Global is already mapped. Skipping ...", !
     return $$$OK
   }
@@ -812,7 +836,7 @@ Retrieves the current configured public file translate table for outputs. Defaul
   try {
     $$$ThrowOnError(##class(Config.Namespaces).Get($namespace, .nsProperties))
     set glProperties("Database") = storage
-    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.SourceControl*", .glProperties))    
+    $$$ThrowOnError(##class(Config.MapGlobals).Create(thisNamespace, "Port.*", .glProperties))    
   } catch ex {
     set sc = ex.AsStatus()
   }
@@ -826,7 +850,7 @@ Retrieves the current configured public file translate table for outputs. Defaul
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
-  set storage = $get(^Port.Envs("DATABASE"), $namespace)
+  set storage = $get(^||Port.Envs("DATABASE"), $namespace)
   set thisNamespace = $namespace    
   new $namespace
   
@@ -1198,6 +1222,11 @@ A list of files that are ignored by the synchronizer utility.</Description>
 <Collection>list</Collection>
 </Property>
 
+<Property name="ProjectName">
+<Type>%String</Type>
+<Private>1</Private>
+</Property>
+
 <Method name="%OnNew">
 <FormalSpec>target:%String,logLevel:%Integer=2</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -1208,10 +1237,15 @@ A list of files that are ignored by the synchronizer utility.</Description>
 
   if (target [ "/") || (target [ "\") {
     set workspaceName = $piece(target, $$$PathSlash(target), *)
+    
     set project = ##class(%Studio.Project).%OpenId(workspaceName)
+    if '$isobject(project) set project = ##class(%Studio.Project).%New()
+    
+    set project.Name = workspaceName
     set fullProjectPath = ##class(%File).NormalizeFilename(target)
     set ..BasePath = ##class(%File).NormalizeFilename(fullProjectPath)
-    set ..Project = project
+    set ..Project = project    
+    set ..ProjectName = workspaceName
     set ..Logger = ##class(Port.Logger).%New(logLevel)
     do ..BuildTypePaths(..BasePath)
     quit $$$OK
@@ -1268,7 +1302,7 @@ Same as LogExclusive, but will break into a new line.</Description>
 <Description>
 Returns the name of the project that is being used by the utility.</Description>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[  quit ..Project.Name
+<Implementation><![CDATA[  quit ..ProjectName
 ]]></Implementation>
 </Method>
 
@@ -1645,13 +1679,20 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
     $$$ThrowOnError(##class(%Compiler.UDL.TextServices).GetTextAsStream($namespace, itemName, .stream))
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = "UTF8"
+    set file.TranslateTable = ##class(Port.Configuration).GetRoutineOutputTranslateTable()
     do file.LinkToFile(destination)
 
     $$$ThrowOnError(file.CopyFromAndSave(stream))
     write ..LogLine($$$Done, 1)
 
     set ..AffectedCount = ..AffectedCount + 1
+    set isUsingXML = (##class(Port.Configuration).GetTestFormat() = "XML")
+    
+    if ##class(Port.UnitTest.Util).AssertTestableClass(className, .testableClass) && isUsingXML {
+      set xmlExporter = ##class(Port.Project.XMLExporter).%New(..BasePath, ..LogLevel)
+      do xmlExporter.ExportTest(testableClass, .sc)
+      $$$ThrowOnError(sc)
+    }
   } catch ex {
     set sc = ex.AsStatus()
     write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
@@ -1752,6 +1793,9 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   $$$QuitOnError(..DescribeItem(origin, .isOutdated, .itemName, .itemType, .group))
+  
+  // Skip this item because it's invalid.
+  if group = -1 return $$$OK
 
   if '$data(i%ItemsList(itemName)) {
     if '..Backup.IsRequired && '..SkipBackup && ((itemType = "CSP") && isOutdated) {
@@ -1834,12 +1878,22 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+ 
+  set fileName = ##class(%File).GetFilename(origin)     
+  set emptyName = ($piece(fileName, ".") = "")
+  set pathType = ##class(Port.Util).GetPathType(origin)
+  
   set isOutdated = 1
   set itemName = ##class(Port.Util).PathToItem(origin)
   set itemType = ##class(Port.Util).GetItemType(itemName)  
-  set priority = ..GetTypePriority(itemType) 
+  set priority = ..GetTypePriority(itemType)
   
-  if '..Overwrite {
+  if emptyName || (pathType '= itemType && (pathType '= "PUBLIC")) {
+    set itemName = ""
+    set itemType = ""
+    set priority = -1
+    set isOutdated = 0
+  } elseif '..Overwrite {
     set isOutdated = ..IsOutdated(itemName, origin, 1)
   }
   
@@ -1964,7 +2018,7 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
       write ..LogLine($$$NoPendingItemsToImport, 0)
     }
 
-    if ..IsNewProject {
+    if ..IsNewProject {      
       write ..LogLine($$$NewProject, 0, ..Project.Name)
     }
 
@@ -1985,9 +2039,10 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
         set ..Backup.IsRequired = 0
       } else  {
         write ..LogLine($$$Failed, 0)
-        $$$ThrowOnError($$$PERROR(UnableToRemoveDirectory, ..BackupDirectory))
+        $$$ThrowOnError($$$PERROR($$$UnableToRemoveDirectory, ..BackupDirectory))
       }
     }
+    $$$ThrowOnError(..Project.%Save())
     tcommit
   } catch ex {
     set sc = ex.AsStatus()
@@ -2030,29 +2085,44 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
     $$$QuitOnError(fs.LinkToFile(origin))
     $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromStream($namespace, itemName, fs))
   } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {
-    set routine = ""
-    set fs = ##class(%Stream.FileCharacter).%New()
-    set fs.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()
+    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")
     
-    if itemType = "CSP" {
-      set extension = $$$ucase($piece(origin, ".", *))
-      if extension = "" set extension = "TXT"
-      do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
-      if bin set fs = ##class(%Stream.FileBinary).%New()
-      else  set fs.TranslateTable = ##class(Port.Configuration).GetPublicFileInputTranslateTable()
-    }
-    
-    $$$QuitOnError(fs.LinkToFile(origin))
-
     if ##class(%RoutineMgr).Exists(itemName) {
-      set routine = ##class(%RoutineMgr).%OpenId(itemName)     
+      set routine = ##class(%RoutineMgr).%OpenId(itemName)
     } else {
       set routine = ##class(%RoutineMgr).%New(itemName)
     }
-
+    
+    set localSource = ##class(%Stream.FileCharacter).%New()
+    set localSource.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()    
+    
+    if itemType = "CSP" {  
+      if routine = "" return $$$PERROR($$$NoCompatibleApplicationForPublicFile, origin)
+      set extension = $$$ucase($piece(origin, ".", *))
+      if extension = "" set extension = "TXT"
+      do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
+      
+      /// We can't use any translation table when importing a binary, so we do a bit-to-bit copy.
+      if bin {
+        set destination = routine.Code.Filename
+        set path = ##class(%File).GetDirectory(routine.Code.Filename)        
+        set routine = ""
+        set localSource = ""
+        $$$QuitOnError(##class(Port.Util).EnsurePathExists(path))
+        $$$QuitOnError(##class(%File).CopyFile(origin, destination))
+        return $$$OK
+      } else {
+        set tt = ##class(Port.Configuration).GetPublicFileInputTranslateTable()
+        set localSource.TranslateTable = tt
+        set routine.Code.TranslateTable = tt
+      }
+    }    
+            
     set code = routine.Code
     do code.Clear()
-    $$$QuitOnError(code.CopyFrom(fs))
+    
+    $$$QuitOnError(localSource.LinkToFile(origin))
+    $$$QuitOnError(code.CopyFrom(localSource))
     $$$QuitOnError(routine.%Save())
   }
   quit $$$OK
@@ -2248,10 +2318,9 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 <FormalSpec>outputPath:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  set testPath = ##class(Port.Configuration).GetTestPath()
   set exporter = ..InstantiateTool("X", outputPath, 2, .sc)
   $$$QuitOnError(sc)
-  return exporter.ExportTests(outputPath_"/"_testPath)
+  return exporter.ExportTests()
 ]]></Implementation>
 </Method>
 
@@ -2391,35 +2460,43 @@ LoopThroughType(projectName, importedList, group)
   else  write ..Tool.LogLine($$$NoExtraneousItems, 1)
 
   for i=1:1:length {
-    set possiblyDeleted = 0
-    set extraneousItem = $listget(i%ExtraneousEntries, i)
-    set path = $listget(extraneousItem, 1)
-    set slash = $$$Slash(path)
-    set type = $listget(extraneousItem, 2)
-    if parentDirectory '= "" && (path [ parentDirectory) set possiblyDeleted = 1
-    if type = "F" && ##class(%File).Exists(path) {
-      set fileName = ##class(%File).GetFilename(path)
-      set lastNode = ##class(%File).GetDirectoryPiece(parentDirectory, $length(parentDirectory, slash))
-      set fileName = $piece(fileName, ".", 1)
-      if fileName = lastNode set possiblyDeleted = 0
-      if possiblyDeleted = 1 continue
-      write ..Tool.LogLine($$$RemovingFile, 2, path)
-      if ..Simulated = 0 do ##class(%File).Delete(path)
-    } elseif type = "D" {
-      if parentDirectory = "" || (path '[ parentDirectory) {
-        set lastParent = parentDirectory
-        set parentDirectory = $replace(path, ##class(%File).GetDirectoryPiece(path, $length(path, slash))_slash, "")
-        if lastParent = "" set lastParent = parentDirectory
-      }
-      if possiblyDeleted = 1 continue
-      write ..Tool.LogLine($$$RemovingDirectory, 2, path)
-      if ..Simulated = 0 do ##class(%File).RemoveDirectoryTree(path)
-    }
+    set path = $listget(i%ExtraneousEntries, i)
+    do ..TreeDelete(s, path)
   }
+  
   if length > 0 {
     write ..Tool.LogLine($$$TotalExtraneousItemsRemoved, 1, length)
   }
+  
   return sc
+]]></Implementation>
+</Method>
+
+<Method name="TreeDelete">
+<FormalSpec>statement:%SQL.Statement,path:%String,hasContent:%Boolean=0</FormalSpec>
+<Private>1</Private>
+<Implementation><![CDATA[
+  if path = ..Tool.BasePath return $$$OK 
+  
+  // There's a bug when using Exists for directories, it seems to assume that a directory is also a file.
+  // To workaround this, DirectoryExists is also applied because it WILL return 0.
+  if '##class(%File).DirectoryExists(path) && ##class(%File).Exists(path) { 
+    write ..Tool.LogLine($$$RemovingFile, 2, path)
+    do ##class(%File).Delete(path) 
+  } elseif hasContent = 0 { 
+    else  write ..Tool.LogLine($$$RemovingDirectory, 2, path)
+    do ##class(%File).RemoveDirectory(path)
+  }
+    
+  set path = $piece(path, $$$OSSlash, 1, *-1)
+  set r = statement.%Execute(path)
+  set hasContent = 0
+    
+  if r.%Next(.sc) {
+    if $$$ISERR(sc) return sc
+    set hasContent = 1
+  }  
+  return ..TreeDelete(statement, path, hasContent)
 ]]></Implementation>
 </Method>
 
@@ -2453,8 +2530,20 @@ LoopThroughType(projectName, importedList, group)
       set filesCount =  filesCount + 1
     }
 
-    if 'filesCount && $lf($$$ImportTypes, dirType) || ($lf($$$ImportTypes, dirType) && '..Whitelist.IsDefined(fullPath) && '$listfind(i%ExtraneousEntries, fullPath)) {
-      set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = $listbuild(fullPath, type)
+    if 'filesCount && $lf($$$ImportTypes, dirType) || ($lf($$$ImportTypes, dirType) && '..Whitelist.IsDefined(fullPath) && '$listfind(i%ExtraneousEntries, fullPath)) {      
+      set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = fullPath
+      
+      // Handle test files created for classes.      
+      if dirType = "CLS" {
+        set className = $replace(##class(Port.Util).PathToItem(fullPath_".cls"), ".cls", "")        
+        
+        // Attempt to find the equivalent test class.
+        if ##class(Port.UnitTest.Util).AssertTestableClass(className, .testableClass) {
+          set fullPath = ##class(Port.UnitTest.Util).GetTestClassPath(testableClass, ..Tool.BasePath)
+          // Only mark to remove if the test suite was exported as XML, regardless of what type of test format has been selected.                    
+           set $list(i%ExtraneousEntries, $listlength(i%ExtraneousEntries)+1) = fullPath
+        }
+      }
     }
   }
   return sc
@@ -2466,14 +2555,6 @@ LoopThroughType(projectName, importedList, group)
 <Implementation><![CDATA[
   set i%ExtraneousEntries = ""
   return ..Whitelist.Clear()
-]]></Implementation>
-</Method>
-
-<Method name="T">
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[
-  do ##class(Port.Project.Manager).ExportTestSuiteToXML("/CacheProjects/DEV/port")
-  do ##class(Port.Project.Manager).Export("/CacheProjects/DEV/port")
 ]]></Implementation>
 </Method>
 </Class>
@@ -2493,7 +2574,7 @@ LoopThroughType(projectName, importedList, group)
   $$$QuitOnError(..Project.Export(developmentXML, qspec, justProject, errorlog, charset))
   write ..LogLine($$$XMLExportedTo, 0, ..Project.Name, developmentXML)  
   
-  do RemoveTestClasses(.items)  
+  do SanitizePackages(.items)  
   
   if $order(items("")) '= "" {  
     $$$QuitOnError($System.OBJ.Export(.items, productionXML, qspec, errorlog, charset))
@@ -2502,7 +2583,7 @@ LoopThroughType(projectName, importedList, group)
     
   quit $$$OK    
   
-RemoveTestClasses(items="")
+SanitizePackages(items="")
   set sc = $$$OK 
   set testPrefix = ##class(Port.Configuration).GetTestClassPrefix()
   if testPrefix '= "" {
@@ -2522,16 +2603,15 @@ RemoveTestClasses(items="")
 </Method>
 
 <Method name="ExportTests">
-<FormalSpec><![CDATA[path:%String,qspec:%String="/diffexport=1/nodisplay",&tests:%String="",&errors=""]]></FormalSpec>
+<FormalSpec><![CDATA[qspec:%String="/diffexport=1/nodisplay",&tests:%String="",&errors=""]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-    
   set sc = $$$OK
   set exported = 0
   
-  set absoluteBasePath = ##class(%File).NormalizeFilename(path)
-  do ##class(%File).RemoveDirectoryTree(absoluteBasePath)
-  $$$QuitOnError(##class(Port.Util).EnsurePathExists(absoluteBasePath))
+  // We don't actually export any XML if UDL is enabled.
+  set isUsingUDL = (##class(Port.Configuration).GetTestFormat() = "UDL")   
+  if isUsingUDL return $$$OK  
   
   set s = ##class(%SQL.Statement).%New()
   $$$QuitOnError(s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList"))
@@ -2541,8 +2621,8 @@ RemoveTestClasses(items="")
     set type = r.%Get("Type")
     if type = "CLS" {     
       set class = r.%Get("Name")      
-      if 'exported set exported = ..ExportTest(absoluteBasePath, class, .esc, qspec)
-      else  do ..ExportTest(absoluteBasePath, class, .esc)          
+      if 'exported set exported = ..ExportTest(class, .esc, qspec)
+      else  do ..ExportTest(class, .esc)          
       set sc = $$$ADDSC(sc, esc)
     }
   } 
@@ -2554,7 +2634,7 @@ RemoveTestClasses(items="")
 </Method>
 
 <Method name="ExportTest">
-<FormalSpec>absoluteBasePath:%String,className:%String,sc:%Status=$$$OK,qspec="/diffexport=1/nodisplay"</FormalSpec>
+<FormalSpec>className:%String,sc:%Status=$$$OK,qspec="/diffexport=1/nodisplay"</FormalSpec>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[
   set sc = $$$OK
@@ -2562,13 +2642,11 @@ RemoveTestClasses(items="")
   
   if '##class(Port.UnitTest.Util).IsUnitTestClass(className) quit exported  
   
-  set test = ##class(Port.UnitTest.Util).ResolveTestLocation(absoluteBasePath, className)
+  set classPath = ##class(Port.UnitTest.Util).GetTestClassPath(className, ..BasePath)
   
-  if $listvalid(test) && (test '= "") {
-    set className = $listget(test, 1)
-    set classPath = $listget(test, 2)
+  if classPath '= "" {
     write ..Log($$$ExportingTestClassToXML, 0, $replace(className, ".CLS", ""))
-    set cSC = $System.OBJ.Export(className, classPath,qspec,, ##class(Port.Configuration).GetRoutineOutputTranslateTable())
+    set cSC = $System.OBJ.Export(className_".CLS", classPath,qspec)
     set sc = $$$ADDSC(sc, cSC)
     if $$$ISOK(cSC) write ..LogLine($$$Done, 0)
     else  write ..LogLine($$$Failed, 0)
@@ -2782,7 +2860,6 @@ output(s)
           set sc = $$$ADDSC(sc, ssc)
         }
       } elseif ##class(Port.Util).IsRoutine(InternalName) {
-        write InternalName, !
         set sc = exporter.ExportRoutine(InternalName)
       } elseif type = "PKG" {     
         set sc = exporter.ExportPackage(InternalName)     
@@ -2861,8 +2938,9 @@ output(s)
     if name = "%MLExportTests" {
       quit ##class(Port.Project.Manager).ExportTestSuiteToXML(projectPath)
     }
-    if name = "%MLRunTests" && (projectPath '= "") {      
-      $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/run/noload/nodelete"))
+    if name = "%MLRunTests" && (projectPath '= "") {
+      set loadType = "/load"_$$$ucase(##class(Port.Configuration).GetTestFormat())
+      $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(testPath, "/recursive/run/noload/nodelete"_loadType))
     }       
     if name = "%MLImport" {
       $$$QuitOnError(##class(Port.Project.Manager).Import(projectPath, logLevel, 0, 0))
@@ -2912,7 +2990,7 @@ output(s)
     if name = "%CMLRunActiveTest" {
       set testable = ##class(Port.UnitTest.Util).AssertTestableClass(InternalName, .testableClass)
       if testable {
-        $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetTestPathForClass(testableClass), "/norecursive/run/noload/nodelete"))
+        $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetClassTestSpec(testableClass), "/norecursive/run/noload/nodelete"))
       }
     }
     
@@ -2984,6 +3062,10 @@ output(s)
     set Enabled = 
       ##class(Port.Util).ExistsInProject(^||Port.Project, InternalName) &&
       ##class(Port.UnitTest.Util).AssertTestableClass(InternalName)
+  }
+  
+  if name = "%MLExportTests" {
+    set Enabled = (##class(Port.Configuration).GetTestFormat() = "XML")
   } 
   
   set isProjectOpened = ($get(^||Port.Project, "Default") '[ "Default")
@@ -3017,8 +3099,8 @@ Called after the compile of the item is done.</Description>
         ##class(%File).DirectoryExists(projectPath_"/"_testPath)        
       )
       if shouldRunTest {
-       $$$QuitOnError(xmlExporter.ExportTest(projectPath, testableClass))
-       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetTestPathForClass(testableClass), "/norecursive/run/noload/nodelete"))
+       $$$QuitOnError(xmlExporter.ExportTest(testableClass))
+       $$$QuitOnError(##class(Port.UnitTest.Manager).RunTest(##class(Port.UnitTest.Util).GetClassTestSpec(testableClass), "/norecursive/run/noload/nodelete"))
       } 
     }
   }
@@ -3459,7 +3541,7 @@ Called after an item is deleted.</Description>
   set activeProject = $get(^||Port.Project)
   set ^||Port.Project = projectName
   
-  if targetClass '= "" set target = ##class(Port.UnitTest.Util).GetTestPathForClass(targetClass)
+  if targetClass '= "" set target = ##class(Port.UnitTest.Util).GetClassTestSpec(targetClass)
   else  set target = ##class(Port.Configuration).GetTestPath()
   
   if targetMethod '= "" {
@@ -3492,24 +3574,33 @@ Called after an item is deleted.</Description>
 
 
 <Class name="Port.UnitTest.Util">
+<Description>
+This class presents a list of methods used to resolve qualified test files locations.</Description>
 <Abstract>1</Abstract>
 <IncludeCode>portutils</IncludeCode>
 <TimeCreated>64468,37198.779512</TimeCreated>
 
-<Method name="ResolveTestLocation">
+<Method name="GetTestClassPath">
 <Final>1</Final>
 <Internal>1</Internal>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>workspace:%String,className:%String</FormalSpec>
-<ReturnType>%List</ReturnType>
+<FormalSpec>className:%String,workspace:%String=##class(Port.Configuration).GetWorkspace()</FormalSpec>
+<ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
   set className = className_".CLS"
-  set path = $replace(##class(Port.Util).ItemToPath(className, workspace),  ".cls", ".xml")
-  return $listbuild(className, path)
+  set isUsingXML = (##class(Port.Configuration).GetTestFormat() = "XML")
+  
+  if isUsingXML set workspace = workspace_"/"_##class(Port.Configuration).GetTestPath()
+  set path = ##class(Port.Util).ItemToPath(className, workspace)  
+  if isUsingXML set path = $replace(path, ".cls", ".xml")
+  
+  return path
 ]]></Implementation>
 </Method>
 
 <Method name="IsUnitTestClass">
+<Description>
+Returns if the className is a qualified test case class.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>className:%String</FormalSpec>
 <ReturnType>%Boolean</ReturnType>
@@ -3541,32 +3632,35 @@ Called after an item is deleted.</Description>
 <ReturnType>%Boolean</ReturnType>
 <Implementation><![CDATA[
   if $piece(className, ".", *) = "CLS" set className = $piece(className, ".", 1, *-1)
-  set prefix = ##class(Port.Configuration).GetTestClassPrefix()  
-  set rootPackage = $piece(className, ".")  
   
-  if rootPackage = prefix {
-    if '..IsUnitTestClass(className) return 0
-    set testableClass = className
-  } elseif ##class(%Dictionary.ClassDefinition).%ExistsId(prefix_"."_className) {
+  set prefix = ##class(Port.Configuration).GetTestClassPrefix()
+  set rootPackage = $piece(className, ".")
+  
+  if ##class(%Dictionary.ClassDefinition).%ExistsId(prefix_"."_className) {
     set maybeTestableClass = prefix_"."_className
     if ..IsUnitTestClass(maybeTestableClass) {
       set testableClass = prefix_"."_className
       if '##class(Port.Util).ExistsInProject(projectName, testableClass_".CLS") {
         // Cannot export Unit Test classes that aren't in the project.
         set testableClass = ""
-        return 0
       }
     }
+  } elseif ..IsUnitTestClass(className) {
+    set testableClass = className
   }
+  
   return (testableClass '= "")
 ]]></Implementation>
 </Method>
 
-<Method name="GetTestPathForClass">
+<Method name="GetClassTestSpec">
 <ClassMethod>1</ClassMethod>
 <FormalSpec>testableClass:%String,baseTestPath:%String=##class(Port.Configuration).GetTestPath()</FormalSpec>
 <Implementation><![CDATA[
+  set isUsingUDL = (##class(Port.Configuration).GetTestFormat() = "UDL")
   set baseTestPath = $$$RTrimProvidedSlash(baseTestPath, "/")
+  
+  if isUsingUDL set baseTestPath = ""
   return baseTestPath_"/cls/"_$piece($replace(testableClass, ".", "/"), "/", 1, *-1)_":"_testableClass
 ]]></Implementation>
 </Method>
@@ -3647,6 +3741,7 @@ Checks if the itemName is actually a package. Returns 1 if yes otherwise 0.</Des
 <Implementation><![CDATA[
   if itemName = "" return 0
   if $get(^oddPKG($$$ucase(itemName))) '= "" quit 1
+  if ##class(%Dictionary.PackageDefinition).%ExistsId(itemName) quit 1
   do $System.OBJ.GetPackageList(.l, itemName)
   if $data(l) quit 1
 
@@ -3660,9 +3755,7 @@ Translates an item name into a workspace path.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>itemName:%String,project:%String=$get(^||Port.Project)</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[
-
-  quit ..ItemToPath(itemName, $$$NFN(##class(Port.Configuration).GetWorkspace(project)))
+<Implementation><![CDATA[  quit ..ItemToPath(itemName, $$$NFN(##class(Port.Configuration).GetWorkspace(project)))
 ]]></Implementation>
 </Method>
 
@@ -3969,6 +4062,9 @@ SplitPackages(className)
 </Method>
 
 <Method name="IsOutdated">
+<Description>
+Checks if an an item is outdated to their counterpart (the local source file).
+Use the isImport flag to invert the condition.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>project:%String,current:%String,external:%String,isImport:%Boolean=0</FormalSpec>
 <ReturnType>%Boolean</ReturnType>
@@ -4017,35 +4113,6 @@ SplitPackages(className)
     (externalTS ] currentTS) &&
     (externalTS ] lastModified)
   )
-]]></Implementation>
-</Method>
-
-<Method name="DiscoverQualifiedWebApplication">
-<ClassMethod>1</ClassMethod>
-<FormalSpec>namespace:%String,*name:%String="",*path:%String=""</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-
-  new $namespace
-  set $namespace = "%SYS"
-
-  set statement = ##class(%SQL.Statement).%New()
-  do statement.%PrepareClassQuery("Security.Applications", "NamespaceList")
-  set cursor = statement.%Execute(namespace)
-
-  set appName = ""
-  set path = ""
-
-  while cursor.%Next() {
-    set p = cursor.%Get("Path")
-    if p '= "" {
-      if name = cursor.%Get("Name") { set path = p quit }
-      elseif name = "" { set name = cursor.%Get("Name") set path = p }
-    }
-  }
-
-  if path '= "" quit $$$OK
-  quit $$$ERROR($$$ApplicationInvalidName, name)
 ]]></Implementation>
 </Method>
 </Class>
@@ -4689,77 +4756,6 @@ Menu
 </Class>
 
 
-<Class name="UnitTest.Port.Project.Synchronizer">
-<Super>Port.UnitTest.TestCase,UnitTest.Port.Helper</Super>
-<TimeCreated>64471,56194.658409</TimeCreated>
-
-<Property name="Exporter">
-<Type>Port.Project.Exporter</Type>
-</Property>
-
-<Method name="OnBeforeOneTest">
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  
-  $$$QuitOnError(..CloneTestProject(..GetTestDirectory("../fixtures"), "dummy-project"))
-  set ..Exporter = ##class(Port.Project.Exporter).%New(..GetTestDirectory("../fixtures/_/dummy-project"), 1)
-  set ..Exporter.Logger.Silent = 1  
-  return $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="OnAfterOneTest">
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  return ..DeleteTestProject(..GetTestDirectory("../fixtures"), "dummy-project")
-]]></Implementation>
-</Method>
-
-<Method name="TestPurge">
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  
-  set synchronizer = ##class(Port.Project.Synchronizer).%New(..Exporter)
-  
-  do synchronizer.AddToWhitelist("Dummy.Package.Class.CLS")
-  do synchronizer.AddToWhitelist("dummy.MAC")
-  do synchronizer.AddToWhitelist("dummy.INC")
-  do synchronizer.AddToWhitelist("dummy.MVB")
-  do synchronizer.AddToWhitelist($System.CSP.GetDefaultApp($namespace)_"/index.html")
-  do synchronizer.AddToWhitelist("MVB.4.MVI")
-  do synchronizer.AddToWhitelist("dummy.DFI")
-  
-  set sc = synchronizer.Purge()
-  
-  set items = ..GetTestProjectItemsPath("dummy-project", ..GetTestDirectory("../fixtures/_/dummy-project"))
-  set itemName = ""
-  set templateAssertion = "%1 -> %2"
-  for i=1:1:items.Count() {
-    set itemName = items.Next(itemName)
-    set itemLocation = items.GetAt(itemName)
-    set flag = $lf($lb("dummy.MAC", "dummy.INC", "dummy.MVB", "dummy.DFI", $e($System.CSP.GetDefaultApp($namespace)_"/index.html", 2, *), "MVB.4.MVI", "Dummy.Package.Class.CLS"), itemName) > 0
-    set assertion = $$$FormatText(templateAssertion, itemLocation, $case(flag, 1: "KEPT", : "PURGED"))
-    do $$$AssertEquals(##class(%File).Exists(itemLocation), flag, assertion)
-  }
-]]></Implementation>
-</Method>
-
-<Method name="T">
-<ClassMethod>1</ClassMethod>
-<Implementation><![CDATA[
-   
-  set ^||Port.Project = "port"
-  set t = ..%New(##class(Port.UnitTest.Manager).%New())
-  
-  do ##class(Port.Configuration).SetCustomWorkspace("dummy-project", t.GetTestDirectory("fixtures/dummy-project"))
-  
-  $$$QuitOnError(t.OnBeforeOneTest())
-  $$$QuitOnError(t.TestPurge())
-  $$$QuitOnError(t.OnAfterAllTests())
-]]></Implementation>
-</Method>
-</Class>
-
-
 <Class name="UnitTest.Port.Util">
 <IncludeCode>portutils</IncludeCode>
 <Super>Port.UnitTest.TestCase,UnitTest.Port.Helper</Super>
@@ -4877,7 +4873,7 @@ Menu
 </Class>
 
 
-<Project name="port" LastModified="2019-06-25 11:34:26.431883" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2019-07-03 11:36:59.005325" Target="##class(Port.Project.Manager).Import(&quot;/CacheProjects/DEV/cache-dap&quot;,,,1)" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.AutoInstall" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Configuration" type="CLS"></ProjectItem>
@@ -4903,13 +4899,13 @@ Menu
     <ProjectItem name="Port.Wizard" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Helper" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Logger" type="CLS"></ProjectItem>
-    <ProjectItem name="UnitTest.Port.Project.Synchronizer" type="CLS"></ProjectItem>
     <ProjectItem name="UnitTest.Port.Util" type="CLS"></ProjectItem>
     <ProjectItem name="portmd.INC" type="MAC"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>
   </Items>
   <BreakPoints>
-    <BreakPoint Routine="Port.Project.Synchronizer.CLS" Offset="Purge+14"></BreakPoint>
+    <BreakPoint Routine="Port.Project.Synchronizer.CLS" Offset="Purge+24"></BreakPoint>
+    <BreakPoint Routine="Port.Project.Synchronizer.CLS" Offset="Scan+37"></BreakPoint>
     <BreakPoint Routine="Port.Util2.CLS" Offset="GetPathType+1"></BreakPoint>
   </BreakPoints>
 </Project>
@@ -5090,8 +5086,8 @@ Menu
 #define ImportTypes                      $listbuild("INC", "INT", "CLS", "MAC", "MVI", "MVB", "BAS", "CSR", "CSP")
 #define ImportTypeDescriptions           $listbuild("include files", "intermediate routines", "classes", "macro routines",  "MV Intermediate routines", "MV Basic routines", "Basic routines", "DFI XML", "CSP Rules", "files")
 #define RoutineExtensions                $listbuild(".MAC", ".INT", ".INC", ".MVB", ".MVI", ".BAS", ".DFI")
-#define RoutinesGroups                   "MAC,INT,INC,MVB,MVI,BAS,DFI"
-#define IsRoutine(%type)                 ($$$RoutinesGroups[%type)
+#define RoutineGroups                   "MAC,INT,INC,MVB,MVI,BAS,DFI"
+#define IsRoutine(%type)                 ($$$RoutineGroups[%type)
 #define GetTypeDescription(%type)        $select($$$IsRoutine(%type)=1:$$$RoutineType,(%type = "CLS"):$$$ClassType,(%type = "PRJ"):$$$ProjectType,1:$$$FileType)
 #define GetGroupTypeDescription(%type)   $case(%type,"MAC":$$$MACGroupType,"INC":$$$INCGroupType,"INT":$$$INTGroupType,"BAS":$$$BASGroupType,"MVB":$$$MVBGroupType,"MVI":$$$MVIGroupType,"DFI":$$$DFIGroupType,"CLS":$$$CLSGroupType,:$$$FileGroupType)
 #def1arg PERROR(%errorArgs)              $$$ERROR($$$GeneralError, $$$FormatMsg("Port Errors", %errorArgs))
