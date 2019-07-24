@@ -9,7 +9,7 @@ It's recommended to use Port locally, which makes it ideal for Studio users and 
 
 Its name origins from 'portability', 'export' and 'import'.
 
-> __NOTE__: Using Port for a single shared instance still works, however keep in mind that if two users are working in the same project, their changes are probably going to overlap each other, this would cause an extremely undesired result. So if you plan on using Port for a single shared instance, then make sure that only one person works exclusively for a single project.
+> __NOTE__: Although you can use Port for a shared instance, keep in mind that if two users are working in the same project their changes could overlap each other, this would cause an extremely undesired result. So if you plan on using Port for a single shared instance, then make sure that only one person works exclusively for a single project.
 
 ## The Five 'Why Projects?' Reasons
 
@@ -45,7 +45,7 @@ When installed, Port adds a Source Control menu, composed with the following opt
 
 * __Export__: Exports only the modified items from the current project using the UDL format.
 * __Export to XML__: Exports the current project to XML.
-* __Export tests__: Exports all unit test classes related to the current project.
+* __Export tests__: Exports all unit test classes related to the current project, only available if test format is set to XML.
 * __Remove classes__: Shortcut for removing all classes from the current project.
 * __Remove routines__: Shortcut for removing all routines from the current project.
 * __Remove files__: Shortcut for removing all static (web) files from the current project.
@@ -74,12 +74,11 @@ int/ignoreme <- This also ignores the folder called ignoreme but only if it's in
 
 ### Workspaces
 
-When using Port, you'll notice the usage of the term _workspace_. This is basically the path where the project's source code is exported. There're two types of workspaces: _primary workspace_ and _custom workspaces_.
+When using Port you'll notice the usage of the term _workspace_. This is basically the path where the project's source code is exported. There're two types of workspaces: _primary workspace_ and _custom workspaces_.
 
 Whenever a new project is exported by Port it will use the primary workspace configuration pattern to 'seed' the path to the project being exported for the first time. After this, the resulting path will be always used for this project, this path is called a _custom workspace_.
 
-You can modify that path by using the Wizard or the method `SetCustomWorkspace` from the `Port.Configuration` class. Modifying it will cause the project you selected to be exported to a new location. Port will detect a path change and
-warn the user about exporting the whole project again.
+You can modify that path by using the Wizard or the method `SetCustomWorkspace` from the `Port.Configuration` class. Modifying it will cause the project you selected to be exported to a new location. Port will detect a path change and warn the user about exporting the whole project again.
 
 > __NOTE:__ This'll not move any of the existing source code from your old path, but instead it'll export the project straight from your instance again.
 
@@ -125,6 +124,8 @@ If you want to remove it, just call the same method with an empty string.
 
 > __NOTE:__ Using extended hooks means that all output will be redirect to Port. That makes the class you specified responsible for whatever it writes. Port will attempt to capture its output and display it cleanly, but the class still must take care of messages that break into new lines.
 
+> __WARNING!__ Make sure you know what you're doing! Bad hook implementations can cause Port and even the Source Control API to go awry thus resulting in code loss.
+
 # Quick question: Why not Atelier?
 
 This project started before Atelier was released, and it's still useful for developers that prefer using the Studio instead of installing Eclipse. The original idea was to bring to the developers the capability to export the source code using a scaffolding that is easy to manage, which is pretty much what Atelier does today, however Atelier is not made for working with the Studio's projects. Leaving that task for the Eclipse platform.
@@ -135,7 +136,7 @@ The deal is: you might want something simplier to do something simple.
 
 ## I installed Port but it seems to haven't changed anything!
 
-Make sure to check the output and check for a 'All Done' message. After this message, there should have a note requesting you to restart the Studio. Do it and see if the Source Control menu appears, if it's there then you're good to go.
+Make sure to check the output and check for a 'All Done' message. After this message, there should have a note requesting you to restart the Studio. Follow this instruction, now see if the Source Control menu appears, if it's there then you're good to go.
 
 ## I installed Port and it even added the Source Control menu but the text there is empty!
 
@@ -149,21 +150,23 @@ If it does, you are encouraged to open a [PR](https://github.com/rfns/forgery/pu
 
 ## HELP! I removed an old item from my project and exported the project which removed my file, but I find out later that it was the wrong file!
 
-Whenever you export the project, Port will check for any files that aren't related to it in your instance. If there's any files that doesn't corresponds to this project, then it's considered an _ophan_ file and as such it'll be removed. However as long as you REMOVE and don't DELETE the source from your instance you can simply re-add this item to the project and export it again.
+Whenever you export the project Port will check for any files that aren't related to it in your instance. If there's any files that doesn't corresponds to the project, these are considered an _orphans_ and as such they'll be removed in order to keep the workspace synchronized. The're two circustances that can cause the purge: when you _remove_ the item or when you _delete_ the item.
 
-But remember! You're highly recommended to always commit your changes before exporting the project.
+As long as you REMOVE and don't DELETE the source from your instance you can simply re-add this item to the project and export it again, you might need to _force export_ or edit the item though.
+
+If you want to avoid this kind of issue, remember to commit your changes before purging these files.
 
 ## I'm trying to import a file it seems I can't?
 
 If the file you're trying to import failed or you didn't noticed any message warning you about it, then you must check if:
 
-1. The file is inside one of the type folders. If it's not, file will be ignored and you won't see any messages regarding it.
+1. The file is inside one of the type folders. If it's not the file will be ignored and you won't see any messages regarding it.
 2. The language syntax is acceptable (you can check the output for errors).
 3. You removed this item recently, which in turn updated the last modified timestamp for your project. This will not cause any messages to be displayed as well.
 
-For number 3, keep in mind that Port doesn't check the source code but instead their modified date. So if you attempt to import an item whose last-modified attribute is older than your project's last change, this item will be skipped. This is a by-design limitation introduced to improve the performance for projects with many items, but you can remediate it by using the `Import (forced)` option. However, keep in mind that it'll import the project as whole.
+For number 3, remember that Port doesn't check the source code but instead their modified date. So if you attempt to import an item whose last-modified attribute is older than your project's last change, this item will be skipped. This is a by-design limitation introduced to improve the performance for projects with many items, but you can remediate it by using the `Import (forced)` option. However be warned that it'll import the project as whole.
 
-## I've imported/export a source code but it seems to have broken my encoding? Strange characters are showing up!
+## I've imported/exported a source code but it seems to have broken my encoding? Strange characters are showing up!
 
 This can be caused due to Port working with UTF-8 by default. You can use the following methods to try and fix it:
 
@@ -176,9 +179,9 @@ This can be caused due to Port working with UTF-8 by default. You can use the fo
 
 ## It seems I'm not able to export GBL or any binary related files?
 
-Yes, Port supports exporting only source codes, which is mostly plain-text. Anything binary-related is usually associated to the the public folder, e.g. an image. That being said, remember that Port also exports your project, which should include binary files as well, including GBL files.
+Yes, Port supports exporting only source codes, which is mostly plain-text. Anything binary-related is usually associated to the the public folder, e.g. an image. That being said, you can export the project XML that include binary files.
 
-## I added a new item but it seems to not be exported when I saved it?
+## I added a new item but it seems to not have been exported when I saved it?
 
 That's because saving an item is not the same as saving the project. So even though the item was created and added to the current project, since the project wasn't saved as well the item entry is not persisted yet. If you create a new item always remember to save the project it belongs to before saving the item itself.
 
