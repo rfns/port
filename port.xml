@@ -337,6 +337,8 @@ Retrieves the current configured public file translate table for outputs. Defaul
 </Method>
 
 <Method name="SetTestFormat">
+<Description>
+Defines which format the Port should for running unit test. When "XML" is selected, Port will export test classes as xml.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>type:%String</FormalSpec>
 <Implementation><![CDATA[
@@ -347,6 +349,8 @@ Retrieves the current configured public file translate table for outputs. Defaul
 </Method>
 
 <Method name="GetTestFormat">
+<Description>
+Returns the selected test format. It can be "UDL" or "XML".</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>type:%String</FormalSpec>
 <Implementation><![CDATA[  return $get(^Port.Configuration("test.format"), "XML")
@@ -3966,11 +3970,13 @@ Resolves item name into a qualified id that can be manipulated by the %Studio.Pr
 
 <Method name="ListConflicts">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>projectName:%String,name:%String,type:%String=""</FormalSpec>
+<FormalSpec>projectName:%String,name:%String,type:%String="",namespace:%String=$namespace</FormalSpec>
 <ReturnType>%List</ReturnType>
 <Implementation><![CDATA[
+  new $namespace
+  set $namespace = namespace
+  
   do ##class(%Studio.Project).NormalizeName(.name, .type)
-  if type = "CLS" set packages = $$SplitPackages(name)
   &sql(
     SELECT
       LIST(DISTINCT P.NAME) INTO :conflicts
@@ -3986,19 +3992,11 @@ Resolves item name into a qualified id that can be manipulated by the %Studio.Pr
        -- depended by another class in another project.
        (:type = 'PKG' AND PI.NAME %STARTSWITH :name) OR
        -- This deals with attempts to add classes that are owned by another project's
-       -- package.z
-       (:type = 'CLS' AND PI.NAME %INLIST(:packages))
+       -- package.
+       (:type = 'CLS' AND PI.NAME = :name)
       )
   )
   return $lfs(conflicts)
-
-SplitPackages(className)
-  set splittedPackages = ""
-  set packageLength = $length(className, ".")
-  for i=packageLength:-1:2 {
-    set $list(splittedPackages, *+1) = $piece(className, ".", 1, i)
-  }
-  quit splittedPackages
 ]]></Implementation>
 </Method>
 
