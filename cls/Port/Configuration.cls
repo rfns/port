@@ -195,6 +195,7 @@ ClassMethod GetPublicFileOutputTranslateTable(charset As %String) As %Status
   return $get(^Port.Configuration("io.public.out"), "UTF8")
 }
 
+/// Defines which format the Port should for running unit test. When "XML" is selected, Port will export test classes as xml.
 ClassMethod SetTestFormat(type As %String)
 {
   set type = $$$ucase(type)
@@ -202,6 +203,7 @@ ClassMethod SetTestFormat(type As %String)
   set ^Port.Configuration("test.format") = type
 }
 
+/// Returns the selected test format. It can be "UDL" or "XML".
 ClassMethod GetTestFormat(type As %String)
 {
   return $get(^Port.Configuration("test.format"), "XML")
