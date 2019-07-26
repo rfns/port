@@ -227,10 +227,12 @@ ClassMethod ExistsInProject(projectName As %String, name As %String, type As %St
   return 0
 }
 
-ClassMethod ListConflicts(projectName As %String, name As %String, type As %String = "") As %List
+ClassMethod ListConflicts(projectName As %String, name As %String, type As %String = "", namespace As %String = {$namespace}) As %List
 {
+  new $namespace
+  set $namespace = namespace
+  
   do ##class(%Studio.Project).NormalizeName(.name, .type)
-  if type = "CLS" set packages = $$SplitPackages(name)
   &sql(
     SELECT
       LIST(DISTINCT P.NAME) INTO :conflicts
@@ -246,19 +248,11 @@ ClassMethod ListConflicts(projectName As %String, name As %String, type As %Stri
        -- depended by another class in another project.
        (:type = 'PKG' AND PI.NAME %STARTSWITH :name) OR
        -- This deals with attempts to add classes that are owned by another project's
-       -- package.z
-       (:type = 'CLS' AND PI.NAME %INLIST(:packages))
+       -- package.
+       (:type = 'CLS' AND PI.NAME = :name)
       )
   )
   return $lfs(conflicts)
-
-SplitPackages(className)
-  set splittedPackages = ""
-  set packageLength = $length(className, ".")
-  for i=packageLength:-1:2 {
-    set $list(splittedPackages, *+1) = $piece(className, ".", 1, i)
-  }
-  quit splittedPackages
 }
 
 ClassMethod EnsurePathExists(path As %String) As %Status
