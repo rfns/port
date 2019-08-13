@@ -485,9 +485,11 @@ ClassMethod CreateMessageDictionary() As %Status [ CodeMode = objectgenerator ]
     do %code.WriteLine("  set (localXData, tmpFilename, file) = """"")    
   }
   do %code.WriteLine("  set io = $io")
+  do %code.WriteLine("  open $$$NULL")
   do %code.WriteLine("  use $$$NULL")
   do %code.WriteLine("  set sc = ##class(%MessageDictionary).GenerateInclude(""portmd"",,,""Port Errors,Port Log Messages,Port Menu Labels,Port Context Menu Labels"")")
   do %code.WriteLine("  use io")
+  do %code.WriteLine("  close $$$NULL")
   do %code.WriteLine("  quit sc")
 }
 
