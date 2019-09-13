@@ -163,7 +163,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-7404" Name="PCWSetLogLevelStatusPrompt">Please set the log verbosity level (type the number): </Message>
     <Message Id="-7410" Name="PCWSetLogLevelStatusChoice1">1. Level 1: Displays item enqueieing, import categories, backup notifications, repository status and error messages.</Message>
     <Message Id="-7420" Name="PCWSetLogLevelStatusChoice2">2. Level 2: Includes all verbosity from Level 1 plus detailed logging about atomical operations.</Message>    
-    <Message Id="-7600" Name="PCWExit">6. Exit.</Message>
+    <Message Id="-7600" Name="PCWExit">5. Exit.</Message>
     <Message Id="-7970" Name="PCWPlaceholdersAnnounce">You can use the following specific placeholders:</Message>
     <Message Id="-7971" Name="PCWPlaceholdersProject">{PROJECT} - The active project name.</Message>
     <Message Id="-7972" Name="PCWPlaceholdersNamespace">{NAMESPACE} - The active namespace name.</Message>
@@ -340,7 +340,7 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-7404" Name="PCWSetLogLevelStatusPrompt">Por favor escolha o nível de verbosidade do log (digite o número): </Message>
     <Message Id="-7410" Name="PCWSetLogLevelStatusChoice1">1. Nível 1: Exibe enfileiramento, categorias de importação/exportação, notificações de backup, situação do espaço de trabalho e mensagens de erro.</Message>
     <Message Id="-7420" Name="PCWSetLogLevelStatusChoice2">2. Nível 2: Inclui toda a verbosidade do nível 1, substituindo categorias por notificações por item.</Message>    
-    <Message Id="-7600" Name="PCWExit">6. Sair.</Message>
+    <Message Id="-7600" Name="PCWExit">5. Sair.</Message>
     <Message Id="-7970" Name="PCWPlaceholdersAnnounce">Você pode utilizar os seguinte marcadores:</Message>
     <Message Id="-7971" Name="PCWPlaceholdersProject">{PROJECT} - O nome do projeto ativo.</Message>
     <Message Id="-7972" Name="PCWPlaceholdersNamespace">{NAMESPACE} - O namespace ativo.</Message>

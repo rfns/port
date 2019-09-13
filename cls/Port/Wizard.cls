@@ -5,7 +5,7 @@ Class Port.Wizard [ Abstract ]
 
 ClassMethod Start(hideIntroduction As %Boolean = 0)
 {
-  set validChoices = $listbuild(1,2,3,4)
+  set validChoices = $listbuild(1,2,3,4,5)
   set invalidChoice = 1
   set choice = ""  
   

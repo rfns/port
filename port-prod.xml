@@ -553,7 +553,7 @@ Returns the selected test format. It can be "UDL" or "XML".</Description>
     <Message Id="-7404" Name="PCWSetLogLevelStatusPrompt">Please set the log verbosity level (type the number): </Message>
     <Message Id="-7410" Name="PCWSetLogLevelStatusChoice1">1. Level 1: Displays item enqueieing, import categories, backup notifications, repository status and error messages.</Message>
     <Message Id="-7420" Name="PCWSetLogLevelStatusChoice2">2. Level 2: Includes all verbosity from Level 1 plus detailed logging about atomical operations.</Message>    
-    <Message Id="-7600" Name="PCWExit">6. Exit.</Message>
+    <Message Id="-7600" Name="PCWExit">5. Exit.</Message>
     <Message Id="-7970" Name="PCWPlaceholdersAnnounce">You can use the following specific placeholders:</Message>
     <Message Id="-7971" Name="PCWPlaceholdersProject">{PROJECT} - The active project name.</Message>
     <Message Id="-7972" Name="PCWPlaceholdersNamespace">{NAMESPACE} - The active namespace name.</Message>
@@ -732,7 +732,7 @@ Returns the selected test format. It can be "UDL" or "XML".</Description>
     <Message Id="-7404" Name="PCWSetLogLevelStatusPrompt">Por favor escolha o nível de verbosidade do log (digite o número): </Message>
     <Message Id="-7410" Name="PCWSetLogLevelStatusChoice1">1. Nível 1: Exibe enfileiramento, categorias de importação/exportação, notificações de backup, situação do espaço de trabalho e mensagens de erro.</Message>
     <Message Id="-7420" Name="PCWSetLogLevelStatusChoice2">2. Nível 2: Inclui toda a verbosidade do nível 1, substituindo categorias por notificações por item.</Message>    
-    <Message Id="-7600" Name="PCWExit">6. Sair.</Message>
+    <Message Id="-7600" Name="PCWExit">5. Sair.</Message>
     <Message Id="-7970" Name="PCWPlaceholdersAnnounce">Você pode utilizar os seguinte marcadores:</Message>
     <Message Id="-7971" Name="PCWPlaceholdersProject">{PROJECT} - O nome do projeto ativo.</Message>
     <Message Id="-7972" Name="PCWPlaceholdersNamespace">{NAMESPACE} - O namespace ativo.</Message>
@@ -1571,7 +1571,11 @@ The CSP application name is mirrored into subfolders inside the public folder.</
       quit
     }
 
+    set io = $$$GETIO
+    
+    $$$SETIO(##class(Port.Configuration).GetPublicFileOutputTranslateTable())
     set exported = ##class(%File).CopyFile(csp.Code.Filename, destination, 1)
+    $$$SETIO(io)
 
     write ..LogLine($$$Done)
     set ..AffectedCount = ..AffectedCount + 1
@@ -4127,7 +4131,7 @@ Use the isImport flag to invert the condition.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>hideIntroduction:%Boolean=0</FormalSpec>
 <Implementation><![CDATA[
-  set validChoices = $listbuild(1,2,3,4)
+  set validChoices = $listbuild(1,2,3,4,5)
   set invalidChoice = 1
   set choice = ""  
   
