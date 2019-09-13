@@ -127,7 +127,11 @@ Method ExportPublicFile(itemName As %String) As %Status
       quit
     }
 
+    set io = $$$GETIO
+    
+    $$$SETIO(##class(Port.Configuration).GetPublicFileOutputTranslateTable())
     set exported = ##class(%File).CopyFile(csp.Code.Filename, destination, 1)
+    $$$SETIO(io)
 
     write ..LogLine($$$Done)
     set ..AffectedCount = ..AffectedCount + 1
