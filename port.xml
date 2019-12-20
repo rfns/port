@@ -396,7 +396,7 @@ Returns the selected test format. It can be "UDL" or "XML".</Description>
 <XMLNamespace>https://github.com/rfns/port</XMLNamespace>
 <Data><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
-<MsgFile Language="en-us">
+<MsgFile Language="en">
   <MsgDomain Domain="Port Errors">
     <Message Id="-100" Name="InvalidPhysicalPath">The provided physical path '%1' is not part of the static files directory.</Message>
     <Message Id="-101" Name="NamespaceDoesntHaveAppWithPath">There is not an application with a physical path for the namespace %1.</Message>
@@ -967,8 +967,9 @@ Install
   quit
 
 Wizard
-  do ##class(Port.Wizard).Start()  
-  quit 
+  do ##class(Port.Wizard).Start()
+  quit
+
 ]]></Routine>
 
 
@@ -2596,17 +2597,21 @@ LoopThroughType(projectName, importedList, group)
 SanitizePackages(items="")
   set sc = $$$OK 
   set testPrefix = ##class(Port.Configuration).GetTestClassPrefix()
-  if testPrefix '= "" {
-    for i=1:1:..Project.Items.Count() {  
-      set item  = ..Project.Items.GetAt(i) 
-      if $isobject(item) && (item.Type '= "PRJ") && '($extract(item.Name, 1, $length(testPrefix)) = testPrefix && (item.Type = "CLS")) {
-        set name = item.Name
-        set type = item.Type
-        do ##class(%Studio.Project).NormalizeName(.name, .type)        
-        if type = "CLS" || (type = "PKG") set name = name_"."_type        
-        set items(name) = "" 
-      }
-    }
+  
+  set s = ##class(%SQL.Statement).%New()
+  do s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList")
+  
+  set r = s.%Execute(..Project.Name)
+  while r.%Next() {
+    set itemName = r.%Get("Name")
+    set itemType = r.%Get("Type")
+    if itemType '= "CLS" || (itemType = "CLS" && '($extract(itemName, 1, $length(testPrefix)) = testPrefix)) {
+      set name = itemName
+      set type = itemType
+      do ##class(%Studio.Project).NormalizeName(.name, .type)             
+      if type = "CLS" || (type = "PKG") set name = name_"."_type
+      set items(name) = ""
+    }    
   }
   quit
 ]]></Implementation>
@@ -4877,7 +4882,7 @@ Menu
 </Class>
 
 
-<Project name="port" LastModified="2019-07-03 11:36:59.005325" Target="##class(Port.Project.Manager).Import(&quot;/CacheProjects/DEV/cache-dap&quot;,,,1)" TargetType="2" HttpServer="http://localhost:57772">
+<Project name="port" LastModified="2019-11-19 14:34:55.610809" TargetType="2" HttpServer="http://localhost:57772">
   <Items>
     <ProjectItem name="Port.AutoInstall" type="CLS"></ProjectItem>
     <ProjectItem name="Port.Configuration" type="CLS"></ProjectItem>
@@ -4907,11 +4912,6 @@ Menu
     <ProjectItem name="portmd.INC" type="MAC"></ProjectItem>
     <ProjectItem name="portutils.INC" type="MAC"></ProjectItem>
   </Items>
-  <BreakPoints>
-    <BreakPoint Routine="Port.Project.Synchronizer.CLS" Offset="Purge+24"></BreakPoint>
-    <BreakPoint Routine="Port.Project.Synchronizer.CLS" Offset="Scan+37"></BreakPoint>
-    <BreakPoint Routine="Port.Util2.CLS" Offset="GetPathType+1"></BreakPoint>
-  </BreakPoints>
 </Project>
 
 
