@@ -21,17 +21,21 @@ Method ExportToXML(justProject As %Boolean = 0, qspec As %String = "/diffexport=
 SanitizePackages(items="")
   set sc = $$$OK 
   set testPrefix = ##class(Port.Configuration).GetTestClassPrefix()
-  if testPrefix '= "" {
-    for i=1:1:..Project.Items.Count() {  
-      set item  = ..Project.Items.GetAt(i) 
-      if $isobject(item) && (item.Type '= "PRJ") && '($extract(item.Name, 1, $length(testPrefix)) = testPrefix && (item.Type = "CLS")) {
-        set name = item.Name
-        set type = item.Type
-        do ##class(%Studio.Project).NormalizeName(.name, .type)        
-        if type = "CLS" || (type = "PKG") set name = name_"."_type        
-        set items(name) = "" 
-      }
-    }
+  
+  set s = ##class(%SQL.Statement).%New()
+  do s.%PrepareClassQuery("%Studio.Project", "ProjectItemsList")
+  
+  set r = s.%Execute(..Project.Name)
+  while r.%Next() {
+    set itemName = r.%Get("Name")
+    set itemType = r.%Get("Type")
+    if itemType '= "CLS" || (itemType = "CLS" && '($extract(itemName, 1, $length(testPrefix)) = testPrefix)) {
+      set name = itemName
+      set type = itemType
+      do ##class(%Studio.Project).NormalizeName(.name, .type)             
+      if type = "CLS" || (type = "PKG") set name = name_"."_type
+      set items(name) = ""
+    }    
   }
   quit
 }
