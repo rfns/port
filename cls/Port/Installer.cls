@@ -6,7 +6,7 @@ Class Port.Installer [ Abstract ]
 XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
 {
 <?xml version="1.0" encoding="UTF-8"?>
-<MsgFile Language="en-us">
+<MsgFile Language="en">
   <MsgDomain Domain="Port Errors">
     <Message Id="-100" Name="InvalidPhysicalPath">The provided physical path '%1' is not part of the static files directory.</Message>
     <Message Id="-101" Name="NamespaceDoesntHaveAppWithPath">There is not an application with a physical path for the namespace %1.</Message>
