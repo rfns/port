@@ -150,7 +150,7 @@ If it does, you are encouraged to open a [PR](https://github.com/rfns/forgery/pu
 
 ## HELP! I removed an old item from my project and exported the project which removed my file, but I find out later that it was the wrong file!
 
-Whenever you export the project Port will check for any files that aren't related to it in your instance. If there's any files that doesn't corresponds to the project, these are considered an _orphans_ and as such they'll be removed in order to keep the workspace synchronized. The're two circustances that can cause the purge: when you _remove_ the item or when you _delete_ the item.
+Whenever you export the project Port will check for any files that aren't related to it in your instance. If there's any files that doesn't corresponds to the project, these are considered as _orphans_ and as such they'll be removed in order to keep the workspace synchronized. There are two circustances that can cause the purge: when you _remove_ the item or when you _delete_ the item.
 
 As long as you REMOVE and don't DELETE the source from your instance you can simply re-add this item to the project and export it again, you might need to _force export_ or edit the item though.
 
