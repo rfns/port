@@ -301,13 +301,16 @@ Method Import() As %Status
 
 ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, itemType As %String) As %Status [ Final, Internal, Private ]
 {
-  if (itemType = "CLS") {
+  set extension = $$$ucase($piece(origin, ".", *))
+	set tt = ##class(Port.Configuration).GetInputCharset(extension)
+
+	if (itemType = "CLS") {
     set fs = ##class(%Stream.FileCharacter).%New()
-    set fs.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()
+    set fs.TranslateTable = tt
     $$$QuitOnError(fs.LinkToFile(origin))
     $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromStream($namespace, itemName, fs))
   } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {
-    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")
+    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")     
     
     if ##class(%RoutineMgr).Exists(itemName) {
       set routine = ##class(%RoutineMgr).%OpenId(itemName)
@@ -316,14 +319,14 @@ ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, ite
     }
     
     set localSource = ##class(%Stream.FileCharacter).%New()
-    set localSource.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()    
+    set localSource.TranslateTable = tt
     
     if itemType = "CSP" {  
-      if routine = "" return $$$PERROR($$$NoCompatibleApplicationForPublicFile, origin)
-      set extension = $$$ucase($piece(origin, ".", *))
+      if routine = "" return $$$PERROR($$$NoCompatibleApplicationForPublicFile, origin)      
       if extension = "" set extension = "TXT"
       do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
-      
+      if extension [ "CSP" || (extension = "CSR") set bin = 0
+                 
       /// We can't use any translation table when importing a binary, so we do a bit-to-bit copy.
       if bin {
         set destination = routine.Code.Filename
@@ -333,8 +336,7 @@ ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, ite
         $$$QuitOnError(##class(Port.Util).EnsurePathExists(path))
         $$$QuitOnError(##class(%File).CopyFile(origin, destination))
         return $$$OK
-      } else {
-        set tt = ##class(Port.Configuration).GetPublicFileInputTranslateTable()
+      } else {                
         set localSource.TranslateTable = tt
         set routine.Code.TranslateTable = tt
       }
