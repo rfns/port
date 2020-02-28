@@ -22,7 +22,7 @@ ClassMethod RunTestsFromWorkspace(projectName As %String, targetClass As %String
     set recursive = "norecursive"
   }
   
-  set sc = ..RunTest(target_$case(targetSpec, "": "", : ":"_targetSpec), "/"_recursive_"/run/noload/nodelete")
+  set sc = ..RunTest(target, "/"_recursive_"/run/noload/nodelete/"_targetSpec)
   set ^||Port.Project = activeProject
   return sc
 }
