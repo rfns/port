@@ -241,6 +241,42 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 ]]></Implementation>
 </Method>
 
+<Method name="GetInputCharset">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>extension:%String</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.input", $$$ucase(extension)), "UTF-8")
+]]></Implementation>
+</Method>
+
+<Method name="GetOutputCharset">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>extension:%String</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.output", $$$ucase(extension)), "UTF-8")
+]]></Implementation>
+</Method>
+
+<Method name="SetInputCharset">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>extension:%String,charset:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set ^Port.Configuration("source.charset.output", extension) = charset
+	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="SetOutputCharset">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>extension:%String,charset:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set ^Port.Configuration("source.charset.input", extension) = charset
+	return $$$OK
+]]></Implementation>
+</Method>
+
 <Method name="GetExtendedHooksImplementer">
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
@@ -1556,6 +1592,7 @@ The CSP application name is mirrored into subfolders inside the public folder.</
   }  
 
   set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
+  set extension = $piece(itemName, ".", *)
 
   try {
     set csp = ##class(%RoutineMgr).%New(itemName)
@@ -1574,7 +1611,7 @@ The CSP application name is mirrored into subfolders inside the public folder.</
 
     set io = $$$GETIO
     
-    $$$SETIO(##class(Port.Configuration).GetPublicFileOutputTranslateTable())
+    $$$SETIO(##class(Port.Configuration).GetOutputCharset(extension))
     set exported = ##class(%File).CopyFile(csp.Code.Filename, destination, 1)
     $$$SETIO(io)
 
@@ -1611,6 +1648,7 @@ Export a routine to the workspace, the path inside the workspace is taken from t
     set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
     set destination = ##class(Port.Util).ItemToPath(name, workspace)
     set destinationLocation = ##class(%File).GetDirectory(destination)
+    set extension = $piece(name, ".", *)
 
     $$$ThrowOnError(..Synchronizer.AddToWhitelist(name))
 
@@ -1623,7 +1661,7 @@ Export a routine to the workspace, the path inside the workspace is taken from t
     }
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = ##class(Port.Configuration).GetRoutineOutputTranslateTable()
+    set file.TranslateTable = ##class(Port.Configuration).GetOutputCharset(extension)
     do file.LinkToFile(destination)
 
     set routine = ##class(%RoutineMgr).%OpenId(name)
@@ -1690,7 +1728,7 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
     $$$ThrowOnError(##class(%Compiler.UDL.TextServices).GetTextAsStream($namespace, itemName, .stream))
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = ##class(Port.Configuration).GetRoutineOutputTranslateTable()
+    set file.TranslateTable = ##class(Port.Configuration).GetOutputCharset("CLS")
     do file.LinkToFile(destination)
 
     $$$ThrowOnError(file.CopyFromAndSave(stream))
@@ -2090,13 +2128,16 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-  if (itemType = "CLS") {
+  set extension = $$$ucase($piece(origin, ".", *))
+	set tt = ##class(Port.Configuration).GetInputCharset(extension)
+
+	if (itemType = "CLS") {
     set fs = ##class(%Stream.FileCharacter).%New()
-    set fs.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()
+    set fs.TranslateTable = tt
     $$$QuitOnError(fs.LinkToFile(origin))
     $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromStream($namespace, itemName, fs))
   } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {
-    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")
+    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")     
     
     if ##class(%RoutineMgr).Exists(itemName) {
       set routine = ##class(%RoutineMgr).%OpenId(itemName)
@@ -2105,14 +2146,14 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
     }
     
     set localSource = ##class(%Stream.FileCharacter).%New()
-    set localSource.TranslateTable = ##class(Port.Configuration).GetRoutineInputTranslateTable()    
+    set localSource.TranslateTable = tt
     
     if itemType = "CSP" {  
-      if routine = "" return $$$PERROR($$$NoCompatibleApplicationForPublicFile, origin)
-      set extension = $$$ucase($piece(origin, ".", *))
+      if routine = "" return $$$PERROR($$$NoCompatibleApplicationForPublicFile, origin)      
       if extension = "" set extension = "TXT"
       do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
-      
+      if extension [ "CSP" || (extension = "CSR") set bin = 0
+                 
       /// We can't use any translation table when importing a binary, so we do a bit-to-bit copy.
       if bin {
         set destination = routine.Code.Filename
@@ -2122,8 +2163,7 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
         $$$QuitOnError(##class(Port.Util).EnsurePathExists(path))
         $$$QuitOnError(##class(%File).CopyFile(origin, destination))
         return $$$OK
-      } else {
-        set tt = ##class(Port.Configuration).GetPublicFileInputTranslateTable()
+      } else {                
         set localSource.TranslateTable = tt
         set routine.Code.TranslateTable = tt
       }

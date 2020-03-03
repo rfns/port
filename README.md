@@ -168,14 +168,13 @@ For number 3, remember that Port doesn't check the source code but instead their
 
 ## I've imported/exported a source code but it seems to have broken my encoding? Strange characters are showing up!
 
-This can be caused due to Port working with UTF-8 by default. You can use the following methods to try and fix it:
+This can be caused due to Port working with UTF-8 by default. You can change this behavior according to your preferences by providing exactly which encoding should be used for a specific extension, you can do so by using the following methods:
 
-* If you're having issues with a routine getting __imported__ with wrong encoding, you can use the method `SetRoutineInputTranslateTable`, this includes class items.
-* If you're having issues with a routine getting __exported__ with wrong encoding, you can use the method `SetRoutineOutputTranslateTable`, this also includes class items.
-* If you're having issues __importing__ with any files are that aren't routines, which means that they're public type classified, including CSP files. Then you can use the method `SetPublicFileInputTranslateTable`.
-* Finally, you're having issues __exporting__ any files that aren't routines as well, then you can use the method `SetPublicFileOutputTranslateTable`.
+* `SetInputCharset("charset")` will transcode the incoming document content to the provided charset.
+* `SetOutputCharset("charset")` will transcode the outgoing document content to the provided charset.
 
-> __NOTE:__ All the methods accept only a single parameter which is a string representing the charset. If you don't want to apply any translation, you can pass "RAW" to all methods.
+So, let's say if you are using ISO-8859-1 or Windows 1252 when handling CSPs, you can configure _Port_ to use it instead of UTF-8.
+Note that by default Studio uses RAW format (which equals to non-unicode) for editing files. This might be a good use case for manually changing the charset for CSP files.
 
 ## It seems I'm not able to export GBL or any binary related files?
 

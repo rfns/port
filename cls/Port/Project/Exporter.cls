@@ -111,6 +111,7 @@ Method ExportPublicFile(itemName As %String) As %Status
   }  
 
   set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
+  set extension = $piece(itemName, ".", *)
 
   try {
     set csp = ##class(%RoutineMgr).%New(itemName)
@@ -129,7 +130,7 @@ Method ExportPublicFile(itemName As %String) As %Status
 
     set io = $$$GETIO
     
-    $$$SETIO(##class(Port.Configuration).GetPublicFileOutputTranslateTable())
+    $$$SETIO(##class(Port.Configuration).GetOutputCharset(extension))
     set exported = ##class(%File).CopyFile(csp.Code.Filename, destination, 1)
     $$$SETIO(io)
 
@@ -162,6 +163,7 @@ Method ExportRoutine(name As %String) As %Status
     set workspace = ##class(Port.Configuration).GetWorkspace(..Project.Name)
     set destination = ##class(Port.Util).ItemToPath(name, workspace)
     set destinationLocation = ##class(%File).GetDirectory(destination)
+    set extension = $piece(name, ".", *)
 
     $$$ThrowOnError(..Synchronizer.AddToWhitelist(name))
 
@@ -174,7 +176,7 @@ Method ExportRoutine(name As %String) As %Status
     }
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = ##class(Port.Configuration).GetRoutineOutputTranslateTable()
+    set file.TranslateTable = ##class(Port.Configuration).GetOutputCharset(extension)
     do file.LinkToFile(destination)
 
     set routine = ##class(%RoutineMgr).%OpenId(name)
@@ -237,7 +239,7 @@ Method ExportClass(className As %String, fromPackage As %Boolean = 0) As %Status
     $$$ThrowOnError(##class(%Compiler.UDL.TextServices).GetTextAsStream($namespace, itemName, .stream))
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = ##class(Port.Configuration).GetRoutineOutputTranslateTable()
+    set file.TranslateTable = ##class(Port.Configuration).GetOutputCharset("CLS")
     do file.LinkToFile(destination)
 
     $$$ThrowOnError(file.CopyFromAndSave(stream))

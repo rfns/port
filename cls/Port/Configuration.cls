@@ -138,61 +138,37 @@ ClassMethod RegisterExtendedHooks(implementer As %String) As %Status
   return $$$OK
 }
 
+/// Get the charset to be used when saving a document that has the provided extension.
+/// Defaults to "UTF8".
+ClassMethod GetInputCharset(extension As %String) As %String
+{
+	return $get(^Port.Configuration("source.charset.input", $$$ucase(extension)), "UTF8")
+}
+
+/// Get the charset to be used when retrieving a document that has the provided extension.
+/// Defaults to "UTF8".
+ClassMethod GetOutputCharset(extension As %String) As %String
+{
+	return $get(^Port.Configuration("source.charset.output", $$$ucase(extension)), "UTF8")
+}
+
+/// Set the character set to be used when saving a document with the provided extension.
+ClassMethod SetInputCharset(extension As %String, charset As %String) As %Status
+{
+	set ^Port.Configuration("source.charset.input", $$$ucase(extension)) = charset
+	return $$$OK
+}
+
+/// Set the character set to be used when retrieving a document with the provided extension.
+ClassMethod SetOutputCharset(extension As %String, charset As %String) As %Status
+{
+	set ^Port.Configuration("source.charset.output", $$$ucase(extension)) = charset
+	return $$$OK
+}
+
 ClassMethod GetExtendedHooksImplementer() As %String
 {
   return $get(^Port.Configuration("source.hooks.custom"))
-}
-
-/// Defines the encoding used to save the routine items, this includes class items. Pass RAW to preserve the content as-is.
-ClassMethod SetRoutineInputTranslateTable(charset As %String) As %Status
-{
-  set ^Port.Configuration("io.routine.in") = charset
-  return $$$OK
-}
-
-/// Defines the encoding used to save the exported files originated from routines, this includes class items. Pass RAW to preserve the content as-is.
-ClassMethod SetRoutineOutputTranslateTable(charset As %String) As %Status
-{
-  set ^Port.Configuration("io.routine.out") = charset
-  return $$$OK
-}
-
-/// Defines the encoding used to save CSP items. Pass RAW to preserve the content as-is.
-ClassMethod SetPublicFileInputTranslateTable(charset As %String) As %Status
-{
-  set ^Port.Configuration("io.public.in") = charset
-  return $$$OK
-}
-
-/// Defines the encoding used to save public files originated from CSP items. Pass RAW to preserve the content as-is.
-ClassMethod SetPublicFileOutputTranslateTable(charset As %String) As %Status
-{
-  set ^Port.Configuration("io.public.out") = charset
-  return $$$OK
-}
-
-/// Retrieves the current configured routine translate table for inputs. Defaults to UTF-8.
-ClassMethod GetRoutineInputTranslateTable(charset As %String) As %Status
-{
-  return $get(^Port.Configuration("io.routine.in"), "UTF8")
-}
-
-/// Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.
-ClassMethod GetRoutineOutputTranslateTable(charset As %String) As %Status
-{
-  return $get(^Port.Configuration("io.routine.out"), "UTF8")
-}
-
-/// Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.
-ClassMethod GetPublicFileInputTranslateTable(charset As %String) As %Status
-{
-  return $get(^Port.Configuration("io.public.in"), "UTF8")
-}
-
-/// Retrieves the current configured public file translate table for outputs. Defaults to UTF-8.
-ClassMethod GetPublicFileOutputTranslateTable(charset As %String) As %Status
-{
-  return $get(^Port.Configuration("io.public.out"), "UTF8")
 }
 
 /// Defines which format the Port should for running unit test. When "XML" is selected, Port will export test classes as xml.
