@@ -242,37 +242,47 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 </Method>
 
 <Method name="GetInputCharset">
+<Description>
+Get the charset to be used when saving a document that has the provided extension.
+Defaults to "UTF8".</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.input", $$$ucase(extension)), "UTF-8")
+<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.input", $$$ucase(extension)), "UTF8")
 ]]></Implementation>
 </Method>
 
 <Method name="GetOutputCharset">
+<Description>
+Get the charset to be used when retrieving a document that has the provided extension.
+Defaults to "UTF8".</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.output", $$$ucase(extension)), "UTF-8")
+<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.output", $$$ucase(extension)), "UTF8")
 ]]></Implementation>
 </Method>
 
 <Method name="SetInputCharset">
+<Description>
+Set the character set to be used when saving a document with the provided extension.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String,charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set ^Port.Configuration("source.charset.output", extension) = charset
+	set ^Port.Configuration("source.charset.input", $$$ucase(extension)) = charset
 	return $$$OK
 ]]></Implementation>
 </Method>
 
 <Method name="SetOutputCharset">
+<Description>
+Set the character set to be used when retrieving a document with the provided extension.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String,charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set ^Port.Configuration("source.charset.input", extension) = charset
+	set ^Port.Configuration("source.charset.output", $$$ucase(extension)) = charset
 	return $$$OK
 ]]></Implementation>
 </Method>
@@ -281,94 +291,6 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 <ClassMethod>1</ClassMethod>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[  return $get(^Port.Configuration("source.hooks.custom"))
-]]></Implementation>
-</Method>
-
-<Method name="SetRoutineInputTranslateTable">
-<Description>
-Defines the encoding used to save the routine items, this includes class items. Pass RAW to preserve the content as-is.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>charset:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set ^Port.Configuration("io.routine.in") = charset
-  return $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="SetRoutineOutputTranslateTable">
-<Description>
-Defines the encoding used to save the exported files originated from routines, this includes class items. Pass RAW to preserve the content as-is.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>charset:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set ^Port.Configuration("io.routine.out") = charset
-  return $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="SetPublicFileInputTranslateTable">
-<Description>
-Defines the encoding used to save CSP items. Pass RAW to preserve the content as-is.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>charset:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set ^Port.Configuration("io.public.in") = charset
-  return $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="SetPublicFileOutputTranslateTable">
-<Description>
-Defines the encoding used to save public files originated from CSP items. Pass RAW to preserve the content as-is.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>charset:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-  set ^Port.Configuration("io.public.out") = charset
-  return $$$OK
-]]></Implementation>
-</Method>
-
-<Method name="GetRoutineInputTranslateTable">
-<Description>
-Retrieves the current configured routine translate table for inputs. Defaults to UTF-8.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>charset:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  return $get(^Port.Configuration("io.routine.in"), "UTF8")
-]]></Implementation>
-</Method>
-
-<Method name="GetRoutineOutputTranslateTable">
-<Description>
-Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>charset:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  return $get(^Port.Configuration("io.routine.out"), "UTF8")
-]]></Implementation>
-</Method>
-
-<Method name="GetPublicFileInputTranslateTable">
-<Description>
-Retrieves the current configured routine translate table for outputs. Defaults to UTF-8.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>charset:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  return $get(^Port.Configuration("io.public.in"), "UTF8")
-]]></Implementation>
-</Method>
-
-<Method name="GetPublicFileOutputTranslateTable">
-<Description>
-Retrieves the current configured public file translate table for outputs. Defaults to UTF-8.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>charset:%String</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[  return $get(^Port.Configuration("io.public.out"), "UTF8")
 ]]></Implementation>
 </Method>
 
@@ -3604,7 +3526,7 @@ Called after an item is deleted.</Description>
     set recursive = "norecursive"
   }
   
-  set sc = ..RunTest(target_$case(targetSpec, "": "", : ":"_targetSpec), "/"_recursive_"/run/noload/nodelete")
+  set sc = ..RunTest(target, "/"_recursive_"/run/noload/nodelete/"_targetSpec)
   set ^||Port.Project = activeProject
   return sc
 ]]></Implementation>
