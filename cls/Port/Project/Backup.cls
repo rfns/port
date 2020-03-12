@@ -82,7 +82,7 @@ Scan(group, type, created)
 }
 
 /// Undo the changes made by the importer copying the __backup__ directory back into the CSP directory.
-ClassMethod Rollback() As %Status
+Method Rollback() As %Status
 {
   set sc = $$$OK
 
