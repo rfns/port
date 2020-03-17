@@ -19,6 +19,6 @@ jobs:
         path: app
     - name: Run tests
       run: |
-        docker pull rfns/iris-ci:0.5.2
-        docker run -t --rm --name ci -v $PWD/app:/opt/ci/app -e TEST_SUITE=cls/UnitTest rfns/iris-ci:0.5.2
+        docker pull rfns/iris-ci:0.5.3
+        docker run -t --rm --name ci -v $PWD/app:/opt/ci/app -e TEST_SUITE=cls/UnitTest rfns/iris-ci:0.5.3
 
