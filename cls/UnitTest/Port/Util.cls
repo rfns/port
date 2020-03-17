@@ -1,6 +1,6 @@
 Include portutils
 
-Class UnitTest.Port.Util Extends (Port.UnitTest.TestCase, UnitTest.Port.Helper)
+Class UnitTest.Port.Util Extends (%UnitTest.TestCase, UnitTest.Port.Helper)
 {
 
 Method TestGetItemType()
