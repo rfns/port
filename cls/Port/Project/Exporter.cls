@@ -104,7 +104,6 @@ Method ExportPublicFile(itemName As %String) As %Status
 {
   set sc = $$$OK
   set id = ##class(Port.Util).ResolveItemId(itemName, ..Project.Name)
-  set exported = 0  
 
   if '##class(%Studio.ProjectItem).%ExistsId(id) {
     return $$$PERROR($$$UnableToExportInvalidItem, itemName)
@@ -127,23 +126,26 @@ Method ExportPublicFile(itemName As %String) As %Status
       write ..LogLine($$$UpToDate)
       quit
     }
-
-    set io = $$$GETIO
     
-    $$$SETIO(##class(Port.Configuration).GetOutputCharset(extension))
-    set exported = ##class(%File).CopyFile(csp.Code.Filename, destination, 1)
-    $$$SETIO(io)
+    set itt = ##class(Port.Configuration).GetInternalCharset(extension)
+    set ett = ##class(Port.Configuration).GetExternalCharset(extension)
+    
+    set csp.Code.TranslateTable = itt
+        
+    set fs = ##class(%Stream.FileCharacter).%New()
+   	set fs.TranslateTable = ett
+   	
+   	$$$ThrowOnError(fs.LinkToFile(destination))
+   	$$$ThrowOnError(fs.CopyFrom(csp.Code))
+   	$$$ThrowOnError(fs.%Save())
 
     write ..LogLine($$$Done)
     set ..AffectedCount = ..AffectedCount + 1
   } catch ex {
     set sc = ex.AsStatus()
-    if exported = 0 {
-      if $$$ISOK(sc) set sc = $$$PERROR($$$UnableToCopySource, source, dest)
-    }
-    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
+    write ..LogLine($$$Failed, 1)
   }
-  quit $$$OK
+  quit sc
 }
 
 /// Export a routine to the workspace, the path inside the workspace is taken from the type of routine to be exported.
@@ -176,7 +178,7 @@ Method ExportRoutine(name As %String) As %Status
     }
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = ##class(Port.Configuration).GetOutputCharset(extension)
+    set file.TranslateTable = ##class(Port.Configuration).GetExternalCharset(extension)
     do file.LinkToFile(destination)
 
     set routine = ##class(%RoutineMgr).%OpenId(name)
@@ -188,7 +190,7 @@ Method ExportRoutine(name As %String) As %Status
     set ..AffectedCount = ..AffectedCount + 1
   } catch ex {
     set sc = ex.AsStatus()
-    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
+    write ..LogLine($$$Failed, 1)
   }
 
   quit sc
@@ -239,7 +241,7 @@ Method ExportClass(className As %String, fromPackage As %Boolean = 0) As %Status
     $$$ThrowOnError(##class(%Compiler.UDL.TextServices).GetTextAsStream($namespace, itemName, .stream))
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = ##class(Port.Configuration).GetOutputCharset("CLS")
+    set file.TranslateTable = ##class(Port.Configuration).GetExternalCharset("CLS")
     do file.LinkToFile(destination)
 
     $$$ThrowOnError(file.CopyFromAndSave(stream))
@@ -255,7 +257,7 @@ Method ExportClass(className As %String, fromPackage As %Boolean = 0) As %Status
     }
   } catch ex {
     set sc = ex.AsStatus()
-    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
+    write ..LogLine($$$Failed, 1)
   }
 
   quit sc

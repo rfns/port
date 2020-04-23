@@ -299,55 +299,56 @@ Method Import() As %Status
   quit sc
 }
 
-ClassMethod ImportFromExternalSource(itemName As %String, origin As %String, itemType As %String) As %Status [ Final, Internal, Private ]
+Method ImportFromExternalSource(itemName As %String, origin As %String, itemType As %String) As %Status [ Final, Internal, Private ]
 {
   set extension = $$$ucase($piece(origin, ".", *))
-	set tt = ##class(Port.Configuration).GetInputCharset(extension)
+	set itt = ##class(Port.Configuration).GetInternalCharset(extension)
+	set ett = ##class(Port.Configuration).GetExternalCharset(extension)
 
 	if (itemType = "CLS") {
     set fs = ##class(%Stream.FileCharacter).%New()
-    set fs.TranslateTable = tt
+    set fs.TranslateTable = ett
     $$$QuitOnError(fs.LinkToFile(origin))
     $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromStream($namespace, itemName, fs))
   } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {
-    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")     
-    
-    if ##class(%RoutineMgr).Exists(itemName) {
-      set routine = ##class(%RoutineMgr).%OpenId(itemName)
-    } else {
-      set routine = ##class(%RoutineMgr).%New(itemName)
-    }
+    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")         
     
     set localSource = ##class(%Stream.FileCharacter).%New()
-    set localSource.TranslateTable = tt
-    
-    if itemType = "CSP" {  
-      if routine = "" return $$$PERROR($$$NoCompatibleApplicationForPublicFile, origin)      
-      if extension = "" set extension = "TXT"
-      do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
-      if extension [ "CSP" || (extension = "CSR") set bin = 0
-                 
-      /// We can't use any translation table when importing a binary, so we do a bit-to-bit copy.
-      if bin {
-        set destination = routine.Code.Filename
-        set path = ##class(%File).GetDirectory(routine.Code.Filename)        
-        set routine = ""
-        set localSource = ""
-        $$$QuitOnError(##class(Port.Util).EnsurePathExists(path))
-        $$$QuitOnError(##class(%File).CopyFile(origin, destination))
-        return $$$OK
-      } else {                
-        set localSource.TranslateTable = tt
-        set routine.Code.TranslateTable = tt
-      }
-    }    
-            
-    set code = routine.Code
-    do code.Clear()
+    set localSource.TranslateTable = ett
     
     $$$QuitOnError(localSource.LinkToFile(origin))
+    
+    if itemType = "CSP" {
+      if extension = "" set extension = "TXT"
+      do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
+      if $lf($lfs("CSP CSR JSON MD", " "), extension) set bin = 0
+      
+      set code = ##class(%CSP.Routine).%New()
+      set code.TranslateTable = itt
+      
+      $$$QuitOnError(code.LinkToUrl(itemName))
+      do code.Clear()
+      
+      set destination = code.Filename
+      set path = ##class(%File).GetDirectory(destination)
+      $$$QuitOnError(##class(Port.Util).EnsurePathExists(path))
+
+      /// We can't use any translation table when importing a binary, so we do a bit-to-bit copy.
+      if bin {
+	      set localSource = ""
+	      set code = ""
+	      $$$QuitOnError(##class(%File).CopyFile(origin, destination))
+	      quit $$$OK
+      }
+    } else {
+    	set routine = ##class(%RoutineMgr).%New(itemName)
+    	set code = routine.Code
+    	do code.Clear()
+    }
+
     $$$QuitOnError(code.CopyFrom(localSource))
-    $$$QuitOnError(routine.%Save())
+   	$$$QuitOnError(code.%Save())
+   	set routine = ""
   }
   quit $$$OK
 }
@@ -364,11 +365,12 @@ Method SynchronizeProject() As %Status [ Internal, Private ]
   if ..IsBatch $$$QuitOnError(..Project.Check())
 
   // Now that the project is clear, we add the new items.
+  
   for {
-    set itemName = $order(i%ItemsList(itemName), 1, type)
-    quit:itemName=""
-
-    set pSC = ..Project.AddItem(itemName)
+    set itemName = $order(i%ItemsList(itemName), 1, type)    
+    quit:itemName=""       
+    
+    set pSC = ..Project.AddItem(itemName)    
 
     if ($$$ISERR(pSC) && $$$GETERRORCODE(pSC)) = $$$ProjectIncludesPackage {
       set package = itemName

@@ -48,7 +48,7 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total of extraneous items removed: %1</Message>
     <Message Id="-500" Name="Done"> done.</Message>
     <Message Id="-501" Name="DoneWithErrors"> done, but with errors.</Message>
-    <Message Id="-501" Name="Failed"> failed. Reason: %1.</Message>
+    <Message Id="-501" Name="Failed"> failed.</Message>
     <Message Id="-502" Name="AllDone">Finished with success.</Message>
     <Message Id="-503" Name="UpToDate"> is up-to-date.</Message>
     <Message Id="-504" Name="OvewriteWithExtension"> end with the %1 extension.</Message>
