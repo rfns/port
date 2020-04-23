@@ -241,48 +241,48 @@ Defines a class used to handle source control hooks after Port execution.</Descr
 ]]></Implementation>
 </Method>
 
-<Method name="GetInputCharset">
+<Method name="GetInternalCharset">
 <Description>
-Get the charset to be used when saving a document that has the provided extension.
+Get the charset to be used when saving a document matching the provided extension.
 Defaults to "UTF8".</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.input", $$$ucase(extension)), "UTF8")
+<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.internal", $$$ucase(extension)), "UTF8")
 ]]></Implementation>
 </Method>
 
-<Method name="GetOutputCharset">
+<Method name="GetExternalCharset">
 <Description>
-Get the charset to be used when retrieving a document that has the provided extension.
+Get the charset to be used when retrieving/exporting a file matching the provided extension.
 Defaults to "UTF8".</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.output", $$$ucase(extension)), "UTF8")
+<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.external", $$$ucase(extension)), "UTF8")
 ]]></Implementation>
 </Method>
 
-<Method name="SetInputCharset">
+<Method name="SetInternalCharset">
 <Description>
-Set the character set to be used when saving a document with the provided extension.</Description>
+Set the character set to be used when saving a document to Caché with the provided extension.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String,charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set ^Port.Configuration("source.charset.input", $$$ucase(extension)) = charset
+	set ^Port.Configuration("source.charset.internal", $$$ucase(extension)) = charset
 	return $$$OK
 ]]></Implementation>
 </Method>
 
-<Method name="SetOutputCharset">
+<Method name="SetExternalCharset">
 <Description>
-Set the character set to be used when retrieving a document with the provided extension.</Description>
+Set the character set to be used when retrieving a document from Caché with the provided extension.</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String,charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set ^Port.Configuration("source.charset.output", $$$ucase(extension)) = charset
+	set ^Port.Configuration("source.charset.external", $$$ucase(extension)) = charset
 	return $$$OK
 ]]></Implementation>
 </Method>
@@ -396,7 +396,7 @@ Returns the selected test format. It can be "UDL" or "XML".</Description>
     <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total of extraneous items removed: %1</Message>
     <Message Id="-500" Name="Done"> done.</Message>
     <Message Id="-501" Name="DoneWithErrors"> done, but with errors.</Message>
-    <Message Id="-501" Name="Failed"> failed. Reason: %1.</Message>
+    <Message Id="-501" Name="Failed"> failed.</Message>
     <Message Id="-502" Name="AllDone">Finished with success.</Message>
     <Message Id="-503" Name="UpToDate"> is up-to-date.</Message>
     <Message Id="-504" Name="OvewriteWithExtension"> end with the %1 extension.</Message>
@@ -1505,7 +1505,6 @@ The CSP application name is mirrored into subfolders inside the public folder.</
 <Implementation><![CDATA[
   set sc = $$$OK
   set id = ##class(Port.Util).ResolveItemId(itemName, ..Project.Name)
-  set exported = 0  
 
   if '##class(%Studio.ProjectItem).%ExistsId(id) {
     return $$$PERROR($$$UnableToExportInvalidItem, itemName)
@@ -1528,23 +1527,26 @@ The CSP application name is mirrored into subfolders inside the public folder.</
       write ..LogLine($$$UpToDate)
       quit
     }
-
-    set io = $$$GETIO
     
-    $$$SETIO(##class(Port.Configuration).GetOutputCharset(extension))
-    set exported = ##class(%File).CopyFile(csp.Code.Filename, destination, 1)
-    $$$SETIO(io)
+    set itt = ##class(Port.Configuration).GetInternalCharset(extension)
+    set ett = ##class(Port.Configuration).GetExternalCharset(extension)
+    
+    set csp.Code.TranslateTable = itt
+        
+    set fs = ##class(%Stream.FileCharacter).%New()
+   	set fs.TranslateTable = ett
+   	
+   	$$$ThrowOnError(fs.LinkToFile(destination))
+   	$$$ThrowOnError(fs.CopyFrom(csp.Code))
+   	$$$ThrowOnError(fs.%Save())
 
     write ..LogLine($$$Done)
     set ..AffectedCount = ..AffectedCount + 1
   } catch ex {
     set sc = ex.AsStatus()
-    if exported = 0 {
-      if $$$ISOK(sc) set sc = $$$PERROR($$$UnableToCopySource, source, dest)
-    }
-    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
+    write ..LogLine($$$Failed, 1)
   }
-  quit $$$OK
+  quit sc
 ]]></Implementation>
 </Method>
 
@@ -1581,7 +1583,7 @@ Export a routine to the workspace, the path inside the workspace is taken from t
     }
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = ##class(Port.Configuration).GetOutputCharset(extension)
+    set file.TranslateTable = ##class(Port.Configuration).GetExternalCharset(extension)
     do file.LinkToFile(destination)
 
     set routine = ##class(%RoutineMgr).%OpenId(name)
@@ -1593,7 +1595,7 @@ Export a routine to the workspace, the path inside the workspace is taken from t
     set ..AffectedCount = ..AffectedCount + 1
   } catch ex {
     set sc = ex.AsStatus()
-    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
+    write ..LogLine($$$Failed, 1)
   }
 
   quit sc
@@ -1648,7 +1650,7 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
     $$$ThrowOnError(##class(%Compiler.UDL.TextServices).GetTextAsStream($namespace, itemName, .stream))
 
     set file = ##class(%Stream.FileCharacter).%New()
-    set file.TranslateTable = ##class(Port.Configuration).GetOutputCharset("CLS")
+    set file.TranslateTable = ##class(Port.Configuration).GetExternalCharset("CLS")
     do file.LinkToFile(destination)
 
     $$$ThrowOnError(file.CopyFromAndSave(stream))
@@ -1664,7 +1666,7 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
     }
   } catch ex {
     set sc = ex.AsStatus()
-    write ..LogLine($$$Failed, 1, $System.Status.GetErrorText(sc))
+    write ..LogLine($$$Failed, 1)
   }
 
   quit sc
@@ -2043,58 +2045,58 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 <Method name="ImportFromExternalSource">
 <Final>1</Final>
 <Internal>1</Internal>
-<ClassMethod>1</ClassMethod>
 <FormalSpec>itemName:%String,origin:%String,itemType:%String</FormalSpec>
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set extension = $$$ucase($piece(origin, ".", *))
-	set tt = ##class(Port.Configuration).GetInputCharset(extension)
+	set itt = ##class(Port.Configuration).GetInternalCharset(extension)
+	set ett = ##class(Port.Configuration).GetExternalCharset(extension)
 
 	if (itemType = "CLS") {
     set fs = ##class(%Stream.FileCharacter).%New()
-    set fs.TranslateTable = tt
+    set fs.TranslateTable = ett
     $$$QuitOnError(fs.LinkToFile(origin))
     $$$QuitOnError(##class(%Compiler.UDL.TextServices).SetTextFromStream($namespace, itemName, fs))
   } elseif ##class(Port.Util).IsRoutine(itemName) || (itemType = "CSP") {
-    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")     
-    
-    if ##class(%RoutineMgr).Exists(itemName) {
-      set routine = ##class(%RoutineMgr).%OpenId(itemName)
-    } else {
-      set routine = ##class(%RoutineMgr).%New(itemName)
-    }
+    if itemName [ "/" set itemName = $$$LPadProvidedSlash(itemName, "/")         
     
     set localSource = ##class(%Stream.FileCharacter).%New()
-    set localSource.TranslateTable = tt
-    
-    if itemType = "CSP" {  
-      if routine = "" return $$$PERROR($$$NoCompatibleApplicationForPublicFile, origin)      
-      if extension = "" set extension = "TXT"
-      do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
-      if extension [ "CSP" || (extension = "CSR") set bin = 0
-                 
-      /// We can't use any translation table when importing a binary, so we do a bit-to-bit copy.
-      if bin {
-        set destination = routine.Code.Filename
-        set path = ##class(%File).GetDirectory(routine.Code.Filename)        
-        set routine = ""
-        set localSource = ""
-        $$$QuitOnError(##class(Port.Util).EnsurePathExists(path))
-        $$$QuitOnError(##class(%File).CopyFile(origin, destination))
-        return $$$OK
-      } else {                
-        set localSource.TranslateTable = tt
-        set routine.Code.TranslateTable = tt
-      }
-    }    
-            
-    set code = routine.Code
-    do code.Clear()
+    set localSource.TranslateTable = ett
     
     $$$QuitOnError(localSource.LinkToFile(origin))
+    
+    if itemType = "CSP" {
+      if extension = "" set extension = "TXT"
+      do ##class(%CSP.StreamServer).FileClassify(extension, .type, .bin)
+      if $lf($lfs("CSP CSR JSON MD", " "), extension) set bin = 0
+      
+      set code = ##class(%CSP.Routine).%New()
+      set code.TranslateTable = itt
+      
+      $$$QuitOnError(code.LinkToUrl(itemName))
+      do code.Clear()
+      
+      set destination = code.Filename
+      set path = ##class(%File).GetDirectory(destination)
+      $$$QuitOnError(##class(Port.Util).EnsurePathExists(path))
+
+      /// We can't use any translation table when importing a binary, so we do a bit-to-bit copy.
+      if bin {
+	      set localSource = ""
+	      set code = ""
+	      $$$QuitOnError(##class(%File).CopyFile(origin, destination))
+	      quit $$$OK
+      }
+    } else {
+    	set routine = ##class(%RoutineMgr).%New(itemName)
+    	set code = routine.Code
+    	do code.Clear()
+    }
+
     $$$QuitOnError(code.CopyFrom(localSource))
-    $$$QuitOnError(routine.%Save())
+   	$$$QuitOnError(code.%Save())
+   	set routine = ""
   }
   quit $$$OK
 ]]></Implementation>
@@ -2115,11 +2117,12 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
   if ..IsBatch $$$QuitOnError(..Project.Check())
 
   // Now that the project is clear, we add the new items.
+  
   for {
-    set itemName = $order(i%ItemsList(itemName), 1, type)
-    quit:itemName=""
-
-    set pSC = ..Project.AddItem(itemName)
+    set itemName = $order(i%ItemsList(itemName), 1, type)    
+    quit:itemName=""       
+    
+    set pSC = ..Project.AddItem(itemName)    
 
     if ($$$ISERR(pSC) && $$$GETERRORCODE(pSC)) = $$$ProjectIncludesPackage {
       set package = itemName
@@ -2350,17 +2353,11 @@ LoopThroughType(projectName, importedList, group)
 <Private>1</Private>
 </Property>
 
-<Property name="Simulated">
-<Type>%Boolean</Type>
-<InitialExpression>0</InitialExpression>
-</Property>
-
 <Method name="%OnNew">
 <FormalSpec>tool:Port.Project.Base,simulated:%Boolean=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set ..Tool = tool
-  set ..Simulated = simulated
   do ..BuildTypePaths()
   return $$$OK
 ]]></Implementation>
@@ -2497,6 +2494,7 @@ LoopThroughType(projectName, importedList, group)
       set filesCount = 0
       set sc = ..Scan(statement, fullPath, .filesCount)
       if $$$ISERR(sc) return sc
+      continue
     } else {
       set filesCount =  filesCount + 1
     }

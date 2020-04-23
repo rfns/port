@@ -11,12 +11,9 @@ Property Tool As Port.Project.Base [ Private ];
 
 Property TypePaths As %List [ Private ];
 
-Property Simulated As %Boolean [ InitialExpression = 0 ];
-
 Method %OnNew(tool As Port.Project.Base, simulated As %Boolean = 0) As %Status
 {
   set ..Tool = tool
-  set ..Simulated = simulated
   do ..BuildTypePaths()
   return $$$OK
 }
@@ -140,6 +137,7 @@ Method Scan(statement As %SQL.Statement, path As %String, filesCount As %Integer
       set filesCount = 0
       set sc = ..Scan(statement, fullPath, .filesCount)
       if $$$ISERR(sc) return sc
+      continue
     } else {
       set filesCount =  filesCount + 1
     }

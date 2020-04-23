@@ -138,31 +138,31 @@ ClassMethod RegisterExtendedHooks(implementer As %String) As %Status
   return $$$OK
 }
 
-/// Get the charset to be used when saving a document that has the provided extension.
+/// Get the charset to be used when saving a document matching the provided extension.
 /// Defaults to "UTF8".
-ClassMethod GetInputCharset(extension As %String) As %String
+ClassMethod GetInternalCharset(extension As %String) As %String
 {
-	return $get(^Port.Configuration("source.charset.input", $$$ucase(extension)), "UTF8")
+	return $get(^Port.Configuration("source.charset.internal", $$$ucase(extension)), "UTF8")
 }
 
-/// Get the charset to be used when retrieving a document that has the provided extension.
+/// Get the charset to be used when retrieving/exporting a file matching the provided extension.
 /// Defaults to "UTF8".
-ClassMethod GetOutputCharset(extension As %String) As %String
+ClassMethod GetExternalCharset(extension As %String) As %String
 {
-	return $get(^Port.Configuration("source.charset.output", $$$ucase(extension)), "UTF8")
+	return $get(^Port.Configuration("source.charset.external", $$$ucase(extension)), "UTF8")
 }
 
-/// Set the character set to be used when saving a document with the provided extension.
-ClassMethod SetInputCharset(extension As %String, charset As %String) As %Status
+/// Set the character set to be used when saving a document to Caché with the provided extension.
+ClassMethod SetInternalCharset(extension As %String, charset As %String) As %Status
 {
-	set ^Port.Configuration("source.charset.input", $$$ucase(extension)) = charset
+	set ^Port.Configuration("source.charset.internal", $$$ucase(extension)) = charset
 	return $$$OK
 }
 
-/// Set the character set to be used when retrieving a document with the provided extension.
-ClassMethod SetOutputCharset(extension As %String, charset As %String) As %Status
+/// Set the character set to be used when retrieving a document from Caché with the provided extension.
+ClassMethod SetExternalCharset(extension As %String, charset As %String) As %Status
 {
-	set ^Port.Configuration("source.charset.output", $$$ucase(extension)) = charset
+	set ^Port.Configuration("source.charset.external", $$$ucase(extension)) = charset
 	return $$$OK
 }
 
