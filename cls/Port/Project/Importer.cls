@@ -123,7 +123,7 @@ Method DescribeItem(origin As %String, Output isOutdated As %Boolean = 0, Output
 {
  
   set fileName = ##class(%File).GetFilename(origin)     
-  set emptyName = ($piece(fileName, ".") = "")
+  set allowEmptyName = ##class(Port.Configuration).IsAllowEmptyFileNameEnabled() && ($piece(fileName, ".") = "")
   set pathType = ##class(Port.Util).GetPathType(origin)
   
   set isOutdated = 1
@@ -131,7 +131,7 @@ Method DescribeItem(origin As %String, Output isOutdated As %Boolean = 0, Output
   set itemType = ##class(Port.Util).GetItemType(itemName)  
   set priority = ..GetTypePriority(itemType)
   
-  if emptyName || (pathType '= itemType && (pathType '= "PUBLIC")) {
+  if allowEmptyName || (pathType '= itemType && (pathType '= "PUBLIC")) {
     set itemName = ""
     set itemType = ""
     set priority = -1
