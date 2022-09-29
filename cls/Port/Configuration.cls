@@ -208,5 +208,21 @@ ClassMethod RewritePlaceHolders(basePath As %String, projectName As %String = {$
   return translatedPath
 }
 
+/// Enable or disable enqueing files that follow the format ".name". When disabled
+/// Port will ignore these files altogether. Useful if you don't want to import directories
+/// that there supposed to be internal or hidden.
+ClassMethod AllowEmptyFileName(enabledOrDisable As %Integer)
+{
+  if '$lf($lb(0,1), value) quit
+  set ^Port.Configuration("files.allowEmptyName") = value
+}
+
+/// Returns if Port is allowed to enqueue files on which the name follows the format ".name".
+ClassMethod IsAllowEmptyFileNameEnabled() As %Boolean
+{
+  return $get(^Port.Configuration("files.allowEmptyName"), 0)
+}
+
+
 }
 
