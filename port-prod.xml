@@ -248,7 +248,7 @@ Defaults to "UTF8".</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.internal", $$$ucase(extension)), "UTF8")
+<Implementation><![CDATA[  return $get(^Port.Configuration("source.charset.internal", $$$ucase(extension)), "UTF8")
 ]]></Implementation>
 </Method>
 
@@ -259,7 +259,7 @@ Defaults to "UTF8".</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>extension:%String</FormalSpec>
 <ReturnType>%String</ReturnType>
-<Implementation><![CDATA[	return $get(^Port.Configuration("source.charset.external", $$$ucase(extension)), "UTF8")
+<Implementation><![CDATA[  return $get(^Port.Configuration("source.charset.external", $$$ucase(extension)), "UTF8")
 ]]></Implementation>
 </Method>
 
@@ -270,8 +270,8 @@ Set the character set to be used when saving a document to Caché with the provi
 <FormalSpec>extension:%String,charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set ^Port.Configuration("source.charset.internal", $$$ucase(extension)) = charset
-	return $$$OK
+  set ^Port.Configuration("source.charset.internal", $$$ucase(extension)) = charset
+  return $$$OK
 ]]></Implementation>
 </Method>
 
@@ -282,8 +282,8 @@ Set the character set to be used when retrieving a document from Caché with the
 <FormalSpec>extension:%String,charset:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set ^Port.Configuration("source.charset.external", $$$ucase(extension)) = charset
-	return $$$OK
+  set ^Port.Configuration("source.charset.external", $$$ucase(extension)) = charset
+  return $$$OK
 ]]></Implementation>
 </Method>
 
@@ -340,6 +340,28 @@ Returns the selected test format. It can be "UDL" or "XML".</Description>
     for i=1:1:params $$$RewriteIfPathContains("{P"_i_"}", params(i))
   }
   return translatedPath
+]]></Implementation>
+</Method>
+
+<Method name="AllowEmptyFileName">
+<Description>
+Enable or disable enqueing files that follow the format ".name". When disabled
+Port will ignore these files altogether. Useful if you don't want to import directories
+that there supposed to be internal or hidden.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>value:%Integer</FormalSpec>
+<Implementation><![CDATA[
+  if '$lf($lb(0,1), value) quit
+  set ^Port.Configuration("files.allowEmptyName") = value
+]]></Implementation>
+</Method>
+
+<Method name="IsAllowEmptyFileNameEnabled">
+<Description>
+Returns if Port is allowed to enqueue files on which the name follows the format ".name".</Description>
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Boolean</ReturnType>
+<Implementation><![CDATA[  return $get(^Port.Configuration("files.allowEmptyName"), 0)
 ]]></Implementation>
 </Method>
 </Class>
@@ -919,15 +941,6 @@ Returns the selected test format. It can be "UDL" or "XML".</Description>
 </Class>
 
 
-<Routine name="Port" type="MAC" languagemode="0"><![CDATA[
-Install
-  do ##class(Port.Installer).Install()
-  quit
-
-Wizard
-  do ##class(Port.Wizard).Start()
-  quit
-]]></Routine>
 
 
 <Class name="Port.Project.Backup">
@@ -1851,7 +1864,7 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 <Implementation><![CDATA[
  
   set fileName = ##class(%File).GetFilename(origin)     
-  set emptyName = ($piece(fileName, ".") = "")
+  set allowEmptyName = ##class(Port.Configuration).IsAllowEmptyFileNameEnabled() && ($piece(fileName, ".") = "")
   set pathType = ##class(Port.Util).GetPathType(origin)
   
   set isOutdated = 1
@@ -1859,7 +1872,7 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
   set itemType = ##class(Port.Util).GetItemType(itemName)  
   set priority = ..GetTypePriority(itemType)
   
-  if emptyName || (pathType '= itemType && (pathType '= "PUBLIC")) {
+  if allowEmptyName || (pathType '= itemType && (pathType '= "PUBLIC")) {
     set itemName = ""
     set itemType = ""
     set priority = -1
@@ -2050,10 +2063,10 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
   set extension = $$$ucase($piece(origin, ".", *))
-	set itt = ##class(Port.Configuration).GetInternalCharset(extension)
-	set ett = ##class(Port.Configuration).GetExternalCharset(extension)
+  set itt = ##class(Port.Configuration).GetInternalCharset(extension)
+  set ett = ##class(Port.Configuration).GetExternalCharset(extension)
 
-	if (itemType = "CLS") {
+  if (itemType = "CLS") {
     set fs = ##class(%Stream.FileCharacter).%New()
     set fs.TranslateTable = ett
     $$$QuitOnError(fs.LinkToFile(origin))
@@ -2083,20 +2096,20 @@ Export a class to the workspace's 'cls' folder. Each class package is treated li
 
       /// We can't use any translation table when importing a binary, so we do a bit-to-bit copy.
       if bin {
-	      set localSource = ""
-	      set code = ""
-	      $$$QuitOnError(##class(%File).CopyFile(origin, destination))
-	      quit $$$OK
+        set localSource = ""
+        set code = ""
+        $$$QuitOnError(##class(%File).CopyFile(origin, destination))
+        quit $$$OK
       }
     } else {
-    	set routine = ##class(%RoutineMgr).%New(itemName)
-    	set code = routine.Code
-    	do code.Clear()
+      set routine = ##class(%RoutineMgr).%New(itemName)
+      set code = routine.Code
+      do code.Clear()
     }
 
     $$$QuitOnError(code.CopyFrom(localSource))
-   	$$$QuitOnError(code.%Save())
-   	set routine = ""
+    $$$QuitOnError(code.%Save())
+    set routine = ""
   }
   quit $$$OK
 ]]></Implementation>
@@ -3634,7 +3647,7 @@ Returns if the className is a qualified test case class.</Description>
   set baseTestPath = $$$RTrimProvidedSlash(baseTestPath, "/")
   
   if isUsingUDL set baseTestPath = ""
-  return baseTestPath_"/cls/"_$piece($replace(testableClass, ".", "/"), "/", 1, *-1)_":"_testableClass
+  return baseTestPath_$piece($replace(testableClass, ".", "/"), "/", 1, *-1)_":"_testableClass
 ]]></Implementation>
 </Method>
 </Class>
@@ -4457,204 +4470,4 @@ Menu
 ]]></Implementation>
 </Method>
 </Class>
-
-
-<Routine name="portmd" type="INC"><![CDATA[
-#define PCWGoBackChoice                                 -7999
-#define PCWPathNew                                      -7985
-#define PCWPathCurrent                                  -7984
-#define PCWPathDefault                                  -7983
-#define PCWPathOSSchemes                                -7982
-#define PCWPathAbsolute                                 -7981
-#define PCWPathRelative                                 -7980
-#define PCWPlaceholdersInstallDir                       -7974
-#define PCWPlaceholdersUsername                         -7973
-#define PCWPlaceholdersNamespace                        -7972
-#define PCWPlaceholdersProject                          -7971
-#define PCWPlaceholdersAnnounce                         -7970
-#define PCWExit                                         -7600
-#define PCWSetLogLevelStatusChoice2                     -7420
-#define PCWSetLogLevelStatusChoice1                     -7410
-#define PCWSetLogLevelStatusPrompt                      -7404
-#define PCWSetLogLevelStatusNow                         -7403
-#define PCWSetLogLevelStatusCurrent                     -7402
-#define PCWSetLogLevelDescription                       -7401
-#define PCWSetLogLevelChoice                            -7400
-#define PCWToggleAutoExportChoice2                      -7320
-#define PCWToggleAutoExportChoice1                      -7310
-#define PCWToggleAutoExportChoice1StatusNow             -7303
-#define PCWToggleAutoExportChoice1StatusCurrent         -7302
-#define PCWToggleAutoExportDescription                  -7301
-#define PCWToggleAutoExportChoice                       -7300
-#define PCWManageChangeTestSettingsChoice3StatusNow     -7232
-#define PCWManageChangeTestSettingsChoice3Description   -7231
-#define PCWManageChangeTestSettingsChoice3              -7230
-#define PCWManageChangeTestSettingsChoice2StatusNow     -7225
-#define PCWManageChangeTestSettingsChoice2Prompt        -7224
-#define PCWManageChangeTestSettingsChoice2Description3  -7223
-#define PCWManageChangeTestSettingsChoice2Description2  -7222
-#define PCWManageChangeTestSettingsChoice2Description   -7221
-#define PCWManageChangeTestSettingsChoice2              -7220
-#define PCWManageChangeTestSettingsChoice1StatusCurrent -7214
-#define PCWManageChangeTestSettingsChoice1Choice2       -7213
-#define PCWManageChangeTestSettingsChoice1Choice1       -7212
-#define PCWManageChangeTestSettingsChoice1Description   -7211
-#define PCWManageChangeTestSettingsChoice1              -7210
-#define PCWManageChangeTestSettingsDescription          -7201
-#define PCWManageChangeTestSettingsChoice               -7200
-#define PCWManageWorkspaceChoice2StatusNow              -7128
-#define PCWManageWorkspaceChoice2Prompt2                -7127
-#define PCWManageWorkspaceChoice2CurrentWorskpaceWarn   -7126
-#define PCWManageWorkspaceChoice2StatusCurrent          -7125
-#define PCWManageWorkspaceChoice2Warning                -7124
-#define PCWManageWorkspaceChoice2Prompt                 -7123
-#define PCWManageWorkspaceChoice2Description2           -7122
-#define PCWManageWorkspaceChoice2Description            -7121
-#define PCWManageWorkspaceChoice2                       -7120
-#define PCWManageWorkspaceChoice1StatusNow              -7113
-#define PCWManageWorkspaceChoice1StatusCurrent          -7112
-#define PCWManageWorkspaceChoice1Description            -7111
-#define PCWManageWorkspaceChoice1                       -7110
-#define PCWManageWorkspaceDescription                   -7101
-#define PCWManageWorkspaceChoice                        -7100
-#define PCWBye                                          -7007
-#define PCWToggleDisabled                               -7006
-#define PCWToggleEnabled                                -7005
-#define PCWAborted                                      -7004
-#define PCWChoicePrompt                                 -7003
-#define PCWChoiceQuestion                               -7002
-#define PCWInvalidChoice                                -7001
-#define PCWWelcome                                      -7000
-#define CMLRunActiveTest                                -6002
-#define CMLImportActive                                 -6001
-#define CMLExportActive                                 -6000
-#define NoCompatibleApplicationForPublicFile            -119
-#define FailedWhileRunningExtendedHook                  -118
-#define CannotSaveConflictingItems                      -117
-#define CouldNotDetermineWorkspace                      -116
-#define LogLevelIsOutOfRange                            -115
-#define ErrorsWhileImportingType                        -114
-#define ExportingProjectNotFound                        -113
-#define NoTestSuitesWereFound                           -112
-#define PortIsNotInstalled                              -111
-#define UnableToDescribeItem                            -110
-#define UnableToRemoveDirectory                         -109
-#define SupressedAttemptToExportFromOutside             -108
-#define AmbiguousPartialToWorkspace                     -107
-#define ErrorsWhileImporting                            -106
-#define UnableToExportInvalidItem                       -105
-#define UnableToCopySource                              -104
-#define CannotUseRelativePath                           -103
-#define CannotCreateDirectory                           -102
-#define NamespaceDoesntHaveAppWithPath                  -101
-#define InvalidPhysicalPath                             -100
-#define HookReturnedError                               -1102
-#define HookReturnedOK                                  -1101
-#define RunningCustomHook                               -1100
-#define ConflictingItemDetected2                        -1001
-#define ConflictingItemDetected                         -1000
-#define ExportingTestClassToXML                         -902
-#define XMLExportedTo                                   -901
-#define ExportingXML                                    -900
-#define FileGroupType                                   -813
-#define CLSGroupType                                    -812
-#define DFIGroupType                                    -811
-#define MVIGroupType                                    -810
-#define MVBGroupType                                    -809
-#define BASGroupType                                    -808
-#define INTGroupType                                    -807
-#define INCGroupType                                    -806
-#define MACGroupType                                    -805
-#define DirectoryType                                   -804
-#define FileType                                        -803
-#define RoutineType                                     -802
-#define ProjectType                                     -801
-#define ClassType                                       -800
-#define CannotUseDefault2                               -701
-#define CannotUseDefault                                -700
-#define ProjectSaved                                    -614
-#define FatalFailedToRestoreBackup                      -613
-#define FatalApplyingBackup                             -612
-#define FatalRollingBackTransaction                     -611
-#define FatalProjectIntegrityRiskWarning                -610
-#define FatalRollbackAlert                              -609
-#define FatalErrorAlert                                 -608
-#define NewProject                                      -607
-#define NoPendingItemsToImport                          -606
-#define TotalItemsToImport                              -605
-#define EnqueueingItems                                 -604
-#define ImportingProject                                -603
-#define NothingToImport                                 -602
-#define EnqueingType                                    -601
-#define ImportingType                                   -600
-#define OvewriteWithExtension                           -504
-#define UpToDate                                        -503
-#define AllDone                                         -502
-#define Failed                                          -501
-#define Done                                            -500
-#define TotalExtraneousItemsRemoved                     -406
-#define RemovingDirectory                               -405
-#define RemovingFile                                    -404
-#define NoExtraneousItems                               -403
-#define TotalExtraneousItems                            -402
-#define CheckingExtraneousItems                         -401
-#define SynchronizingProject                            -400
-#define NewWorkspaceDetected                            -304
-#define ExportingType                                   -303
-#define SourceExportedToPath                            -302
-#define ExportingProject                                -301
-#define NoItemsToExport                                 -300
-#define RemovingBackupMirror                            -203
-#define BackupMirror                                    -202
-#define BackupAlert                                     -201
-#define BackupStart                                     -200
-#define MLForceImport                                   -5010
-#define MLForceExport                                   -5009
-#define MLImport                                        -5008
-#define MLRunTests                                      -5007
-#define MLScanAndFix                                    -5006
-#define MLRemoveRoutines                                -5005
-#define MLRemoveFiles                                   -5004
-#define MLRemoveClasses                                 -5003
-#define MLExportTests                                   -5002
-#define MLExportToXML                                   -5001
-#define MLExport                                        -5000
-]]></Routine>
-
-
-<Routine name="portutils" type="INC"><![CDATA[
-#include %occStatus
-#include %occMessages
-#include %occErrors
-
-#include portmd
-
-#define NULL                             $s($$$isWINDOWS : "//./nul", 1: "/dev/null")
-#define PathTypes                        $listbuild("inc", "int", "cls", "mac", "mvi", "mvb", "bas", "public", "dfi")
-#define ImportTypes                      $listbuild("INC", "INT", "CLS", "MAC", "MVI", "MVB", "BAS", "CSR", "CSP")
-#define ImportTypeDescriptions           $listbuild("include files", "intermediate routines", "classes", "macro routines",  "MV Intermediate routines", "MV Basic routines", "Basic routines", "DFI XML", "CSP Rules", "files")
-#define RoutineExtensions                $listbuild(".MAC", ".INT", ".INC", ".MVB", ".MVI", ".BAS", ".DFI")
-#define RoutineGroups                   "MAC,INT,INC,MVB,MVI,BAS,DFI"
-#define IsRoutine(%type)                 ($$$RoutineGroups[%type)
-#define GetTypeDescription(%type)        $select($$$IsRoutine(%type)=1:$$$RoutineType,(%type = "CLS"):$$$ClassType,(%type = "PRJ"):$$$ProjectType,1:$$$FileType)
-#define GetGroupTypeDescription(%type)   $case(%type,"MAC":$$$MACGroupType,"INC":$$$INCGroupType,"INT":$$$INTGroupType,"BAS":$$$BASGroupType,"MVB":$$$MVBGroupType,"MVI":$$$MVIGroupType,"DFI":$$$DFIGroupType,"CLS":$$$CLSGroupType,:$$$FileGroupType)
-#def1arg PERROR(%errorArgs)              $$$ERROR($$$GeneralError, $$$FormatMsg("Port Errors", %errorArgs))
-#def1arg FormatWizardMsg(%args)          $$$FormatMsg("Port Configuration Wizard", %args)
-#define RemoveClassExtension(%iname)     $select($piece(%iname, ".", $$$ucase(%iname), *) [ "CLS" :  $piece(%iname, ".", 1, *-1), 1: %iname)
-#define Slash(%path)                     $select($$$IsRemoteAware : $select(%path [ "\" : "\", 1: "/"), 1: $$$OSSlash)
-#define OSSlash                          $select($$$isWINDOWS : "\", 1: "/")
-#define OSFromSlash(%path)               $select(%path [ "\" : 2, 1: 3)
-#define PathSlash(%path)                 $select(%path [ "\" : "\", 1: "/")
-#define NFN(%path)                       $select($$$IsRemoteAware : ##class(Port.Util).TranslatePath(%path, $$$OSFromSlash(%path)), 1: ##class(Port.Util).TranslatePath(%path))
-#define IsRemoteAware                    $get(^||Port.Internals.Configuration("remote")) = 1
-#define LTrimSlash(%p)                   $s($e(%p) = $$$Slash(%p) : $e(%p, 2, *), 1: %p)
-#define RTrimSlash(%p)                   $s($e(%p, *) = $$$Slash(%p) : $e(%p, 1, *-1), 1: %p)
-#define LTrimProvidedSlash(%p, %slash)   $s($e(%p) = %slash : $e(%p, 2, *), 1: %p)
-#define RTrimProvidedSlash(%p, %slash)   $s($e(%p, *) = %slash : $e(%p, 1, *-1), 1: %p)
-#define LPadSlash(%p)                    $s($e(%p) '= $$$Slash(%p) : $$$Slash(%p)_%p, 1: %p)
-#define RPadSlash(%p)                    $s($e(%p, *) '= $$$Slash(%p) : %p_$$$Slash(%p), 1: %p)
-#define LPadProvidedSlash(%p, %slash)    $s($e(%p) '= %slash : %slash_%p, 1: %p)
-#define RPadProvidedSlash(%p, %slash)    $s($e(%p, *) '= %slash : %p_%slash, 1: %p)
-
-]]></Routine>
 </Export>
