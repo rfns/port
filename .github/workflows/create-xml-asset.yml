@@ -39,7 +39,7 @@ jobs:
         -e PORT_CONFIGURATION_PROJECTNAME="port" \
         -e PORT_CONFIGURATION_LOGLEVEL=1 \
         -e CI_XML_FLAGS="/exportversion=2016.2" \
-        rfns/iris-ci:0.6.1
+        rfns/iris-ci:latest
     - name: Retrieve the latest asset upload url
       id: release-asset-metadata
       run: |
