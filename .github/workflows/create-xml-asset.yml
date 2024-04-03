@@ -9,11 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Clone this repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         path: app
     - name: Clone IRIS-CI-XML
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         path: iris-ci-xml
         repository: rfns/iris-ci-xml
