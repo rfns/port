@@ -5,7 +5,6 @@ on:
     types: [published]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     steps:
@@ -24,14 +23,16 @@ jobs:
         sudo apt-get install -y dos2unix
     - name: Convert line endings to LF (Unix format)
       run: find . -type f -exec dos2unix {} \;
-    - name: Parse the tag
-      id: parse-tag
-      run:  echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+    - name: Parse the repository metadata
+      id: repository-metadata
+      run:  |
+        echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+        echo "REPOSITORY_OWNER=$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $1}')" >> $GITHUB_OUTPUT
+        echo "REPOSITORY_NAME=$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $2}' | sed -e "s/:refs//")" >> $GITHUB_OUTPUT
     - name: Import this repository and generate XML artifacts
       run: |
         touch $PWD/app/port.xml
         chmod 777 $PWD/app/port.xml
-        docker pull ghcr.io/rfns/iris-ci/iris-ci:v0.6.2
         docker run --rm \
         -t --name xml-ci \
         -v $PWD/app:/opt/ci/app \
@@ -44,8 +45,8 @@ jobs:
     - name: Retrieve the latest asset upload url
       id: release-asset-metadata
       run: |
-        upload_url=$(curl -s -X GET -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/$GITHUB_REPOSITORY/releases/latest | jq -r '. | .upload_url')
-        echo ::set-output name=UPLOAD_URL::$upload_url
+        upload_url=$(curl -s -X GET -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/${{ steps.repository-metadata.outputs.VERSION }} | jq -r '. | .upload_url')
+        echo "UPLOAD_URL=$(echo "$upload_url")" >> $GITHUB_OUTPUT
     - name: Upload release asset
       id: release-asset-upload
       uses: actions/upload-release-asset@v1
@@ -54,5 +55,5 @@ jobs:
       with:
         upload_url: ${{ steps.release-asset-metadata.outputs.UPLOAD_URL }}
         asset_path: app/port.xml
-        asset_name: port-${{ steps.parse-tag.outputs.VERSION }}.xml
+        asset_name: port-${{ steps.repository-metadata.outputs.VERSION }}.xml
         asset_content_type: application/xml
