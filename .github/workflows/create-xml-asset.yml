@@ -29,6 +29,8 @@ jobs:
         echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
         echo "REPOSITORY_OWNER=$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $1}')" >> $GITHUB_OUTPUT
         echo "REPOSITORY_NAME=$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $2}' | sed -e "s/:refs//")" >> $GITHUB_OUTPUT
+    - name: Remove unit test files from source directory
+      run: rm -rf app/cls/UnitTest
     - name: Import this repository and generate XML artifacts
       run: |
         touch $PWD/app/port.xml
