@@ -48,10 +48,10 @@ XData LocaleEN [ XMLNamespace = "https://github.com/rfns/port" ]
     <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total of extraneous items removed: %1</Message>
     <Message Id="-500" Name="Done"> done.</Message>
     <Message Id="-501" Name="DoneWithErrors"> done, but with errors.</Message>
-    <Message Id="-501" Name="Failed"> failed.</Message>
-    <Message Id="-502" Name="AllDone">Finished with success.</Message>
-    <Message Id="-503" Name="UpToDate"> is up-to-date.</Message>
-    <Message Id="-504" Name="OvewriteWithExtension"> end with the %1 extension.</Message>
+    <Message Id="-502" Name="Failed"> failed.</Message>
+    <Message Id="-503" Name="AllDone">Finished with success.</Message>
+    <Message Id="-504" Name="UpToDate"> is up-to-date.</Message>
+    <Message Id="-505" Name="OvewriteWithExtension"> end with the %1 extension.</Message>
     <Message Id="-600" Name="ImportingType">Importing %1 %2 ...</Message>
     <Message Id="-601" Name="EnqueingType">Enqueueing the selected %1 to be imported.</Message>
     <Message Id="-602" Name="NothingToImport">Nothing to import has been found.</Message>
@@ -225,10 +225,10 @@ XData LocalePTBR [ XMLNamespace = "https://github.com/rnfs/port" ]
     <Message Id="-406" Name="TotalExtraneousItemsRemoved">Total de itens desconhecidos removidos: %1.</Message>
     <Message Id="-500" Name="Done"> feito.</Message>
     <Message Id="-501" Name="DoneWithErrors"> feito, mas com erros.</Message>
-    <Message Id="-501" Name="Failed"> falhou.</Message>
-    <Message Id="-502" Name="AllDone">Terminado com sucesso.</Message>
-    <Message Id="-503" Name="UpToDate"> o item já está atualizado.</Message>
-    <Message Id="-504" Name="OvewriteWithExtension">terminar com a extensão %1.</Message> 
+    <Message Id="-502" Name="Failed"> falhou.</Message>
+    <Message Id="-503" Name="AllDone">Terminado com sucesso.</Message>
+    <Message Id="-504" Name="UpToDate"> o item já está atualizado.</Message>
+    <Message Id="-505" Name="OvewriteWithExtension">terminar com a extensão %1.</Message> 
     <Message Id="-600" Name="ImportingType">Importando %1 %2 ...</Message>
     <Message Id="-601" Name="EnqueingType">Enfileirando o %1 escolhido para ser importado ...</Message>
     <Message Id="-602" Name="NothingToImport">Nada para importar foi encontrado.</Message>
